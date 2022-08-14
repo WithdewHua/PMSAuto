@@ -61,6 +61,9 @@ def main(src_dir=""):
         try:
             for torrent in qbt_client.torrents_info():
                 if torrent.progress == 1:
+                    # get torrent's tags
+                    tags = torrent.tags.split(", ")
+
                     # handle torrents with specific category
                     if torrent.category not in ['Movies', 'TVShows', 'NSFW', "NC17-Movies", "Concerts", "Anime"]:
                         if "no_seed" in tags:
@@ -70,10 +73,6 @@ def main(src_dir=""):
                         else:
                             continue
                     
-                    # flag
-                    is_movie = True if torrent.category in ["Movies", "NC17-Movies", "Concerts"] else False
-                    query_flag = True if torrent.category not in ["NSFW"] else False
-
                     # get media info
                     media_info_file_path = os.path.join(script_path, "media_info.json")
                     if os.path.exists(media_info_file_path):
@@ -81,10 +80,6 @@ def main(src_dir=""):
                     else:
                         media_info = {}
                     logger.debug(media_info)
-
-
-                    # get torrent's tags
-                    tags = torrent.tags.split(", ")
 
 
                     # get media title
@@ -100,6 +95,12 @@ def main(src_dir=""):
                         # matched year in torrent name
                         else:
                             name = " ".join(re.sub(r"[\.\s][sS]\d{1,2}[\.\s]?$", " ", torrent_name_match.group(2)).strip(".").split("."))
+
+                    # flag
+                    is_movie = True if torrent.category in ["Movies", "NC17-Movies", "Concerts"] else False
+                    query_flag = True if torrent.category not in ["NSFW"] else False
+                    if "no_query" in tags:
+                        query_flag = False
 
 
                     # torrent is downloaded, and uploaded to GoogleDrive
