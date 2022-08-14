@@ -79,8 +79,6 @@ def main(src_dir=""):
                         media_info: dict = load_json(media_info_file_path)
                     else:
                         media_info = {}
-                    logger.debug(media_info)
-
 
                     # get media title
                     if torrent.category == "Anime":
@@ -111,6 +109,7 @@ def main(src_dir=""):
                         if "end" in tags:
                             media_info.pop(name)
                             dump_json(media_info, media_info_file_path)
+                            logger.debug(f"Removing {name}'s record...")
                     # torrent is downloaded, and not uploaded to GoogleDrive
                     if "up_done" not in tags:
                         tmdb_name = ""
@@ -118,11 +117,12 @@ def main(src_dir=""):
 
                         # get media info from file if not movie
                         get_info_from_file = False
-                        media_info_rslt = media_info.get("name", {})
+                        media_info_rslt = media_info.get(name, {})
                         if media_info_rslt:
                             get_info_from_file = True
                             tmdb_name = media_info_rslt.get("tmdb_name")
                             tags = media_info_rslt.get("tags")
+                            logger.debug(f"Got {name}'s tmdb_name: {tmdb_name}")
                         else:
                             media_info_rslt = {"tags": tags, "category": torrent.category}
 
