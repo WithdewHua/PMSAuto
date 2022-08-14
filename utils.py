@@ -3,6 +3,7 @@
 import json
 import requests
 from settings import TG_API_KEY
+from log import logger
 
 
 def load_json(path):
@@ -30,8 +31,9 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
         while try_send <=3:
             try:
                 requests.post(TG_BOT_MSG, data=payload)
-            except Exception:
+            except Exception as e:
                 try_send += 1
+                logger.error(f"Send notification failed due to {e}")
                 continue
             else:
                 break
@@ -46,8 +48,9 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
             while try_send <=3:
                 try:
                     requests.post(TG_BOT_MSG, data=payload)
-                except Exception:
+                except Exception as e:
                     try_send += 1
+                    logger.error(f"Send notification failed due to {e}")
                     continue
                 else:
                     break

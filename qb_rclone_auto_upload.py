@@ -187,7 +187,7 @@ def main(src_dir=""):
                     # stop if rename fail 
                     if query_flag and (not tmdb_name or (not is_movie and not season)) and (not RCLONE_ALWAYS_UPLOAD):
                         logger.error(f"Renaming {torrent.name} failed, please adjust manually")
-                        send_tg_msg(chat_id=TG_CHAT_ID, text=f"Renaming {torrent.name} failed, please adjust manually")
+                        send_tg_msg(chat_id=TG_CHAT_ID, text=f"Renaming `{torrent.name}` failed, please adjust manually")
                         continue
                     # add season info for tvshows
                     if torrent.category in ["TVShows", "Anime"] and season:
