@@ -1,17 +1,19 @@
 #!/usr/local/bin/env python
 
-import logging
 import datetime
 
 from tmdbv3api import TMDb, Search, TV, Movie
-from settings import TMDB_API_KEY
+from settings import TMDB_API_KEY, LOG_LEVEL
+from log import logger
 
 
 class TMDB():
-    def __init__(self, api_key: str=TMDB_API_KEY, language: str="zh", movie: bool=False) -> None:
+    def __init__(self, api_key: str=TMDB_API_KEY, language: str="zh", movie: bool=False, log_level: str=LOG_LEVEL) -> None:
         self.tmdb = TMDb()
         self.tmdb.api_key = api_key
         self.tmdb.language = language
+        if log_level == "DEBUG":
+            self.tmdb.debug = True
         self.is_movie = movie
         self.tmdb_search = Search()
         if self.is_movie:
@@ -35,7 +37,7 @@ class TMDB():
                 while year_deviation >= 0:
                     res = search_func({"query": query_title, "year": query_year}) if self.is_movie else search_func({"query": query_title, "first_air_date_year": query_year})
                     if not res:
-                        logging.info(f"No result for {query_title}, exit")
+                        logger.info(f"No result for {query_title}, exit")
                         year_deviation -= 1
                         query_year -= 1
                         continue
@@ -45,7 +47,7 @@ class TMDB():
                             year = date.split("-")[0]
                             title = rslt.title if self.is_movie else rslt.name
                             original_title = rslt.original_title if self.is_movie else rslt.original_name
-                            logging.debug(rslt)
+                            logger.debug(rslt)
                             if query_title in [title, original_title] or len(res) == 1:
                                 if rslt.original_language == "zh":
                                     name = f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
@@ -64,15 +66,36 @@ class TMDB():
                                     name = f"[{title}] {original_title} ({year}) {{tmdb-{rslt.id}}}" if title != original_title else f"{original_title} ({year}) {{tmdb-{rslt.id}}}" 
                                     self.tmdb_id = rslt.id
 
-                                logging.info(f"Renaming {query_title} to {name}")
+                                logger.info(f"Renaming {query_title} to {name}")
                                 break
                         break
                 break
             except Exception as e:
-                logging.error(f"Exception happens: {e}")
+                logger.error(f"Exception happens: {e}")
                 retry += 1
                 continue
         return name
+
+    def get_name_from_tmdb_by_id(self, tmdb_id: str) -> str:
+        tmdb_name = ""
+        self.tmdb_id = tmdb_id
+        details = self.tmdb_media.details(self.tmdb_id)
+        date = details.release_date if self.is_movie else details.first_air_date
+        year = date.split("-")[0]
+        original_title = details.original_title if self.is_movie else details.original_name
+        title = details.title if self.is_movie else details.name
+        if details.original_language == "zh":
+            tmdb_name = f"{original_title} ({year}) {{tmdb-{tmdb_id}}}"
+        else:
+            if title == original_title:
+                translations = details.get("translations").get("translations")
+                for translation in translations:
+                    if translation.get("iso_3166_1") == "SG" and translation.get("iso_639_1") == "zh":
+                        title = translation.get("data")["name"]
+                        break
+            tmdb_name = f"[{title}] {original_title} ({year}) {{tmdb-{self.tmdb_id}}}" if title != original_title else f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}" 
+
+        return tmdb_name
 
     def get_movie_certification(self) -> bool:
         """Get movie's certifacation"""
@@ -92,4 +115,5 @@ class TMDB():
                 break
 
         return is_nc17
+
 

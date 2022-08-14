@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # Author: WithdewHua
 
+# 日志设置
+LOG_LEVEL = "INFO"
+
 # TMDB API Key
 TMDB_API_KEY = "xxxxxxxxxxxxxx"
 
