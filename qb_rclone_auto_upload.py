@@ -155,7 +155,7 @@ def main(src_dir=""):
 
                         # 如果存在 tmdb_id, 直接通过 tmdb id 获取名字
                         if tmdb_id:
-                            tmdb_name = tmdb.get_name_from_tmdb_by_id(tmdb_id)
+                            tmdb_name = tmdb.get_name_from_tmdb_by_id(tmdb_id) if not tmdb_name else tmdb_name
                             save_name = tmdb_name
                         # 否则通过种子名字进行查询
                         else:
