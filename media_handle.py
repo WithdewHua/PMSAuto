@@ -93,7 +93,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
     audio = re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos", filename_pre)
     # get version
     try:
-        version = re.search(r"(v2|Remastered|REPACK|PROPER|Extended)", filename_pre, re.IGNORECASE).group(1)
+        version = re.search(r"(v2|Remastered|REPACK|PROPER|Extended|CC)", filename_pre, re.IGNORECASE).group(1)
     except Exception:
         version = ""
     # get group of video
