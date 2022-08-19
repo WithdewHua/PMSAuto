@@ -93,9 +93,11 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
     audio = re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos", filename_pre)
     # get version
     try:
-        version = re.search(r"(v2|Remastered|REPACK|PROPER|Extended|CC)", filename_pre, re.IGNORECASE).group(1)
+        version = re.search(r"(v2|Remastered|REPACK|PROPER|Extended|CC|DC)", filename_pre, re.IGNORECASE).group(1)
     except Exception:
         version = ""
+    else:
+        version = get_plex_edition_from_version(version)
     # get group of video
     if nogroup:
         _group = ""
@@ -111,6 +113,14 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
     else:
         return (resolution, medium, frame, codec, audio, version, _group)
 
+
+def get_plex_edition_from_version(version: str) -> str:
+    _edition_dict = {
+        "extended": "{edition-Extended Edition}",
+        "cc": "{edition-Criterion Edition}",
+        "dc": "{edition-Direct's Cut}",
+    }
+    return _edition_dict.get(version.lower(), version)
 
 
 def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", group="", episode_bit=2, nogroup=False, dryrun=False, offset=0):
@@ -143,8 +153,6 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         + f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
     )
 
-    if version:
-        new_filename += f" [{version}]"
     if resolution:
         new_filename += f" [{resolution}]"
     if medium:
@@ -157,6 +165,8 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         new_filename += f" [{' '.join(audio)}]"
     if _group:
         new_filename += f" [{_group}]"
+    if version:
+        new_filename += f" [{version}]" if "edition-" not in version else f" {version}"
     new_filename += f".{filename_suffix}"
 
     rename_media(parent_dir_path, filename, new_filename, dryrun=dryrun)
@@ -217,8 +227,6 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
     # new file name with file extension
     new_filename = tmdb_name
 
-    if version:
-        new_filename += f" [{version}]"
     if resolution:
         new_filename += f" [{resolution}]"
     if medium:
@@ -231,6 +239,8 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
         new_filename += f" [{' '.join(audio)}]"
     if _group:
         new_filename += f" [{_group}]"
+    if version:
+        new_filename += f" [{version}]" if "edition-" not in version else f" {version}"
     new_filename += f".{filename_suffix}"
 
     parent_dir_name = os.path.basename(parent_dir_path)
