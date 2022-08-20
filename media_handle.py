@@ -81,19 +81,19 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
     except Exception:
         resolution = ""
     # get medium of video
-    medium = re.findall(r"UHD|remux|(?:blu-?ray)|web-?dl|dvdrip|web-?rip", filename_pre, re.IGNORECASE)
+    medium = set(re.findall(r"UHD|remux|(?:blu-?ray)|web-?dl|dvdrip|web-?rip", filename_pre, re.IGNORECASE))
     # get frame rate of video
     try:
         frame = re.search(r"\d{2,3}fps", filename_pre, re.IGNORECASE).group(0)
     except Exception:
         frame = ""
     # get codec of video
-    codec = re.findall(r"x264|x265|HEVC|h265|h264", filename_pre, re.IGNORECASE)
+    codec = set(re.findall(r"x264|x265|HEVC|h265|h264", filename_pre, re.IGNORECASE))
     # get audio of video
-    audio = re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos", filename_pre)
+    audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos", filename_pre))
     # get version
     try:
-        version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended (Edition)?|CC|DC|CEE|Criterion Collection)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
+        version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended (Edition)?|CC|DC|CEE|Criterion Collection|BFI)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
     except Exception:
         version = ""
     else:
@@ -122,6 +122,7 @@ def get_plex_edition_from_version(version: str) -> str:
         "criterion collection": "{edition-Criterion Collection}",
         "dc": "{edition-Direct's Cut}",
         "cee": "{edition-Central and Eastern Europe}",
+        "bfi": "{edition-British Film Institute}",
     }
     return _edition_dict.get(version.lower(), version)
 
