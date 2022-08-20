@@ -31,7 +31,7 @@ def media_filename_pre_handle(parent_dir_path, filename):
     filename_pre, filename_suffix = ".".join(file_parts[0:-1]), file_parts[-1]
 
     # deal with subtitles
-    if filename_suffix in ["srt", "ass", "ssa", "sup"]:
+    if filename_suffix.lower() in ["srt", "ass", "ssa", "sup"]:
         lang_match = re.search(r"[-\.](ch[st]|[st]c)", filename_pre, re.IGNORECASE)
         filename_suffix = "zh." + filename_suffix
         if lang_match:
@@ -139,7 +139,7 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         raise Exception(f"No season found: {filepath}")
 
     # remove unuseful files
-    if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4", filename_suffix):
+    if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4", filename_suffix, re.IGNORECASE):
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
@@ -221,7 +221,7 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
 
     (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(parent_dir_path, filename)
     # remove unuseful files
-    if filename_suffix not in ["srt", "ass", "ssa", "sup", "mkv", "ts", "mp4"]:
+    if filename_suffix.lower() not in ["srt", "ass", "ssa", "sup", "mkv", "ts", "mp4"]:
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
