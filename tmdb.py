@@ -60,7 +60,7 @@ class TMDB():
                                         translations = media_details.get("translations").get("translations")
                                         for translation in translations:
                                             if translation.get("iso_3166_1") == "SG" and translation.get("iso_639_1") == "zh":
-                                                title = translation.get("data")["name"]
+                                                title = translation.get("data")["name"] if not self.is_movie else translation.get("data")["title"]
                                                 break
 
                                     name = f"[{title}] {original_title} ({year}) {{tmdb-{rslt.id}}}" if title != original_title else f"{original_title} ({year}) {{tmdb-{rslt.id}}}" 
@@ -108,11 +108,11 @@ class TMDB():
         for rslt in rslts:
             release_dates = rslt.get("release_dates")
             for release_date in release_dates:
-                certifacation = release_date.get("certification")
+                certification = release_date.get("certification")
                 # 美国及香港分级
-                if certifacation in ["NC-17", "III"]:
+                if certification in ["NC-17", "III"]:
                     is_nc17 = True
-                    logger.info(f"Getting certifacation of {self.tmdb_id} succeed")
+                    logger.info(f"Getting certification of {self.tmdb_id} succeed")
                     break
             if is_nc17:
                 break
