@@ -103,13 +103,16 @@ class TMDB():
         try:
             rslts = self.tmdb_media.release_dates(self.tmdb_id).get("results")
         except Exception:
+            logger.exception(f"Getting certifacation of {self.tmdb_id} failed")
             return is_nc17
         for rslt in rslts:
             release_dates = rslt.get("release_dates")
             for release_date in release_dates:
-                certifacation = release_date.get("certifacation")
-                if certifacation in ["18", "M/18", "NC-17", "III"]:
+                certifacation = release_date.get("certification")
+                # 美国及香港分级
+                if certifacation in ["NC-17", "III"]:
                     is_nc17 = True
+                    logger.info(f"Getting certifacation of {self.tmdb_id} succeed")
                     break
             if is_nc17:
                 break
