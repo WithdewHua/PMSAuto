@@ -96,6 +96,7 @@ def main(src_dir=""):
 
                     # flag
                     is_movie = True if torrent.category in ["Movies", "NC17-Movies", "Concerts"] else False
+                    is_nc17 = True if torrent.category == "NC17-Movies" else False
                     query_flag = True if torrent.category not in ["NSFW"] else False
                     if "no_query" in tags:
                         query_flag = False
@@ -287,7 +288,7 @@ def main(src_dir=""):
                                 send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, please check")
                         # movie handle
                         if is_movie:
-                            dst_base_path = torrent.category
+                            dst_base_path = torrent.category if not is_nc17 else "NC17-Movies"
                             try:
                                 media_handle(f"/Media/{save_path}/{save_name}", media_type="movie", dst_path=f"/Media/{dst_base_path}", offset=offset)
                             except Exception as e:
@@ -296,7 +297,7 @@ def main(src_dir=""):
 
                         # media_info handle
                         # add
-                        if tmdb_name and (not get_info_from_file) and "end" not in tags and not is_movie:
+                        if name and tmdb_name and (not get_info_from_file) and "end" not in tags and not is_movie:
                             media_info_rslt.update({"tmdb_name": tmdb_name})
                             media_info.update({name: media_info_rslt})
                             dump_json(media_info, media_info_file_path)

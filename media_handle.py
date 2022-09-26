@@ -93,7 +93,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
     audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos", filename_pre))
     # get version
     try:
-        version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended (Edition)?|CC|DC|CEE|Criterion Collection|BFI)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
+        version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended( Edition)?|CC|DC|CEE|Criterion Collection|BFI)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
     except Exception:
         version = ""
     else:
@@ -139,7 +139,7 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         raise Exception(f"No season found: {filepath}")
 
     # remove unuseful files
-    if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4", filename_suffix, re.IGNORECASE):
+    if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb", filename_suffix, re.IGNORECASE):
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
@@ -221,7 +221,7 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
 
     (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(parent_dir_path, filename)
     # remove unuseful files
-    if filename_suffix.lower() not in ["srt", "ass", "ssa", "sup", "mkv", "ts", "mp4"]:
+    if filename_suffix.lower() not in ["srt", "ass", "ssa", "sup", "mkv", "ts", "mp4", "flv", "rmvb"]:
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
