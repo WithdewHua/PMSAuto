@@ -100,22 +100,30 @@ class TMDB():
     def get_movie_certification(self) -> bool:
         """Get movie's certifacation"""
         is_nc17 = False
+        _ = {
+            "US": "NC-17",
+            "HK": "III",
+            "JP": "R18+",
+        }
         try:
             rslts = self.tmdb_media.release_dates(self.tmdb_id).get("results")
         except Exception:
             logger.exception(f"Getting certifacation of {self.tmdb_id} failed")
             return is_nc17
-        for rslt in rslts:
+        iso_3166_1_list = [__.get("iso_3166_1") for __ in rslts]
+        for _iso, _cert in _.items():
+            # 没有定义的国家的分级信息，则直接跳过
+            # 以美国分级为主
+            if _iso not in iso_3166_1_list or ("US" in iso_3166_1_list and _iso != "US"):
+                continue
+            index = iso_3166_1_list.index(_iso)
+            rslt = rslts[index]
             release_dates = rslt.get("release_dates")
             for release_date in release_dates:
                 certification = release_date.get("certification")
-                # 美国及香港分级
-                if certification in ["NC-17", "III"]:
-                    is_nc17 = True
-                    logger.info(f"Getting certification of {self.tmdb_id} succeed")
-                    break
-            if is_nc17:
-                break
+                logger.debug(f"Getting certification of {self.tmdb_id} succeed: {certification}")
+                if certification == _cert:
+                    return True
 
         return is_nc17
 

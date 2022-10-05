@@ -66,7 +66,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
 
     if media_type != "movie":
         # get episode of series
-        _regex = r"ep?(\d{2,4})(?!\d)"
+        _regex = r"[ep](\d{2,4})(?!\d)"
         if regex:
             _regex = regex
         try:
@@ -88,7 +88,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
     except Exception:
         frame = ""
     # get codec of video
-    codec = set(re.findall(r"x264|x265|HEVC|h265|h264|10bit|HDR", filename_pre, re.IGNORECASE))
+    codec = set(re.findall(r"x264|x265|HEVC|h265|h264|10bit|[HS]DR", filename_pre, re.IGNORECASE))
     # get audio of video
     audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP", filename_pre))
     # get version
