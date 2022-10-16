@@ -200,6 +200,17 @@ def remove_hidden_files(root_dir_path, dryrun=False):
     return removed_files
 
 
+def remove_small_files(root_dir_path, threshold=128 * 1024 * 1024, dryrun=False):
+    for file in os.listdir(root_dir_path):
+        filepath = os.path.join(root_dir_path, file)
+        if os.path.isfile(filepath):
+            size = os.path.getsize(filepath)
+            if size < threshold:
+                if not dryrun:
+                    os.remove(filepath)
+                logger.info("Removed file: " + filepath + f", size {size}")
+
+
 def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=False):
     if re.search(r"tmdb-\d+", os.path.basename(parent_dir_path)):
         tmdb_name = os.path.basename(parent_dir_path)
@@ -282,7 +293,7 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
     """
     root = os.path.expanduser(path.rstrip('/'))
     # modify season name as Season XX
-    if media_type != "movie":
+    if media_type not in ["movie", "av"]:
         season_match = re.search(r"S(eason)?\s?(\d{1,2})", os.path.basename(root))
         if season_match and f"Season {season_match.group(2).zfill(2)}" != os.path.basename(root):
             root = rename_media(os.path.dirname(root), os.path.basename(root), f"Season {season_match.group(2).zfill(2)}", dryrun=False)
@@ -331,7 +342,7 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
                     if not files and not dirs:
                         os.rmdir(path)
             logger.info(f"Removed {root}") 
-    else:
+    elif media_type in ["tv", "anime"]:
         for path, subdir, files in os.walk(root):
             removed_files = remove_hidden_files(path, dryrun=dryrun)
             for file in removed_files:
@@ -368,6 +379,9 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
                     if not files and not dirs:
                         os.rmdir(path)
             logger.info(f"Removed {root}")
+    elif media_type == "av":
+        for path, subdir, files in os.walk(root):
+            remove_small_files(path, dryrun=dryrun)
 
 if __name__ == "__main__":
     args = parse()

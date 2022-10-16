@@ -261,12 +261,13 @@ def main(src_dir=""):
                                 logger.info(f"Copying {torrent.name} to {google_drive_save_path} succeed, deleting it...")
                                 qbt_client.torrents_delete(delete_files=True, torrent_hashes=torrent.hash)
                             send_tg_msg(chat_id=TG_CHAT_ID, text=f"`{save_name if save_name else torrent.name}` 已入库")
-                        # check the target folder, if there is 'sample' folder, delete it
+                        # check the target folder
                         rslt = subprocess.run(["rclone", "ls", f"{google_drive_save_path}"], encoding="utf-8", capture_output=True)
                         if rslt.returncode:
                             logger.error(f"Checking {torrent.name} failed")
                             send_tg_msg(chat_id=TG_CHAT_ID, text=f"Checking `{torrent.name}` failed")
                         else:
+                            # delete sample foler
                             if "Sample" in rslt.stdout:
                                 logger.info(f"Deleting sample folder in {torrent.name}")
                                 rslt = subprocess.run(["rclone", "purge", f"{google_drive_save_path}/Sample"])
@@ -276,6 +277,9 @@ def main(src_dir=""):
                                 else:
                                     logger.info(f"Deleting sample folder in {google_drive_save_path} succeed")
                                     send_tg_msg(chat_id=TG_CHAT_ID, text=f"Deleting sample folder in `{google_drive_save_path}` succeed")
+
+                        # 暂停一段时间，避免因挂载缓存问题导致无法找到文件夹
+                        time.sleep(60)
 
                         # tvshows handle if get tmdb_name successfully
                         if torrent.category in ["TVShows", "Anime"] and tmdb_name and "manual" not in tags:
@@ -291,6 +295,14 @@ def main(src_dir=""):
                             dst_base_path = torrent.category if not is_nc17 else "NC17-Movies"
                             try:
                                 media_handle(f"/Media/{save_path}/{save_name}", media_type="movie", dst_path=f"/Media/{dst_base_path}", offset=offset)
+                            except Exception as e:
+                                logger.error(f"Exception happens: {e}")
+                                send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, please check")
+                        # nsfw handle
+                        if torrent.category == "NSFW":
+                            dst_base_path = torrent.category
+                            try:
+                                media_handle(f"/Media/{save_path}/{save_name}", media_type="av", dst_path=f"/Media/{dst_base_path}")
                             except Exception as e:
                                 logger.error(f"Exception happens: {e}")
                                 send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, please check")
