@@ -5,7 +5,6 @@ import glob
 import psutil
 import logging
 import subprocess
-import configparser
 
 import filelock
 
@@ -22,8 +21,8 @@ dest_path = "/tmp"
 rclone_log_file = '/tmp/rclone.log'
 
 # 检查rclone间隔 (s)
-check_after_start = 60  # 在拉起rclone进程后，休息xxs后才开始检查rclone状态，防止 rclone rc core/stats 报错退出
-check_interval = 10  # 主进程每次进行rclone rc core/stats检查的间隔
+check_after_start = 15  # 在拉起rclone进程后，休息xxs后才开始检查rclone状态，防止 rclone rc core/stats 报错退出
+check_interval = 5  # 主进程每次进行rclone rc core/stats检查的间隔
 
 # rclone帐号更换监测条件
 switch_sa_level = 1  # 需要满足的规则条数，数字越大切换条件越严格，一定小于下面True（即启用）的数量，即 1 - 4(max)
