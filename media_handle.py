@@ -93,7 +93,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
     audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP", filename_pre))
     # get version
     try:
-        version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended( Edition)?|CC|DC|CEE|Criterion Collection|BFI)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
+        version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended( Edition)?|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
     except Exception:
         version = ""
     else:
@@ -120,7 +120,8 @@ def get_plex_edition_from_version(version: str) -> str:
         "extended edition": "{edition-Extended Edition}",
         "cc": "{edition-Criterion Collection}",
         "criterion collection": "{edition-Criterion Collection}",
-        "dc": "{edition-Direct's Cut}",
+        "dc": "{edition-Director's Cut}",
+        "Directors.Cut": "{edition-Director's Cut}",
         "cee": "{edition-Central and Eastern Europe}",
         "bfi": "{edition-British Film Institute}",
     }

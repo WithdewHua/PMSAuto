@@ -23,6 +23,7 @@ from settings import (
     RCLONE_ALWAYS_UPLOAD,
     QBIT_HOST, QBIT_PORT, QBIT_USER, QBIT_PASSWD,
     TG_CHAT_ID,
+    REMOVE_EMPTY_FOLDER,
 )
 
 script_path = os.path.split(os.path.realpath(__file__))[0]
@@ -332,15 +333,16 @@ def main(src_dir=""):
             time.sleep(60)
             continue
         # clean empty folder
-        for dir in ["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"]:
-            root_folder = "/Media/Inbox/" + dir
-            logger.debug(f"Checking folder: {root_folder}")
-            folders = os.listdir(root_folder)
-            for folder in folders:
-                folder_path = os.path.join(root_folder, folder)
-                if os.path.isdir(folder_path) and (not os.listdir(folder_path)):
-                    logger.info(f"Removing empty foler: {folder_path}")
-                    os.rmdir(folder_path)
+        if REMOVE_EMPTY_FOLDER:
+            for dir in ["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"]:
+                root_folder = "/Media/Inbox/" + dir
+                logger.debug(f"Checking folder: {root_folder}")
+                folders = os.listdir(root_folder)
+                for folder in folders:
+                    folder_path = os.path.join(root_folder, folder)
+                    if os.path.isdir(folder_path) and (not os.listdir(folder_path)):
+                        logger.info(f"Removing empty foler: {folder_path}")
+                        os.rmdir(folder_path)
 
         # check interval
         time.sleep(60)            

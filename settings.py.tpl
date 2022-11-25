@@ -32,4 +32,7 @@ TG_CHAT_ID = [
     # "-1001681825024",
 ]
 
+# GD 相关设置
+# 多个机器操作同一个 GD 时，可能发生冲突，一台机器设置 True 即可
+REMOVE_EMPTY_FOLDER = False
 
