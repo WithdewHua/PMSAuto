@@ -18,7 +18,7 @@ from autorclone import auto_rclone
 from log import logger
 from media_handle import media_handle
 from tmdb import TMDB
-from utils import load_json, dump_json, send_tg_msg
+from utils import load_json, dump_json, send_tg_msg, remove_empty_folder
 from settings import (
     RCLONE_ALWAYS_UPLOAD,
     QBIT_HOST, QBIT_PORT, QBIT_USER, QBIT_PASSWD,
@@ -334,15 +334,7 @@ def main(src_dir=""):
             continue
         # clean empty folder
         if REMOVE_EMPTY_FOLDER:
-            for dir in ["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"]:
-                root_folder = "/Media/Inbox/" + dir
-                logger.debug(f"Checking folder: {root_folder}")
-                folders = os.listdir(root_folder)
-                for folder in folders:
-                    folder_path = os.path.join(root_folder, folder)
-                    if os.path.isdir(folder_path) and (not os.listdir(folder_path)):
-                        logger.info(f"Removing empty foler: {folder_path}")
-                        os.rmdir(folder_path)
+            remove_empty_folder(folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"])
 
         # check interval
         time.sleep(60)            

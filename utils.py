@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import requests
 from settings import TG_API_KEY
 from log import logger
@@ -56,5 +57,19 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
                     break
     else:
         raise AttributeError
+
+
+def remove_empty_folder(root="/Media/Inbox", folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"]):
+    """Remove empty folder"""
+
+    for dir in folders:
+        root_folder = os.path.join(root, dir)
+        logger.debug(f"Checking folder: {root_folder}")
+        folders = os.listdir(root_folder) if os.path.exists(root_folder) else []
+        for folder in folders:
+            folder_path = os.path.join(root_folder, folder)
+            if os.path.isdir(folder_path) and (not os.listdir(folder_path)):
+                logger.info(f"Removing empty foler: {folder_path}")
+                os.rmdir(folder_path)
 
 
