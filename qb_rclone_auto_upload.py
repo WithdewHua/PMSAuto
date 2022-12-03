@@ -186,12 +186,20 @@ def main(src_dir=""):
                                     cn_match = re.match(r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$", name)
                                     if cn_match:
                                         if query_flag:
-                                            if is_movie:
-                                                tmdb_name = tmdb_name if get_info_from_file else tmdb.get_name_from_tmdb({"query": cn_match.group(1), "year": int(year)}, year_deviation=movie_year_deviation)
+                                            if get_info_from_file:
+                                                tmdb_name = tmdb_name
                                             else:
-                                                if not year_tag and season and int(season) != 1:
-                                                    year = int(year) - int(season) + 1
-                                                tmdb_name = tmdb_name if get_info_from_file else tmdb.get_name_from_tmdb({"query": cn_match.group(1), "first_air_date_year": int(year)}, year_deviation=tv_year_deviation)
+                                                # query tmdb with chinese or other language
+                                                for i in range(2):
+                                                    _g = i + 1
+                                                    if is_movie:
+                                                        tmdb_name = tmdb.get_name_from_tmdb({"query": cn_match.group(_g), "year": int(year)}, year_deviation=movie_year_deviation)
+                                                    else:
+                                                        if not year_tag and season and int(season) != 1:
+                                                            year = int(year) - int(season) + 1
+                                                        tmdb_name = tmdb.get_name_from_tmdb({"query": cn_match.group(_g), "first_air_date_year": int(year)}, year_deviation=tv_year_deviation)
+                                                    if tmdb_name:
+                                                        break
                                         save_name = f"[{cn_match.group(1)}] {cn_match.group(2)} ({year})" if not tmdb_name else tmdb_name
                                     else:
                                         if query_flag:
