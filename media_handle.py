@@ -228,10 +228,15 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
         name = " ".join(match.group(2).strip(".").split("."))
         year = match.group(3)
         cn_match = re.match(r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$", name)
+        tmdb_name = ""
         if cn_match:
-            name = cn_match.group(1)
-        tmdb = TMDB(movie=True)
-        tmdb_name = tmdb.get_name_from_tmdb(query_dict={"query": name, "year": year})
+            # 分别用中文和英文进行查询
+            for i in range(2):
+                name = cn_match.group(i + 1)
+                tmdb = TMDB(movie=True)
+                tmdb_name = tmdb.get_name_from_tmdb(query_dict={"query": name, "year": year})
+                if tmdb_name:
+                    break
     if not tmdb_name:
         logger.error(f"Failed to get info. for {filename} from TMDB")
         return False
