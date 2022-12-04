@@ -16,14 +16,12 @@ RCLONE_ALWAYS_UPLOAD = False
 
 
 # qBittorrent 设置
-QBIT = [
-    {
+QBIT = {
         "host": "127.0.0.1",
         "port": 8080,
         "user": "admin",
         "password": 'kkUtDJ%q2nf@he&j5xXCZ!Nd'
-    },
-]
+}
 
 # TG 通知相关设置
 # api key
