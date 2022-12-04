@@ -144,6 +144,11 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
     else:
         raise Exception(f"No season found: {filepath}")
 
+    # 避免重复修改
+    if re.search(r"tmdb-\d+", filename):
+        logger.info(f"{filename} contains TMDB ID, Skipping")
+        return True
+
     # remove unuseful files
     if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb", filename_suffix, re.IGNORECASE):
         if not dryrun:
@@ -221,6 +226,9 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
     if re.search(r"tmdb-\d+", os.path.basename(parent_dir_path)):
         tmdb_name = os.path.basename(parent_dir_path)
     else:
+        if re.search(r"tmdb-\d+", filename):
+            logger.info(f"{filename} contains TMDB ID, Skipping")
+            return True
         match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", filename)
         if not match:
             logger.error("Failed to get correct formatted name")
@@ -295,6 +303,8 @@ def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows
     for folder in folders:
         dst_base_path = folder
         media_type = "movie"
+        if re.search(r"tv", folder, flags=re.I):
+            media_type = "tv"
         if re.search(r"(anime)", folder, flags=re.I):
             dst_base_path = "TVShows"
             media_type = "anime"
