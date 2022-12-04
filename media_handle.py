@@ -105,7 +105,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         if group:
             _group = group
         else:
-            _group_split = re.split(r"(?<![Ww][Ee][Bb])[-@]", filename_pre, re.IGNORECASE)
+            _group_split = re.split(r"(?<![WwEeBbLlUu])[-@]", filename_pre, re.IGNORECASE)
             if len(_group_split) == 2:
                 _group = _group_split[-1]
             elif len(_group_split) == 3:

@@ -287,34 +287,28 @@ def main(src_dir=""):
                                     logger.info(f"Deleting sample folder in {google_drive_save_path} succeed")
                                     send_tg_msg(chat_id=TG_CHAT_ID, text=f"Deleting sample folder in `{google_drive_save_path}` succeed")
 
-                        # 暂停一段时间，避免因挂载缓存问题导致无法找到文件夹
-                        time.sleep(60)
-
-                        # tvshows handle if get tmdb_name successfully
-                        if torrent.category in ["TVShows", "Anime"] and tmdb_name and "manual" not in tags:
-                            dst_base_path = "TVShows"
-                            media_type = "tv" if torrent.category == "TVShows" else "anime"
+                        while True:
+                            # tvshows handle if get tmdb_name successfully
+                            if torrent.category in ["TVShows", "Anime"] and tmdb_name and "manual" not in tags:
+                                dst_base_path = "TVShows"
+                                media_type = "tv" if torrent.category == "TVShows" else "anime"
+                            # movie handle
+                            if is_movie:
+                                dst_base_path = torrent.category if not is_nc17 else "NC17-Movies"
+                                media_type = "movie"
+                            # nsfw handle
+                            if torrent.category == "NSFW":
+                                dst_base_path = torrent.category
+                                media_type = "av"
                             try:
                                 media_handle(f"/Media/{save_path}/{save_name}", media_type=media_type, dst_path=f"/Media/{dst_base_path}", offset=offset)
                             except Exception as e:
                                 logger.error(f"Exception happens: {e}")
-                                send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, please check")
-                        # movie handle
-                        if is_movie:
-                            dst_base_path = torrent.category if not is_nc17 else "NC17-Movies"
-                            try:
-                                media_handle(f"/Media/{save_path}/{save_name}", media_type="movie", dst_path=f"/Media/{dst_base_path}", offset=offset)
-                            except Exception as e:
-                                logger.error(f"Exception happens: {e}")
-                                send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, please check")
-                        # nsfw handle
-                        if torrent.category == "NSFW":
-                            dst_base_path = torrent.category
-                            try:
-                                media_handle(f"/Media/{save_path}/{save_name}", media_type="av", dst_path=f"/Media/{dst_base_path}")
-                            except Exception as e:
-                                logger.error(f"Exception happens: {e}")
-                                send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, please check")
+                                send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, try again……")
+                                # 可能因为挂载缓存问题，导致无法找到文件夹，暂停一段时间后继续尝试
+                                time.sleep(60)
+                            else:
+                                break
 
                         # media_info handle
                         # add
@@ -326,7 +320,6 @@ def main(src_dir=""):
                         if get_info_from_file and "end" in tags:
                             media_info.pop(name)
                             dump_json(media_info, media_info_file_path)
-
 
                 else:
                     # torrent is in inappropiate state
