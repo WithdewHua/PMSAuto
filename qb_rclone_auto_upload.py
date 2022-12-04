@@ -16,7 +16,7 @@ import anitopy
 from datetime import date
 from autorclone import auto_rclone
 from log import logger
-from media_handle import media_handle
+from media_handle import media_handle, handle_local_media
 from tmdb import TMDB
 from utils import load_json, dump_json, send_tg_msg, remove_empty_folder
 from settings import (
@@ -287,7 +287,8 @@ def main(src_dir=""):
                                     logger.info(f"Deleting sample folder in {google_drive_save_path} succeed")
                                     send_tg_msg(chat_id=TG_CHAT_ID, text=f"Deleting sample folder in `{google_drive_save_path}` succeed")
 
-                        while True:
+                        do_try = 1
+                        while do_try >= 5:
                             # tvshows handle if get tmdb_name successfully
                             if torrent.category in ["TVShows", "Anime"] and tmdb_name and "manual" not in tags:
                                 dst_base_path = "TVShows"
@@ -307,6 +308,7 @@ def main(src_dir=""):
                                 send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, try again……")
                                 # 可能因为挂载缓存问题，导致无法找到文件夹，暂停一段时间后继续尝试
                                 time.sleep(60)
+                                i += 1
                             else:
                                 break
 
@@ -336,6 +338,9 @@ def main(src_dir=""):
         # clean empty folder
         if REMOVE_EMPTY_FOLDER:
             remove_empty_folder(folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"])
+
+        # 处理本地资源，可能是手动加入的或者处理失败的
+        handle_local_media()
 
         # check interval
         time.sleep(60)            

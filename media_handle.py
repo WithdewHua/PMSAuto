@@ -281,6 +281,53 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
     return new_dir_path
 
 
+def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows", "Movies", "Anime", "NSFW", "NC17-Movies", "Concerts"], query=False):
+    """处理本地已有资源
+    
+    Args:
+        root (str): 处理的根目录
+        folders (list): 需要处理的目录（分类）
+        query (bool): 是否需要查询 TMDB
+
+    Returns:
+    """
+
+    for folder in folders:
+        dst_base_path = folder
+        media_type = "movie"
+        if re.search(r"(anime)", folder, flags=re.I):
+            dst_base_path = "TVShows"
+            media_type = "anime"
+        if re.search(r"(movie|concert)", folder, flags=re.I):
+            dst_base_path = "Movies"
+        if re.search(r"nsfw", folder, flags=re.I):
+            dst_base_path = "Inbox/NSFW"
+            media_type = "av"
+
+        path = os.path.join(root, folder)
+        media_folders = [os.path.join(path, p) for p in os.listdir(path) if os.path.isdir(os.path.join(path, p))]
+        for media_folder in media_folders:
+            tmdb_name = re.search(r"tmdb-\d+", media_folder)
+            try:
+                if tmdb_name:
+                    ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path))
+                else:
+                    # 若不进行 TMDB 查询
+                    if not query:
+                        logger.info(f"Skipping {media_folder}")
+                        continue
+                    else:
+                        ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path))
+            except Exception as e:
+                logger.error(e)
+                continue
+            else:
+                if ret:
+                    logger.info(f"Processed {media_folder}")
+                else:
+                    logger.error(f"Failed to process {media_folder}")
+            
+
 
 
 def media_handle(path, media_type, dst_path="", regex="", group="", name="", nogroup=False, episode_bit=2, dryrun=False, offset=0):
