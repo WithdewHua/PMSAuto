@@ -16,12 +16,14 @@ RCLONE_ALWAYS_UPLOAD = False
 
 
 # qBittorrent 设置
-# host
-QBIT_HOST = "127.0.0.1"
-QBIT_PORT = 8080
-QBIT_USER = "admin"
-QBIT_PASSWD = 'xxxxxxxxxxxxxxx'
-
+QBIT = [
+    {
+        "host": "127.0.0.1",
+        "port": 8080,
+        "user": "admin",
+        "password": 'kkUtDJ%q2nf@he&j5xXCZ!Nd'
+    },
+]
 
 # TG 通知相关设置
 # api key
@@ -33,6 +35,5 @@ TG_CHAT_ID = [
 ]
 
 # GD 相关设置
-# 多个机器操作同一个 GD 时，可能发生冲突，一台机器设置 True 即可
 REMOVE_EMPTY_FOLDER = False
 
