@@ -24,6 +24,7 @@ from settings import (
     QBIT,
     TG_CHAT_ID,
     REMOVE_EMPTY_FOLDER,
+    HANDLE_LOCAL_MEDIA,
 )
 
 script_path = os.path.split(os.path.realpath(__file__))[0]
@@ -340,7 +341,8 @@ def main(src_dir=""):
             remove_empty_folder(folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"])
 
         # 处理本地资源，可能是手动加入的或者处理失败的
-        handle_local_media()
+        if HANDLE_LOCAL_MEDIA:
+            handle_local_media()
 
         # check interval
         time.sleep(60)            
