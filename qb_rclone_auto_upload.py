@@ -290,6 +290,8 @@ def main(src_dir=""):
 
                         do_try = 1
                         while do_try >= 5:
+                            dst_base_path = torrent.category
+                            media_type = "tv"
                             # tvshows handle if get tmdb_name successfully
                             if torrent.category in ["TVShows", "Anime"] and tmdb_name and "manual" not in tags:
                                 dst_base_path = "TVShows"
@@ -309,7 +311,7 @@ def main(src_dir=""):
                                 send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, try again……")
                                 # 可能因为挂载缓存问题，导致无法找到文件夹，暂停一段时间后继续尝试
                                 time.sleep(60)
-                                i += 1
+                                do_try += 1
                             else:
                                 break
 
