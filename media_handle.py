@@ -410,11 +410,11 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
                             logger.warning(f"File {file} exists in {os.path.join(dst_path, dir_name, os.path.basename(rslt))}, skip...")
                         os.rename(rslt, os.path.join(dst_path, dir_name, os.path.basename(rslt)))
                     logger.info(f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}")
-            if not dryrun:
-                for path, dirs, files in os.walk(root, topdown=False):
-                    if not files and not dirs:
-                        os.rmdir(path)
-            logger.info(f"Removed {root}") 
+        if not dryrun and dst_path:
+            for path, dirs, files in os.walk(root, topdown=False):
+                if not files and not dirs:
+                    os.rmdir(path)
+        logger.info(f"Removed {root}") 
     elif media_type in ["tv", "anime"]:
         for path, subdir, files in os.walk(root):
             removed_files = remove_hidden_files(path, dryrun=dryrun)
