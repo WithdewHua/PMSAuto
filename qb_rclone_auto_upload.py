@@ -288,8 +288,8 @@ def main(src_dir=""):
                                     logger.info(f"Deleting sample folder in {google_drive_save_path} succeed")
                                     send_tg_msg(chat_id=TG_CHAT_ID, text=f"Deleting sample folder in `{google_drive_save_path}` succeed")
 
-                        do_try = 1
-                        while do_try >= 5:
+                        do_try = 0
+                        while do_try < 5:
                             dst_base_path = torrent.category
                             media_type = "tv"
                             # tvshows handle if get tmdb_name successfully
@@ -305,6 +305,7 @@ def main(src_dir=""):
                                 dst_base_path = torrent.category
                                 media_type = "av"
                             try:
+                                logger.info(f"Processing {torrent.name} starts")
                                 media_handle(f"/Media/{save_path}/{save_name}", media_type=media_type, dst_path=f"/Media/{dst_base_path}", offset=offset)
                             except Exception as e:
                                 logger.error(f"Exception happens: {e}")
@@ -313,6 +314,7 @@ def main(src_dir=""):
                                 time.sleep(60)
                                 do_try += 1
                             else:
+                                logger.info(f"Processed {torrent.name} successfully")
                                 break
 
                         # media_info handle

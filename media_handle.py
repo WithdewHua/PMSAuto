@@ -1,6 +1,7 @@
 import os
 import re
 import argparse
+import shutil
 import anitopy
 
 from tmdb import TMDB
@@ -237,14 +238,17 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
         year = match.group(3)
         cn_match = re.match(r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$", name)
         tmdb_name = ""
+        tmdb = TMDB(movie=True)
         if cn_match:
             # 分别用中文和英文进行查询
             for i in range(2):
                 name = cn_match.group(i + 1)
-                tmdb = TMDB(movie=True)
                 tmdb_name = tmdb.get_name_from_tmdb(query_dict={"query": name, "year": year})
                 if tmdb_name:
                     break
+        else:
+            tmdb_name = tmdb.get_name_from_tmdb(query_dict={"query": name, "year": year})
+            
     if not tmdb_name:
         logger.error(f"Failed to get info. for {filename} from TMDB")
         return False
@@ -289,13 +293,14 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
     return new_dir_path
 
 
-def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows", "Movies", "Anime", "NSFW", "NC17-Movies", "Concerts"], query=False):
+def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows", "Movies", "Anime", "NSFW", "NC17-Movies", "Concerts"], query=False, dryrun=False):
     """处理本地已有资源
     
     Args:
         root (str): 处理的根目录
         folders (list): 需要处理的目录（分类）
         query (bool): 是否需要查询 TMDB
+        dryrun (bool): 
 
     Returns:
     """
@@ -320,14 +325,14 @@ def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows
             tmdb_name = re.search(r"tmdb-\d+", media_folder)
             try:
                 if tmdb_name:
-                    ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path))
+                    ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path), dryrun=dryrun)
                 else:
                     # 若不进行 TMDB 查询
                     if not query:
                         logger.info(f"Skipping {media_folder}")
                         continue
                     else:
-                        ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path))
+                        ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path), dryrun=dryrun)
             except Exception as e:
                 logger.error(e)
                 continue
@@ -389,7 +394,7 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
             for _dir in subdir:
                 if re.search("Sample", _dir):
                     if not dryrun:
-                        os.remove(os.path.join(path, _dir))
+                        shutil.rmtree(os.path.join(path, _dir))
                     logger.info(f"Removed sample folder: {os.path.join(path, _dir)}")
 
             for file in files:
