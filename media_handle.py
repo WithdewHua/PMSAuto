@@ -151,7 +151,7 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         return True
 
     # remove unuseful files
-    if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb", filename_suffix, re.IGNORECASE):
+    if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb|avi", filename_suffix, re.IGNORECASE):
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
@@ -255,7 +255,7 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
 
     (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(parent_dir_path, filename)
     # remove unuseful files
-    if filename_suffix.lower() not in ["srt", "ass", "ssa", "sup", "mkv", "ts", "mp4", "flv", "rmvb"]:
+    if filename_suffix.lower() not in ["srt", "ass", "ssa", "sup", "mkv", "ts", "mp4", "flv", "rmvb", "avi"]:
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
