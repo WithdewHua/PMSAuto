@@ -88,10 +88,15 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         frame = re.search(r"\d{2,3}fps", filename_pre, re.IGNORECASE).group(0)
     except Exception:
         frame = ""
+    # get web-dl source
+    try:
+        web_source = re.search(r"[\.\s](Disney+|DSNP|NF|Fri|Friday|AMZN|MyTVSuper|Bili|GagaOOLala)[\.\s]", filename_pre).group(1)
+    except Exception:
+        web_source = ""
     # get codec of video
     codec = set(re.findall(r"x264|x265|HEVC|h265|h264|10bit|[HS]DR", filename_pre, re.IGNORECASE))
     # get audio of video
-    audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP", filename_pre))
+    audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP(\d\.\d)?", filename_pre))
     # get version
     try:
         version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended( Edition)?|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
@@ -115,9 +120,9 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
                 _group = ""
 
     if media_type != "movie":
-        return (episode, resolution, medium, frame, codec, audio, version, _group)
+        return (episode, web_source, resolution, medium, frame, codec, audio, version, _group)
     else:
-        return (resolution, medium, frame, codec, audio, version, _group)
+        return (web_source, resolution, medium, frame, codec, audio, version, _group)
 
 
 def get_plex_edition_from_version(version: str) -> str:
@@ -158,7 +163,7 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         return True
 
     try:
-        (episode, resolution, medium, frame, codec, audio, version, _group) = get_media_info_from_filename(filename_pre, media_type=media_type, regex=regex, nogroup=nogroup, group=group)
+        (episode, web_source, resolution, medium, frame, codec, audio, version, _group) = get_media_info_from_filename(filename_pre, media_type=media_type, regex=regex, nogroup=nogroup, group=group)
     except Exception as e:
         logger.error(e)
         return False
@@ -169,6 +174,8 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         + f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
     )
 
+    if web_source:
+        new_filename += f" [{web_source}]"
     if resolution:
         new_filename += f" [{resolution}]"
     if medium:
@@ -261,10 +268,12 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
         logger.info("Removed file: " + filepath)
         return True
 
-    (resolution, medium, frame, codec, audio, version, _group) = get_media_info_from_filename(filename_pre, media_type="movie", nogroup=nogroup, group=group)
+    (web_source, resolution, medium, frame, codec, audio, version, _group) = get_media_info_from_filename(filename_pre, media_type="movie", nogroup=nogroup, group=group)
     # new file name with file extension
     new_filename = tmdb_name
 
+    if web_source:
+        new_filename += f" [{web_source}]"
     if resolution:
         new_filename += f" [{resolution}]"
     if medium:
