@@ -90,11 +90,11 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         frame = ""
     # get web-dl source
     try:
-        web_source = re.search(r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVSuper|Bili(bili)?|GagaOOLala|Hami|Netflix|Viu)[\.\s]", filename_pre, re.I).group(1)
+        web_source = re.search(r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVSuper|Bili(bili)?|GagaOOLala|Hami|Netflix|Viu|TVING|KKTV|G-Global|HBO)[\.\s]", filename_pre, re.I).group(1)
     except Exception:
         web_source = ""
     # get codec of video
-    codec = set(re.findall(r"x264|x265|HEVC|h\.?265|h\.?264|10bit|[HS]DR", filename_pre, re.IGNORECASE))
+    codec = set(re.findall(r"x264|x265|HEVC|h\.?265|h\.?264|10bit|[HS]DR|DV(?=[\s\.])", filename_pre, re.IGNORECASE))
     # get audio of video
     audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP", filename_pre))
     # get version
@@ -111,7 +111,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         if group:
             _group = group
         else:
-            _group_split = re.split(r"[-@]", re.sub(r"(web-dl|dts-hd|blu-ray|-10bit)", " ", filename_pre, flags=re.IGNORECASE))
+            _group_split = re.split(r"[-@]", re.sub(r"(web-dl|dts-hd|blu-ray|-10bit|dts-x)", " ", filename_pre, flags=re.IGNORECASE))
             if len(_group_split) == 2:
                 _group = _group_split[-1]
             elif len(_group_split) == 3:
