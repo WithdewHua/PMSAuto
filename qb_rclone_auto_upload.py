@@ -67,7 +67,7 @@ def main(src_dir=""):
                     tags = torrent.tags.split(", ")
 
                     # handle torrents with specific category
-                    if torrent.category not in ['Movies', 'TVShows', 'NSFW', "NC17-Movies", "Concerts", "Anime"]:
+                    if torrent.category not in ['Movies', 'TVShows', 'NSFW', "NC17-Movies", "Concerts", "Anime", "Music"]:
                         if "no_seed" in tags:
                             logger.info(f"{torrent.name} does not need to seed, cleaning up...")
                             qbt_client.torrents_delete(delete_files=True, torrent_hashes=torrent.hash)
@@ -99,7 +99,7 @@ def main(src_dir=""):
                     # flag
                     is_movie = True if torrent.category in ["Movies", "NC17-Movies", "Concerts"] else False
                     is_nc17 = True if torrent.category == "NC17-Movies" else False
-                    query_flag = True if torrent.category not in ["NSFW"] else False
+                    query_flag = True if torrent.category not in ["NSFW", "Music"] else False
                     if "no_query" in tags:
                         query_flag = False
 
@@ -227,9 +227,10 @@ def main(src_dir=""):
                             if is_nc17:
                                 save_path = "Inbox/NC17-Movies"
                            
-                        # todo: 利用 mdc 进行刮削, 并移动到相应的文件夹中
-                        if torrent.category == "NSFW":
-                            pass
+                        if torrent.category == "Music":
+                            save_name = torrent.name
+                            save_path = "Music"
+
 
                         # full path in GoogleDrive
                         if torrent.category in ["TVShows", "Anime"]:
@@ -238,6 +239,8 @@ def main(src_dir=""):
                             google_drive = "GD-Movies"
                         elif torrent.category in ["NSFW"]:
                             google_drive = "GD-NSFW"
+                        elif torrent.category in ["Music"]:
+                            google_drive = "GD-Music"
                         else:
                             logger.error(f"Can not find drive for category {torrent.category}")
                             continue
@@ -304,6 +307,9 @@ def main(src_dir=""):
                             if torrent.category == "NSFW":
                                 dst_base_path = torrent.category
                                 media_type = "av"
+                            # music handle
+                            if torrent.category == "Music":
+                                media_type = "music" # todo
                             try:
                                 logger.info(f"Processing {torrent.name} starts")
                                 media_handle(f"/Media/{save_path}/{save_name}", media_type=media_type, dst_path=f"/Media/{dst_base_path}", offset=offset)

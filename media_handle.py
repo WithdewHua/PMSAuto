@@ -464,6 +464,9 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
     elif media_type == "av":
         for path, subdir, files in os.walk(root):
             remove_small_files(path, dryrun=dryrun)
+    else:
+        pass
+        logger.warning("Unkown media type, skip……")
 
 if __name__ == "__main__":
     args = parse()
