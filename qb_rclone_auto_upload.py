@@ -293,6 +293,7 @@ def main(src_dir=""):
 
                         do_try = 0
                         while do_try < 5:
+                            handle_flag = True
                             dst_base_path = torrent.category
                             media_type = "tv"
                             # tvshows handle if get tmdb_name successfully
@@ -300,28 +301,32 @@ def main(src_dir=""):
                                 dst_base_path = "TVShows"
                                 media_type = "tv" if torrent.category == "TVShows" else "anime"
                             # movie handle
-                            if is_movie:
+                            elif is_movie:
                                 dst_base_path = torrent.category if not is_nc17 else "NC17-Movies"
                                 media_type = "movie"
                             # nsfw handle
-                            if torrent.category == "NSFW":
+                            elif torrent.category == "NSFW":
                                 dst_base_path = torrent.category
                                 media_type = "av"
                             # music handle
-                            if torrent.category == "Music":
+                            elif torrent.category == "Music":
                                 media_type = "music" # todo
-                            try:
-                                logger.info(f"Processing {torrent.name} starts")
-                                media_handle(f"/Media/{save_path}/{save_name}", media_type=media_type, dst_path=f"/Media/{dst_base_path}", offset=offset)
-                            except Exception as e:
-                                logger.error(f"Exception happens: {e}")
-                                send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, try again……")
-                                # 可能因为挂载缓存问题，导致无法找到文件夹，暂停一段时间后继续尝试
-                                time.sleep(60)
-                                do_try += 1
                             else:
-                                logger.info(f"Processed {torrent.name} successfully")
-                                break
+                                handle_flag = False
+                            
+                            if handle_flag:
+                                try:
+                                    logger.info(f"Processing {torrent.name} starts")
+                                    media_handle(f"/Media/{save_path}/{save_name}", media_type=media_type, dst_path=f"/Media/{dst_base_path}", offset=offset)
+                                except Exception as e:
+                                    logger.error(f"Exception happens: {e}")
+                                    send_tg_msg(chat_id=TG_CHAT_ID, text=f"Failed to do auto management for `{torrent.name}`, try again……")
+                                    # 可能因为挂载缓存问题，导致无法找到文件夹，暂停一段时间后继续尝试
+                                    time.sleep(60)
+                                    do_try += 1
+                                else:
+                                    logger.info(f"Processed {torrent.name} successfully")
+                                    break
 
                         # media_info handle
                         # add
