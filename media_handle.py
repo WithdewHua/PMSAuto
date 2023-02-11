@@ -90,16 +90,16 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         frame = ""
     # get web-dl source
     try:
-        web_source = re.search(r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVSuper|Bili(bili)?|GagaOOLala|Hami|Netflix|Viu|TVING|KKTV|G-Global|HBO|Hulu|Paramount+|iTunes|CatchPlay)[\.\s]", filename_pre, re.I).group(1)
+        web_source = re.search(r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVSuper|TVB|Bili(bili)?|GagaOOLala|Hami|Netflix|Viu|Viki|TVING|KKTV|G-Global|HBO|Hulu|Paramount+|iTunes|CatchPlay|IQ)[\.\s]", filename_pre, re.I).group(1)
     except Exception:
         web_source = ""
     # get codec of video
-    codec = set(re.findall(r"x264|x265|HEVC|h\.?265|h\.?264|10bit|[HS]DR|DV|DoVi(?=[\s\.])", filename_pre, re.IGNORECASE))
+    codec = set(re.findall(r"x264|x265|HEVC|h\.?265|h\.?264|10bit|[HS]DR|HQ|DV|DoVi(?=[\s\.])", filename_pre, re.IGNORECASE))
     # get audio of video
     audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP", filename_pre))
     # get version
     try:
-        version = re.search(r"[\.\s\[](v2|Remastered|REPACK|PROPER|Extended( Edition)?|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
+        version = re.search(r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
     except Exception:
         version = ""
     else:
@@ -135,6 +135,7 @@ def get_plex_edition_from_version(version: str) -> str:
         "Directors.Cut": "{edition-Director's Cut}",
         "cee": "{edition-Central and Eastern Europe}",
         "bfi": "{edition-British Film Institute}",
+        "fan cut": "{edition-Fan Cut}",
     }
     return _edition_dict.get(version.lower(), version)
 
