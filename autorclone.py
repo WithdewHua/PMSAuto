@@ -13,6 +13,7 @@ from settings import RC_ADDR
 
 
 # ------------配置项开始------------------
+UUID = time.time()
 
 # Account目录
 sa_json_folder = r'/root/.config/rclone/accounts'  # 绝对目录，最后没有 '/'，路径中不要有空格
@@ -20,7 +21,7 @@ sa_json_folder = r'/root/.config/rclone/accounts'  # 绝对目录，最后没有
 # Rclone运行命令相关
 src_path = "/home/tomove"
 dest_path = "/tmp"
-rclone_log_file = '/tmp/rclone.log'
+rclone_log_file = f'/tmp/rclone_{UUID}.log'
 
 # 检查rclone间隔 (s)
 check_after_start = 15  # 在拉起rclone进程后，休息xxs后才开始检查rclone状态，防止 rclone rc core/stats 报错退出
@@ -45,11 +46,11 @@ rclone_config_path = '/root/.config/rclone/rclone.conf'  # Rclone 配置文件�
 rclone_dest_name = 'GoogleDrive'  # Rclone目的地名称（与cmd_rclone中对应相同，并保证SA均已添加）
 
 # 本脚本临时文件
-instance_lock_path = r'/tmp/autorclone.lock'
-instance_config_path = r'/tmp/autorclone.conf'
+instance_lock_path = f'/tmp/autorclone_{UUID}.lock'
+instance_config_path = f'/tmp/autorclone_{UUID}.conf'
 
 # 本脚本运行日志
-script_log_file = r'/tmp/autorclone.log'
+script_log_file = f'/tmp/autorclone_{UUID}.log'
 logging_datefmt = "%m/%d/%Y %H:%M:%S"
 logging_format = "[%(asctime)s][%(levelname)s]<%(funcName)s>: %(message)s"
 
