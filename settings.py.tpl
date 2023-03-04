@@ -13,6 +13,8 @@ TMDB_API_KEY = "xxxxxxxxxxxxxx"
 #   1. 获取 tmdb 信息失败;
 #   2. 对于剧集, 季度信息缺失
 RCLONE_ALWAYS_UPLOAD = False
+# rclone rc address
+RC_ADDR = ""
 
 
 # qBittorrent 设置

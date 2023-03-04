@@ -9,6 +9,8 @@ import subprocess
 import filelock
 
 from logging.handlers import RotatingFileHandler
+from settings import RC_ADDR
+
 
 # ------------配置项开始------------------
 
@@ -163,6 +165,8 @@ def auto_rclone(src_path, dest_path):
             sa_jsons = sa_jsons[last_sa_index:] + sa_jsons[:last_sa_index]
 
         cmd_rclone = f"rclone copy \"{src_path}\" \"{dest_path}\" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file}"
+        if RC_ADDR:
+            cmd_rclone += f" --rc-addr {RC_ADDR}"
 
         # 帐号切换循环
         while True:
