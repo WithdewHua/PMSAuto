@@ -90,7 +90,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         frame = ""
     # get web-dl source
     try:
-        web_source = re.search(r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVSuper|TVB|Bili(bili)?|GagaOOLala|Hami|Netflix|Viu|Viki|TVING|KKTV|G-Global|HBO|Hulu|Paramount+|iTunes|CatchPlay|IQ)[\.\s]", filename_pre, re.I).group(1)
+        web_source = re.search(r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVS(uper)?|TVB|Bili(bili)?|Baha|GagaOOLala|Hami|Netflix|Viu|Viki|TVING|KKTV|G-Global|HBO|Hulu|Paramount+|iTunes|CatchPlay|IQ)[\.\s]", filename_pre, re.I).group(1)
     except Exception:
         web_source = ""
     # get codec of video
