@@ -6,6 +6,7 @@ import anitopy
 
 from tmdb import TMDB
 from log import logger
+from settings import ORIGIN_NAME
 
 
 def parse():
@@ -175,22 +176,26 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         + f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
     )
 
-    if web_source:
-        new_filename += f" [{web_source}]"
-    if resolution:
-        new_filename += f" [{resolution}]"
-    if medium:
-        new_filename += f" [{' '.join(medium)}]"
-    if frame:
-        new_filename += f" [{frame}]"
-    if codec:
-        new_filename += f" [{' '.join(codec)}]"
-    if audio:
-        new_filename += f" [{' '.join(audio)}]"
-    if _group:
-        new_filename += f" [{_group}]"
     if version:
         new_filename += f" [{version}]" if "edition-" not in version else f" {version}"
+    if not ORIGIN_NAME:
+        if web_source:
+            new_filename += f" [{web_source}]"
+        if resolution:
+            new_filename += f" [{resolution}]"
+        if medium:
+            new_filename += f" [{' '.join(medium)}]"
+        if frame:
+            new_filename += f" [{frame}]"
+        if codec:
+            new_filename += f" [{' '.join(codec)}]"
+        if audio:
+            new_filename += f" [{' '.join(audio)}]"
+        if _group:
+            new_filename += f" [{_group}]"
+    else:
+        new_filename += f" - {filename_pre}"
+
     new_filename += f".{filename_suffix}"
 
     rename_media(parent_dir_path, filename, new_filename, dryrun=dryrun)
@@ -273,22 +278,26 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
     # new file name with file extension
     new_filename = tmdb_name
 
-    if web_source:
-        new_filename += f" [{web_source}]"
-    if resolution:
-        new_filename += f" [{resolution}]"
-    if medium:
-        new_filename += f" [{' '.join(medium)}]"
-    if frame:
-        new_filename += f" [{frame}]"
-    if codec:
-        new_filename += f" [{' '.join(codec)}]"
-    if audio:
-        new_filename += f" [{' '.join(audio)}]"
-    if _group:
-        new_filename += f" [{_group}]"
     if version:
         new_filename += f" [{version}]" if "edition-" not in version else f" {version}"
+    if not ORIGIN_NAME:
+        if web_source:
+            new_filename += f" [{web_source}]"
+        if resolution:
+            new_filename += f" [{resolution}]"
+        if medium:
+            new_filename += f" [{' '.join(medium)}]"
+        if frame:
+            new_filename += f" [{frame}]"
+        if codec:
+            new_filename += f" [{' '.join(codec)}]"
+        if audio:
+            new_filename += f" [{' '.join(audio)}]"
+        if _group:
+            new_filename += f" [{_group}]"
+    else:
+        new_filename += f" - {filename_pre}"
+    
     new_filename += f".{filename_suffix}"
 
     parent_dir_name = os.path.basename(parent_dir_path)

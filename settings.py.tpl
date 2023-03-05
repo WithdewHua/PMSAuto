@@ -38,3 +38,5 @@ TG_CHAT_ID = [
 REMOVE_EMPTY_FOLDER = False
 HANDLE_LOCAL_MEDIA = False
 
+# 重命名设置
+ORIGIN_NAME = True
