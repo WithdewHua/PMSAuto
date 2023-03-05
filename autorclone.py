@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import glob
@@ -165,9 +166,12 @@ def auto_rclone(src_path, dest_path):
             last_sa_index = sa_jsons.index(last_sa)
             sa_jsons = sa_jsons[last_sa_index:] + sa_jsons[:last_sa_index]
 
-        cmd_rclone = f"rclone copy \"{src_path}\" \"{dest_path}\" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file}"
-        if RC_ADDR:
-            cmd_rclone += f" --rc-addr {RC_ADDR}"
+        # 更新 rc 地址
+        if not RC_ADDR:
+            rc_addr = "localhost:5572"
+        else:
+            rc_addr = RC_ADDR if not re.match("^:") else f"localhost{RC_ADDR}"
+        cmd_rclone = f"rclone copy \"{src_path}\" \"{dest_path}\" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {RC_ADDR}"
 
         # 帐号切换循环
         while True:
@@ -206,7 +210,7 @@ def auto_rclone(src_path, dest_path):
             cnt_get_rate_limit = False
             while True:
                 try:
-                    response = subprocess.check_output('rclone rc core/stats', shell=True)
+                    response = subprocess.check_output(f'rclone rc core/stats --url http://{rc_addr}', shell=True)
                 except subprocess.CalledProcessError as error:
                     cnt_error = cnt_error + 1
                     err_msg = 'check core/stats failed for %s times,' % cnt_error
