@@ -170,7 +170,7 @@ def auto_rclone(src_path, dest_path):
         if not RC_ADDR:
             rc_addr = "localhost:5572"
         else:
-            rc_addr = RC_ADDR if not re.match("^:") else f"localhost{RC_ADDR}"
+            rc_addr = RC_ADDR if not re.match("^:", RC_ADDR) else f"localhost{RC_ADDR}"
         cmd_rclone = f"rclone copy \"{src_path}\" \"{dest_path}\" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {RC_ADDR}"
 
         # 帐号切换循环
