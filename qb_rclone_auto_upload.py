@@ -91,7 +91,7 @@ def main(src_dir=""):
                         # not matched
                         if not torrent_name_match:
                             # todo: 未匹配到年份时,也进行一次匹配查询
-                            name = ""
+                            name = torrent.name
                         # matched year in torrent name
                         else:
                             name = " ".join(re.sub(r"[\.\s][sS]\d{1,2}[\.\s]?$", " ", torrent_name_match.group(2)).strip(".").split("."))
@@ -179,7 +179,8 @@ def main(src_dir=""):
                                 save_name = torrent.name if not tmdb_name else tmdb_name
                             # 一般种子
                             else:
-                                if name:
+                                # 匹配到年份
+                                if torrent_name_match:
                                     if not year_tag:
                                         year = torrent_name_match.group(3)
 
