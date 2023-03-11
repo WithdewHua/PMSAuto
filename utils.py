@@ -11,25 +11,23 @@ def load_json(path):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 def dump_json(obj, path):
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=4, separators=(',', ': '))
+        json.dump(obj, f, ensure_ascii=False, indent=4, separators=(",", ": "))
 
 
 # BOT
-TG_BOT_MSG = f'https://api.telegram.org/bot{TG_API_KEY}/sendMessage'
+TG_BOT_MSG = f"https://api.telegram.org/bot{TG_API_KEY}/sendMessage"
 # TG_BOT_PIC = f'https://api.telegram.org/bot{API_KEY}/sendPhoto'
+
 
 def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
     """Send telegram message"""
     if isinstance(chat_id, str):
-        payload = dict(
-            chat_id=chat_id,
-            text=text,
-            parse_mode=parse_mode
-        )
+        payload = dict(chat_id=chat_id, text=text, parse_mode=parse_mode)
         try_send = 1
-        while try_send <=3:
+        while try_send <= 3:
             try:
                 requests.post(TG_BOT_MSG, data=payload)
             except Exception as e:
@@ -40,13 +38,9 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
                 break
     elif isinstance(chat_id, list):
         for _chat_id in chat_id:
-            payload = dict(
-                chat_id=_chat_id,
-                text=text,
-                parse_mode=parse_mode
-            )
+            payload = dict(chat_id=_chat_id, text=text, parse_mode=parse_mode)
             try_send = 1
-            while try_send <=3:
+            while try_send <= 3:
                 try:
                     requests.post(TG_BOT_MSG, data=payload)
                 except Exception as e:
@@ -59,7 +53,10 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
         raise AttributeError
 
 
-def remove_empty_folder(root="/Media/Inbox", folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"]):
+def remove_empty_folder(
+    root="/Media/Inbox",
+    folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"],
+):
     """Remove empty folder"""
 
     for dir in folders:
@@ -71,5 +68,3 @@ def remove_empty_folder(root="/Media/Inbox", folders=["Anime", "Movies", "TVShow
             if os.path.isdir(folder_path) and (not os.listdir(folder_path)):
                 logger.info(f"Removing empty foler: {folder_path}")
                 os.rmdir(folder_path)
-
-

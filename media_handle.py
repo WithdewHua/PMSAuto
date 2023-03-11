@@ -12,17 +12,29 @@ from settings import ORIGIN_NAME
 def parse():
     parser = argparse.ArgumentParser(description="Media handle")
     parser.add_argument("path", help="The path of the video")
-    parser.add_argument("-d", "--dst_path", default="", help="Move the handled video to this path")
+    parser.add_argument(
+        "-d", "--dst_path", default="", help="Move the handled video to this path"
+    )
     parser.add_argument("-D", "--dryrun", action="store_true", help="Dryrun")
     parser.add_argument("--nogroup", action="store_true", help="No group info")
     parser.add_argument("-g", "--group", default="", help="Define group")
-    parser.add_argument("-E", "--regex", default="", help="Regex expression for getting episode (episode number in group(1))")
+    parser.add_argument(
+        "-E",
+        "--regex",
+        default="",
+        help="Regex expression for getting episode (episode number in group(1))",
+    )
     parser.add_argument("-N", "--episode_bit", default=2, help="Episodes' bit")
-    parser.add_argument("-n", "--name", default="", help="Name of movie or series' folder")
+    parser.add_argument(
+        "-n", "--name", default="", help="Name of movie or series' folder"
+    )
     parser.add_argument("--offset", default=0, help="Offset of episode number")
-    parser.add_argument("-T", "--media_type", choices=["movie", "tv", "anime"], help="Set video type")
+    parser.add_argument(
+        "-T", "--media_type", choices=["movie", "tv", "anime"], help="Set video type"
+    )
 
     return parser.parse_args()
+
 
 def media_filename_pre_handle(parent_dir_path, filename):
     # absolute path to file
@@ -42,8 +54,9 @@ def media_filename_pre_handle(parent_dir_path, filename):
     return (filepath, filename_pre, filename_suffix)
 
 
-
-def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=False, group=None):
+def get_media_info_from_filename(
+    filename_pre, media_type, regex=None, nogroup=False, group=None
+):
     if media_type == "anime":
         parse_rslt = anitopy.parse(filename_pre)
         episode = parse_rslt.get("episode_number")
@@ -62,7 +75,7 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         if nogroup:
             _group = ""
         else:
-            _group = group if group else parse_rslt.get("release_group", "") 
+            _group = group if group else parse_rslt.get("release_group", "")
 
         return (episode, "", resolution, medium, frame, codec, audio, version, _group)
 
@@ -79,11 +92,19 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
 
     # get resolution of video
     try:
-        resolution = re.search(r"(\d{3,4}[pi])(?!\d)", filename_pre, re.IGNORECASE).group(1)
+        resolution = re.search(
+            r"(\d{3,4}[pi])(?!\d)", filename_pre, re.IGNORECASE
+        ).group(1)
     except Exception:
         resolution = ""
     # get medium of video
-    medium = set(re.findall(r"UHD|remux|(?:blu-?ray)|web-?dl|dvdrip|web-?rip|[HI]MAX", filename_pre, re.IGNORECASE))
+    medium = set(
+        re.findall(
+            r"UHD|remux|(?:blu-?ray)|web-?dl|dvdrip|web-?rip|[HI]MAX",
+            filename_pre,
+            re.IGNORECASE,
+        )
+    )
     # get frame rate of video
     try:
         frame = re.search(r"\d{2,3}fps", filename_pre, re.IGNORECASE).group(0)
@@ -91,16 +112,35 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         frame = ""
     # get web-dl source
     try:
-        web_source = re.search(r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVS(uper)?|TVB|Bili(bili)?|Baha|GagaOOLala|Hami|Netflix|Viu|Viki|TVING|KKTV|G-Global|HBO|Hulu|Paramount+|iTunes|CatchPlay|IQ)[\.\s]", filename_pre, re.I).group(1)
+        web_source = re.search(
+            r"[\.\s](Disney\+|DSNP|NF|Fri(day)?|AMZN|MyTVS(uper)?|TVB|Bili(bili)?|Baha|GagaOOLala|Hami|Netflix|Viu|Viki|TVING|KKTV|G-Global|HBO|Hulu|Paramount+|iTunes|CatchPlay|IQ)[\.\s]",
+            filename_pre,
+            re.I,
+        ).group(1)
     except Exception:
         web_source = ""
     # get codec of video
-    codec = set(re.findall(r"x264|x265|HEVC|h\.?265|h\.?264|10bit|[HS]DR|HQ|HBR|DV|DoVi(?=[\s\.])", filename_pre, re.IGNORECASE))
+    codec = set(
+        re.findall(
+            r"x264|x265|HEVC|h\.?265|h\.?264|10bit|[HS]DR|HQ|HBR|DV|DoVi(?=[\s\.])",
+            filename_pre,
+            re.IGNORECASE,
+        )
+    )
     # get audio of video
-    audio = set(re.findall(r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP", filename_pre))
+    audio = set(
+        re.findall(
+            r"AAC|AC3|DTS(?:-HD)?|FLAC|MA(?:\.[57]\.1)?|2[Aa]udio|TrueHD|Atmos|DDP",
+            filename_pre,
+        )
+    )
     # get version
     try:
-        version = re.search(r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut)[\.\s\]]", filename_pre, re.IGNORECASE).group(1)
+        version = re.search(
+            r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut)[\.\s\]]",
+            filename_pre,
+            re.IGNORECASE,
+        ).group(1)
     except Exception:
         version = ""
     else:
@@ -112,7 +152,15 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
         if group:
             _group = group
         else:
-            _group_split = re.split(r"[-@]", re.sub(r"(web-dl|dts-hd|blu-ray|-10bit|dts-x)", " ", filename_pre, flags=re.IGNORECASE))
+            _group_split = re.split(
+                r"[-@]",
+                re.sub(
+                    r"(web-dl|dts-hd|blu-ray|-10bit|dts-x)",
+                    " ",
+                    filename_pre,
+                    flags=re.IGNORECASE,
+                ),
+            )
             if len(_group_split) == 2:
                 _group = _group_split[-1]
             elif len(_group_split) == 3:
@@ -121,7 +169,17 @@ def get_media_info_from_filename(filename_pre, media_type, regex=None, nogroup=F
                 _group = ""
 
     if media_type != "movie":
-        return (episode, web_source, resolution, medium, frame, codec, audio, version, _group)
+        return (
+            episode,
+            web_source,
+            resolution,
+            medium,
+            frame,
+            codec,
+            audio,
+            version,
+            _group,
+        )
     else:
         return (web_source, resolution, medium, frame, codec, audio, version, _group)
 
@@ -141,8 +199,21 @@ def get_plex_edition_from_version(version: str) -> str:
     return _edition_dict.get(version.lower(), version)
 
 
-def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", group="", episode_bit=2, nogroup=False, dryrun=False, offset=0):
-    (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(parent_dir_path, filename)
+def handle_tvshow(
+    media_name,
+    filename,
+    parent_dir_path,
+    media_type,
+    regex="",
+    group="",
+    episode_bit=2,
+    nogroup=False,
+    dryrun=False,
+    offset=0,
+):
+    (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
+        parent_dir_path, filename
+    )
 
     # get season of series
     if "Specials" in filepath:
@@ -158,14 +229,32 @@ def handle_tvshow(media_name, filename, parent_dir_path, media_type, regex="", g
         return True
 
     # remove unuseful files
-    if not re.search(r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb|avi", filename_suffix, re.IGNORECASE):
+    if not re.search(
+        r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb|avi", filename_suffix, re.IGNORECASE
+    ):
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
         return True
 
     try:
-        (episode, web_source, resolution, medium, frame, codec, audio, version, _group) = get_media_info_from_filename(filename_pre, media_type=media_type, regex=regex, nogroup=nogroup, group=group)
+        (
+            episode,
+            web_source,
+            resolution,
+            medium,
+            frame,
+            codec,
+            audio,
+            version,
+            _group,
+        ) = get_media_info_from_filename(
+            filename_pre,
+            media_type=media_type,
+            regex=regex,
+            nogroup=nogroup,
+            group=group,
+        )
     except Exception as e:
         logger.error(e)
         return False
@@ -249,32 +338,63 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
             return False
         name = " ".join(match.group(2).strip(".").split("."))
         year = match.group(3)
-        cn_match = re.match(r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$", name)
+        cn_match = re.match(
+            r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
+            name,
+        )
         tmdb_name = ""
         tmdb = TMDB(movie=True)
         if cn_match:
             # 分别用中文和英文进行查询
             for i in range(2):
                 name = cn_match.group(i + 1)
-                tmdb_name = tmdb.get_name_from_tmdb(query_dict={"query": name, "year": year})
+                tmdb_name = tmdb.get_name_from_tmdb(
+                    query_dict={"query": name, "year": year}
+                )
                 if tmdb_name:
                     break
         else:
-            tmdb_name = tmdb.get_name_from_tmdb(query_dict={"query": name, "year": year})
-            
+            tmdb_name = tmdb.get_name_from_tmdb(
+                query_dict={"query": name, "year": year}
+            )
+
     if not tmdb_name:
         logger.error(f"Failed to get info. for {filename} from TMDB")
         return False
 
-    (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(parent_dir_path, filename)
+    (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
+        parent_dir_path, filename
+    )
     # remove unuseful files
-    if filename_suffix.lower() not in ["srt", "ass", "ssa", "sup", "mkv", "ts", "mp4", "flv", "rmvb", "avi"]:
+    if filename_suffix.lower() not in [
+        "srt",
+        "ass",
+        "ssa",
+        "sup",
+        "mkv",
+        "ts",
+        "mp4",
+        "flv",
+        "rmvb",
+        "avi",
+    ]:
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
         return True
 
-    (web_source, resolution, medium, frame, codec, audio, version, _group) = get_media_info_from_filename(filename_pre, media_type="movie", nogroup=nogroup, group=group)
+    (
+        web_source,
+        resolution,
+        medium,
+        frame,
+        codec,
+        audio,
+        version,
+        _group,
+    ) = get_media_info_from_filename(
+        filename_pre, media_type="movie", nogroup=nogroup, group=group
+    )
     # new file name with file extension
     new_filename = tmdb_name
 
@@ -297,13 +417,15 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
             new_filename += f" [{_group}]"
     else:
         new_filename += f" - {filename_pre}"
-    
+
     new_filename += f".{filename_suffix}"
 
     parent_dir_name = os.path.basename(parent_dir_path)
 
     if parent_dir_name == tmdb_name:
-        new_dir_path = rename_media(parent_dir_path, filename, new_filename, dryrun=dryrun)
+        new_dir_path = rename_media(
+            parent_dir_path, filename, new_filename, dryrun=dryrun
+        )
     else:
         os.makedirs(os.path.join(parent_dir_path, tmdb_name), exist_ok=True)
         new_name = f"{tmdb_name}/{new_filename}"
@@ -312,14 +434,20 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
     return new_dir_path
 
 
-def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows", "Movies", "Anime", "NSFW", "NC17-Movies", "Concerts"], query=False, dryrun=False):
+def handle_local_media(
+    root="/Media/Inbox",
+    dst_root="/Media",
+    folders=["TVShows", "Movies", "Anime", "NSFW", "NC17-Movies", "Concerts"],
+    query=False,
+    dryrun=False,
+):
     """处理本地已有资源
-    
+
     Args:
         root (str): 处理的根目录
         folders (list): 需要处理的目录（分类）
         query (bool): 是否需要查询 TMDB
-        dryrun (bool): 
+        dryrun (bool):
 
     Returns:
     """
@@ -339,19 +467,33 @@ def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows
             media_type = "av"
 
         path = os.path.join(root, folder)
-        media_folders = [os.path.join(path, p) for p in os.listdir(path) if os.path.isdir(os.path.join(path, p))]
+        media_folders = [
+            os.path.join(path, p)
+            for p in os.listdir(path)
+            if os.path.isdir(os.path.join(path, p))
+        ]
         for media_folder in media_folders:
             tmdb_name = re.search(r"tmdb-\d+", media_folder)
             try:
                 if tmdb_name:
-                    ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path), dryrun=dryrun)
+                    ret = media_handle(
+                        path=media_folder,
+                        media_type=media_type,
+                        dst_path=os.path.join(dst_root, dst_base_path),
+                        dryrun=dryrun,
+                    )
                 else:
                     # 若不进行 TMDB 查询
                     if not query:
                         logger.info(f"Skipping {media_folder}")
                         continue
                     else:
-                        ret = media_handle(path=media_folder, media_type=media_type, dst_path=os.path.join(dst_root, dst_base_path), dryrun=dryrun)
+                        ret = media_handle(
+                            path=media_folder,
+                            media_type=media_type,
+                            dst_path=os.path.join(dst_root, dst_base_path),
+                            dryrun=dryrun,
+                        )
             except Exception as e:
                 logger.error(e)
                 continue
@@ -360,11 +502,20 @@ def handle_local_media(root="/Media/Inbox", dst_root="/Media", folders=["TVShows
                     logger.info(f"Processed {media_folder}")
                 else:
                     logger.error(f"Failed to process {media_folder}")
-            
 
 
-
-def media_handle(path, media_type, dst_path="", regex="", group="", name="", nogroup=False, episode_bit=2, dryrun=False, offset=0):
+def media_handle(
+    path,
+    media_type,
+    dst_path="",
+    regex="",
+    group="",
+    name="",
+    nogroup=False,
+    episode_bit=2,
+    dryrun=False,
+    offset=0,
+):
     """Media handler
 
     Args:
@@ -383,18 +534,31 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
         bool: True if the media was handled, False otherwise
 
     """
-    root = os.path.expanduser(path.rstrip('/'))
+    root = os.path.expanduser(path.rstrip("/"))
     # modify season name as Season XX
     if media_type not in ["movie", "av"]:
         season_match = re.search(r"S(eason)?\s?(\d{1,2})", os.path.basename(root))
-        if season_match and f"Season {season_match.group(2).zfill(2)}" != os.path.basename(root):
-            root = rename_media(os.path.dirname(root), os.path.basename(root), f"Season {season_match.group(2).zfill(2)}", dryrun=False)
+        if (
+            season_match
+            and f"Season {season_match.group(2).zfill(2)}" != os.path.basename(root)
+        ):
+            root = rename_media(
+                os.path.dirname(root),
+                os.path.basename(root),
+                f"Season {season_match.group(2).zfill(2)}",
+                dryrun=False,
+            )
         for dir in os.listdir(root):
             dir_path = os.path.join(root, dir)
             if os.path.isdir(dir_path):
                 season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir)
                 if season_match and f"Season {season_match.group(2).zfill(2)}" != dir:
-                    rename_media(root, dir, f"Season {season_match.group(2).zfill(2)}", dryrun=False)
+                    rename_media(
+                        root,
+                        dir,
+                        f"Season {season_match.group(2).zfill(2)}",
+                        dryrun=False,
+                    )
     # remove season name from path
     media_path = re.sub(r"\/Season \d+", "", root)
     media_name = os.path.basename(media_path)
@@ -417,7 +581,9 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
                     logger.info(f"Removed sample folder: {os.path.join(path, _dir)}")
 
             for file in files:
-                rslt = handle_movie(path, file, nogroup=nogroup, group=group, dryrun=dryrun)
+                rslt = handle_movie(
+                    path, file, nogroup=nogroup, group=group, dryrun=dryrun
+                )
                 if rslt == False:
                     logger.error("Process failed: " + os.path.join(path, file))
                     continue
@@ -425,15 +591,24 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
                     dir_name = os.path.basename(os.path.dirname(rslt))
                     if not dryrun:
                         os.makedirs(os.path.join(dst_path, dir_name), exist_ok=True)
-                        if os.path.exists(os.path.join(dst_path, dir_name, os.path.basename(rslt))):
-                            logger.warning(f"File {file} exists in {os.path.join(dst_path, dir_name, os.path.basename(rslt))}, skip...")
-                        os.rename(rslt, os.path.join(dst_path, dir_name, os.path.basename(rslt)))
-                    logger.info(f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}")
+                        if os.path.exists(
+                            os.path.join(dst_path, dir_name, os.path.basename(rslt))
+                        ):
+                            logger.warning(
+                                f"File {file} exists in {os.path.join(dst_path, dir_name, os.path.basename(rslt))}, skip..."
+                            )
+                        os.rename(
+                            rslt,
+                            os.path.join(dst_path, dir_name, os.path.basename(rslt)),
+                        )
+                    logger.info(
+                        f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
+                    )
         if not dryrun and dst_path:
             for path, dirs, files in os.walk(root, topdown=False):
                 if not files and not dirs:
                     os.rmdir(path)
-        logger.info(f"Removed {root}") 
+        logger.info(f"Removed {root}")
     elif media_type in ["tv", "anime"]:
         for path, subdir, files in os.walk(root):
             removed_files = remove_hidden_files(path, dryrun=dryrun)
@@ -442,7 +617,18 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
                     files.remove(file[0])
             # handle each file
             for filename in files:
-                rslt = handle_tvshow(media_name, filename, path, media_type=media_type, regex=regex, group=group, nogroup=nogroup, episode_bit=episode_bit, dryrun=dryrun, offset=offset)
+                rslt = handle_tvshow(
+                    media_name,
+                    filename,
+                    path,
+                    media_type=media_type,
+                    regex=regex,
+                    group=group,
+                    nogroup=nogroup,
+                    episode_bit=episode_bit,
+                    dryrun=dryrun,
+                    offset=offset,
+                )
                 if not rslt:
                     logger.warning(f"Process failed: {filename}")
                     # break
@@ -454,14 +640,20 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
             for path, subdir, files in os.walk(root):
                 for file in files:
                     file_full_path = os.path.join(path, file)
-                    dst_file_full_path = os.path.join(dst_path, media_name, file_full_path.split(media_name, 1)[-1].strip("/"))
+                    dst_file_full_path = os.path.join(
+                        dst_path,
+                        media_name,
+                        file_full_path.split(media_name, 1)[-1].strip("/"),
+                    )
                     dst_dir_full_path = os.path.dirname(dst_file_full_path)
 
                     if not dryrun:
                         if not os.path.exists(dst_dir_full_path):
                             os.makedirs(dst_dir_full_path)
                         if os.path.exists(dst_file_full_path):
-                            logger.warning(f"File {file} exists in {dst_dir_full_path}, skip...")
+                            logger.warning(
+                                f"File {file} exists in {dst_dir_full_path}, skip..."
+                            )
                         else:
                             os.rename(file_full_path, dst_file_full_path)
                     logger.info(f"Moved {file_full_path} to {dst_file_full_path}")
@@ -478,6 +670,18 @@ def media_handle(path, media_type, dst_path="", regex="", group="", name="", nog
         pass
         logger.warning("Unkown media type, skip……")
 
+
 if __name__ == "__main__":
     args = parse()
-    media_handle(args.path, media_type=args.media_type, dst_path=args.dst_path, regex=args.regex, name=args.name, group=args.group, nogroup=args.nogroup, episode_bit=args.episode_bit, dryrun=args.dryrun, offset=args.offset)
+    media_handle(
+        args.path,
+        media_type=args.media_type,
+        dst_path=args.dst_path,
+        regex=args.regex,
+        name=args.name,
+        group=args.group,
+        nogroup=args.nogroup,
+        episode_bit=args.episode_bit,
+        dryrun=args.dryrun,
+        offset=args.offset,
+    )
