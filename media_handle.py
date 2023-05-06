@@ -7,6 +7,7 @@ import anitopy
 from tmdb import TMDB
 from log import logger
 from settings import ORIGIN_NAME
+from utils import remove_empty_folder
 
 
 def parse():
@@ -32,6 +33,7 @@ def parse():
     parser.add_argument(
         "-T", "--media_type", choices=["movie", "tv", "anime"], help="Set video type"
     )
+    parser.add_argument("--tmdb_id", default="", help="TMDB ID")
 
     return parser.parse_args()
 
@@ -325,7 +327,7 @@ def remove_small_files(root_dir_path, threshold=128 * 1024 * 1024, dryrun=False)
                 logger.info("Removed file: " + filepath + f", size {size}")
 
 
-def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=False):
+def handle_movie(parent_dir_path, filename, tmdb_id="", nogroup=False, group="", dryrun=False):
     if re.search(r"tmdb-\d+", os.path.basename(parent_dir_path)):
         tmdb_name = os.path.basename(parent_dir_path)
     else:
@@ -344,19 +346,22 @@ def handle_movie(parent_dir_path, filename, nogroup=False, group="", dryrun=Fals
         )
         tmdb_name = ""
         tmdb = TMDB(movie=True)
-        if cn_match:
-            # 分别用中文和英文进行查询
-            for i in range(2):
-                name = cn_match.group(i + 1)
+        if tmdb_id:
+            tmdb_name = tmdb.get_name_from_tmdb_by_id(tmdb_id)
+        else:
+            if cn_match:
+                # 分别用中文和英文进行查询
+                for i in range(2):
+                    name = cn_match.group(i + 1)
+                    tmdb_name = tmdb.get_name_from_tmdb(
+                        query_dict={"query": name, "year": year}
+                    )
+                    if tmdb_name:
+                        break
+            else:
                 tmdb_name = tmdb.get_name_from_tmdb(
                     query_dict={"query": name, "year": year}
                 )
-                if tmdb_name:
-                    break
-        else:
-            tmdb_name = tmdb.get_name_from_tmdb(
-                query_dict={"query": name, "year": year}
-            )
 
     if not tmdb_name:
         logger.error(f"Failed to get info. for {filename} from TMDB")
@@ -513,6 +518,7 @@ def media_handle(
     name="",
     nogroup=False,
     episode_bit=2,
+    tmdb_id="",
     dryrun=False,
     offset=0,
 ):
@@ -527,6 +533,7 @@ def media_handle(
         name (str, optional): rename the show's root folder. Defaults to "".
         nogroup (bool, optional): whether to set the group or not. Defaults to False.
         episode_bit (int, optional): number of bits to use for the episode number. Defaults to 2.
+        tmdb_id (str, optional): tmdb id of media, if set, rename folder using tmdb name.
         dryrun (bool, optional): whether to do a dryrun or not. Defaults to False.
         offset (int, optional): offset for the episode number. Defaults to 0, which means no offset.
 
@@ -535,8 +542,16 @@ def media_handle(
 
     """
     root = os.path.expanduser(path.rstrip("/"))
+    isfile = False
+    if os.path.isfile(root):
+        isfile = True
+        root = os.path.dirname(root)
+    tmdb_id = str(tmdb_id)
     # modify season name as Season XX
     if media_type not in ["movie", "av"]:
+        if isfile:
+            logger.error("Please specify a folder!")
+            return
         season_match = re.search(r"S(eason)?\s?(\d{1,2})", os.path.basename(root))
         if (
             season_match
@@ -559,33 +574,45 @@ def media_handle(
                         f"Season {season_match.group(2).zfill(2)}",
                         dryrun=False,
                     )
-    # remove season name from path
-    media_path = re.sub(r"\/Season \d+", "", root)
-    media_name = os.path.basename(media_path)
-    # rename media folder if name is set
-    if name:
-        _parent_root_dir = os.path.dirname(root)
-        root = rename_media(_parent_root_dir, media_name, name, dryrun=dryrun)
-        media_name = name
+        # remove season name from path
+        media_path = re.sub(r"\/Season \d+", "", root)
+        media_name = ""
+        # rename media folder if name is set and tmdb_id not set
+        if name and not tmdb_id:
+            media_name = name
+        # if tmdb_id is set, using tmdb name
+        if tmdb_id:
+            media_name = TMDB(movie=False).get_name_from_tmdb_by_id(tmdb_id)
+        # rename folder
+        if media_name:
+            _parent_root_dir = os.path.dirname(root)
+            root = rename_media(_parent_root_dir, media_name, name, dryrun=dryrun)
+        # or use basename of folder
+        else:
+            media_name = os.path.basename(media_path)
+        
 
     if media_type == "movie":
-        for path, subdir, files in os.walk(root):
-            removed_files = remove_hidden_files(path, dryrun=dryrun)
+        for dir, subdir, files in os.walk(root):
+            removed_files = remove_hidden_files(dir, dryrun=dryrun)
             for file in removed_files:
                 if file[1] == 1:
                     subdir.remove(file[0])
             for _dir in subdir:
                 if re.search("Sample", _dir):
                     if not dryrun:
-                        shutil.rmtree(os.path.join(path, _dir))
+                        shutil.rmtree(os.path.join(dir, _dir))
                     logger.info(f"Removed sample folder: {os.path.join(path, _dir)}")
 
             for file in files:
+                if isfile and file != os.path.basename(path):
+                    logger.info(f"No need to handle {file}, skip...")
+                    continue
                 rslt = handle_movie(
-                    path, file, nogroup=nogroup, group=group, dryrun=dryrun
+                    dir, file, tmdb_id=tmdb_id, nogroup=nogroup, group=group, dryrun=dryrun
                 )
-                if rslt == False:
-                    logger.error("Process failed: " + os.path.join(path, file))
+                if rslt is False:
+                    logger.error("Process failed: " + os.path.join(dir, file))
                     continue
                 elif (not isinstance(rslt, bool)) and dst_path:
                     dir_name = os.path.basename(os.path.dirname(rslt))
@@ -605,13 +632,11 @@ def media_handle(
                         f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
                     )
         if not dryrun and dst_path:
-            for path, dirs, files in os.walk(root, topdown=False):
-                if not files and not dirs:
-                    os.rmdir(path)
+            remove_empty_folder(root=root, folders=[], remove_root_folder=True)
         logger.info(f"Removed {root}")
     elif media_type in ["tv", "anime"]:
-        for path, subdir, files in os.walk(root):
-            removed_files = remove_hidden_files(path, dryrun=dryrun)
+        for dir, subdir, files in os.walk(root):
+            removed_files = remove_hidden_files(dir, dryrun=dryrun)
             for file in removed_files:
                 if file[1] == 0:
                     files.remove(file[0])
@@ -620,7 +645,7 @@ def media_handle(
                 rslt = handle_tvshow(
                     media_name,
                     filename,
-                    path,
+                    dir,
                     media_type=media_type,
                     regex=regex,
                     group=group,
@@ -637,9 +662,9 @@ def media_handle(
         if dst_path:
             # move all season folders to destination path
             # todo: move file one by one
-            for path, subdir, files in os.walk(root):
+            for dir, subdir, files in os.walk(root):
                 for file in files:
-                    file_full_path = os.path.join(path, file)
+                    file_full_path = os.path.join(dir, file)
                     dst_file_full_path = os.path.join(
                         dst_path,
                         media_name,
@@ -659,13 +684,11 @@ def media_handle(
                     logger.info(f"Moved {file_full_path} to {dst_file_full_path}")
             if not dryrun:
                 # remove original media folder
-                for path, dirs, files in os.walk(root, topdown=False):
-                    if not files and not dirs:
-                        os.rmdir(path)
+                remove_empty_folder(root=root, folders=[], remove_root_folder=True)
             logger.info(f"Removed {root}")
     elif media_type == "av":
-        for path, subdir, files in os.walk(root):
-            remove_small_files(path, dryrun=dryrun)
+        for dir, subdir, files in os.walk(root):
+            remove_small_files(dir, dryrun=dryrun)
     else:
         pass
         logger.warning("Unkown media type, skip……")
@@ -682,6 +705,7 @@ if __name__ == "__main__":
         group=args.group,
         nogroup=args.nogroup,
         episode_bit=args.episode_bit,
+        tmdb_id=args.tmdb_id,
         dryrun=args.dryrun,
         offset=args.offset,
     )

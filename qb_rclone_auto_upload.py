@@ -305,7 +305,7 @@ def main(src_dir=""):
                                                             "query": name,
                                                             "year": int(year),
                                                         },
-                                                        year_deviation=1,
+                                                        year_deviation=movie_year_deviation,
                                                     )
                                                 )
                                             else:

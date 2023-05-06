@@ -56,15 +56,28 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
 def remove_empty_folder(
     root="/Media/Inbox",
     folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"],
+    remove_root_folder=False,
 ):
     """Remove empty folder"""
 
+    if not folders:
+        folders = [root]
+
     for dir in folders:
-        root_folder = os.path.join(root, dir)
+        root_folder = dir if dir == root else os.path.join(root, dir)
         logger.debug(f"Checking folder: {root_folder}")
-        folders = os.listdir(root_folder) if os.path.exists(root_folder) else []
-        for folder in folders:
-            folder_path = os.path.join(root_folder, folder)
-            if os.path.isdir(folder_path) and (not os.listdir(folder_path)):
-                logger.info(f"Removing empty foler: {folder_path}")
-                os.rmdir(folder_path)
+        if not os.path.exists(root_folder):
+            continue
+
+        while True:
+            redo = False
+            for dir, subdir, files in os.walk(root_folder, topdown=False):
+                if not files and not subdir:
+                    if os.path.basename(dir) == root_folder and not remove_root_folder:
+                        continue
+                    logger.info(f"Removing empty foler: {dir}")
+                    os.rmdir(dir)
+                    redo = True
+            if not redo:
+                break
+
