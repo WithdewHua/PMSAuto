@@ -104,7 +104,7 @@ class TMDB:
 
                                     name = (
                                         f"[{title}] {original_title} ({year}) {{tmdb-{rslt.id}}}"
-                                        if title != original_title
+                                        if title and title != original_title
                                         else f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
                                     )
                                     self.tmdb_id = rslt.id
@@ -143,7 +143,7 @@ class TMDB:
                         break
             tmdb_name = (
                 f"[{title}] {original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
-                if title != original_title
+                if title and title != original_title
                 else f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
             )
 
