@@ -403,6 +403,49 @@ def main(src_dir=""):
                                 text=f"Copying `{torrent.name}` failed",
                             )
                         else:
+                            # check the target folder after copying
+                            rslt = subprocess.run(
+                                ["rclone", "ls", f"{google_drive_save_path}"],
+                                encoding="utf-8",
+                                capture_output=True,
+                            )
+                            # 空文件夹或者无文件夹，说明上传失败了，不再处理该种子，等待下轮处理
+                            if rslt.returncode or (not rslt.stdout):
+                                logger.error(f"Checking {torrent.name} failed")
+                                send_tg_msg(
+                                    chat_id=TG_CHAT_ID,
+                                    text=f"Checking `{torrent.name}` failed",
+                                )
+                                continue
+                            else:
+                                # delete sample foler
+                                if "Sample" in rslt.stdout:
+                                    logger.info(f"Deleting sample folder in {torrent.name}")
+                                    rslt = subprocess.run(
+                                        [
+                                            "rclone",
+                                            "purge",
+                                            f"{google_drive_save_path}/Sample",
+                                        ]
+                                    )
+                                    if rslt.returncode:
+                                        logger.error(
+                                            f"Deleting sample folder in {google_drive_save_path} failed"
+                                        )
+                                        send_tg_msg(
+                                            chat_id=TG_CHAT_ID,
+                                            text=f"Deleting sample folder in `{google_drive_save_path}` failed",
+                                        )
+                                    else:
+                                        logger.info(
+                                            f"Deleting sample folder in {google_drive_save_path} succeed"
+                                        )
+                                        send_tg_msg(
+                                            chat_id=TG_CHAT_ID,
+                                            text=f"Deleting sample folder in `{google_drive_save_path}` succeed",
+                                        )
+
+                            # upload successfully, update torrent's info
                             if "no_seed" not in tags:
                                 logger.info(
                                     f"Copying {torrent.name} to {google_drive_save_path} succeed, tagging it..."
@@ -427,46 +470,8 @@ def main(src_dir=""):
                                 chat_id=TG_CHAT_ID,
                                 text=f"`{save_name if save_name else torrent.name}` 已入库",
                             )
-                        # check the target folder
-                        rslt = subprocess.run(
-                            ["rclone", "ls", f"{google_drive_save_path}"],
-                            encoding="utf-8",
-                            capture_output=True,
-                        )
-                        if rslt.returncode:
-                            logger.error(f"Checking {torrent.name} failed")
-                            send_tg_msg(
-                                chat_id=TG_CHAT_ID,
-                                text=f"Checking `{torrent.name}` failed",
-                            )
-                        else:
-                            # delete sample foler
-                            if "Sample" in rslt.stdout:
-                                logger.info(f"Deleting sample folder in {torrent.name}")
-                                rslt = subprocess.run(
-                                    [
-                                        "rclone",
-                                        "purge",
-                                        f"{google_drive_save_path}/Sample",
-                                    ]
-                                )
-                                if rslt.returncode:
-                                    logger.error(
-                                        f"Deleting sample folder in {google_drive_save_path} failed"
-                                    )
-                                    send_tg_msg(
-                                        chat_id=TG_CHAT_ID,
-                                        text=f"Deleting sample folder in `{google_drive_save_path}` failed",
-                                    )
-                                else:
-                                    logger.info(
-                                        f"Deleting sample folder in {google_drive_save_path} succeed"
-                                    )
-                                    send_tg_msg(
-                                        chat_id=TG_CHAT_ID,
-                                        text=f"Deleting sample folder in `{google_drive_save_path}` succeed",
-                                    )
 
+                        # 处理上传完的种子
                         do_try = 0
                         while do_try < 5:
                             handle_flag = True
