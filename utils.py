@@ -81,3 +81,9 @@ def remove_empty_folder(
             if not redo:
                 break
 
+
+def is_filename_length_gt_255(filename):
+    if len(filename.encode("utf-8")) > 255:
+        return True
+    return False
+

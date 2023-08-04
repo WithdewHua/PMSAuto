@@ -7,7 +7,7 @@ import anitopy
 from tmdb import TMDB
 from log import logger
 from settings import ORIGIN_NAME
-from utils import remove_empty_folder
+from utils import remove_empty_folder, is_filename_length_gt_255
 
 
 def parse():
@@ -288,6 +288,12 @@ def handle_tvshow(
         new_filename += f" - {filename_pre}"
 
     new_filename += f".{filename_suffix}"
+    if is_filename_length_gt_255(new_filename):
+        new_filename = (
+            f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+            + " - "
+            + filename
+        )
 
     rename_media(parent_dir_path, filename, new_filename, dryrun=dryrun)
 
@@ -424,6 +430,9 @@ def handle_movie(parent_dir_path, filename, tmdb_id="", nogroup=False, group="",
         new_filename += f" - {filename_pre}"
 
     new_filename += f".{filename_suffix}"
+     
+    if is_filename_length_gt_255(new_filename):
+        new_filename = filename
 
     parent_dir_name = os.path.basename(parent_dir_path)
 
