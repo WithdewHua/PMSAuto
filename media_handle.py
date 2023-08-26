@@ -139,7 +139,7 @@ def get_media_info_from_filename(
     # get version
     try:
         version = re.search(
-            r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut)[\.\s\]]",
+            r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut|Uncut)[\.\s\]]",
             filename_pre,
             re.IGNORECASE,
         ).group(1)
@@ -197,6 +197,7 @@ def get_plex_edition_from_version(version: str) -> str:
         "cee": "{edition-Central and Eastern Europe}",
         "bfi": "{edition-British Film Institute}",
         "fan cut": "{edition-Fan Cut}",
+        "uncut": "{edition-Uncut}",
     }
     return _edition_dict.get(version.lower(), version)
 

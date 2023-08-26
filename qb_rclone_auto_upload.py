@@ -72,9 +72,18 @@ def main(src_dir=""):
                 if torrent.progress == 1:
                     # get torrent's tags
                     tags = torrent.tags.split(", ")
+                    category = torrent.category
+
+                    # process torrents added by MoviePilot
+                    if "MOVIEPILOT" in tags:
+                        category = os.path.basename(torrent.save_path.rstrip("/"))
+                        # set category
+                        qbt_client.torrents_set_category(category=category, torrent_hashes=torrent.hash)
+                        # delete tag
+                        qbt_client.torrents_remove_tags(tags="MOVIEPILOT", torrent_hashes=torrent.hash)
 
                     # handle torrents with specific category
-                    if torrent.category not in [
+                    if category not in [
                         "Movies",
                         "TVShows",
                         "NSFW",
@@ -102,7 +111,7 @@ def main(src_dir=""):
                         media_info = {}
 
                     # get media title
-                    if torrent.category == "Anime":
+                    if category == "Anime":
                         parse_rslt = anitopy.parse(torrent.name)
                         name = parse_rslt.get("anime_title")
                     else:
@@ -128,12 +137,12 @@ def main(src_dir=""):
                     # flag
                     is_movie = (
                         True
-                        if torrent.category in ["Movies", "NC17-Movies", "Concerts"]
+                        if category in ["Movies", "NC17-Movies", "Concerts"]
                         else False
                     )
-                    is_nc17 = True if torrent.category == "NC17-Movies" else False
+                    is_nc17 = True if category == "NC17-Movies" else False
                     query_flag = (
-                        True if torrent.category not in ["NSFW", "Music"] else False
+                        True if category not in ["NSFW", "Music"] else False
                     )
                     if "no_query" in tags:
                         query_flag = False
@@ -167,11 +176,11 @@ def main(src_dir=""):
                         else:
                             media_info_rslt = {
                                 "tags": tags,
-                                "category": torrent.category,
+                                "category": category,
                             }
 
                         # GoogleDrive's default base save path
-                        save_path = "Inbox" + "/" + torrent.category
+                        save_path = "Inbox" + "/" + category
                         # default save name
                         save_name = torrent.name
 
@@ -183,7 +192,7 @@ def main(src_dir=""):
                         offset_tag = re.search(r"O(-?\d+)", ", ".join(tags))
                         offset = int(offset_tag.group(1)) if offset_tag else 0
                         # get season info for tvshows
-                        if torrent.category in ["TVShows", "Anime"]:
+                        if category in ["TVShows", "Anime"]:
                             # get season info from ", ".join(tags)
                             rslt = re.search(r"S(\d{2})", ", ".join(tags))
                             if rslt:
@@ -212,7 +221,7 @@ def main(src_dir=""):
                             movie_year_deviation = 1 if not year_tag else 0
 
                             # anime 种子名比较特殊,进行特殊处理
-                            if torrent.category == "Anime":
+                            if category == "Anime":
                                 parse_rslt = anitopy.parse(torrent.name)
                                 # name = parse_rslt.get("anime_title")
                                 season = (
@@ -349,7 +358,7 @@ def main(src_dir=""):
                             )
                             continue
                         # add season info for tvshows
-                        if torrent.category in ["TVShows", "Anime"] and season:
+                        if category in ["TVShows", "Anime"] and season:
                             save_name = save_name + "/" + f"Season {season.zfill(2)}"
 
                         # get certification info for movie
@@ -358,22 +367,22 @@ def main(src_dir=""):
                             if is_nc17:
                                 save_path = "Inbox/NC17-Movies"
 
-                        if torrent.category == "Music":
+                        if category == "Music":
                             save_name = torrent.name
                             save_path = "Music"
 
                         # full path in GoogleDrive
-                        if torrent.category in ["TVShows", "Anime"]:
+                        if category in ["TVShows", "Anime"]:
                             google_drive = "GD-TVShows"
-                        elif torrent.category in ["Movies", "Concerts", "NC17-Movies"]:
+                        elif category in ["Movies", "Concerts", "NC17-Movies"]:
                             google_drive = "GD-Movies"
-                        elif torrent.category in ["NSFW"]:
+                        elif category in ["NSFW"]:
                             google_drive = "GD-NSFW"
-                        elif torrent.category in ["Music"]:
+                        elif category in ["Music"]:
                             google_drive = "GD-Music"
                         else:
                             logger.error(
-                                f"Can not find drive for category {torrent.category}"
+                                f"Can not find drive for category {category}"
                             )
                             continue
                         google_drive_save_path = (
@@ -475,30 +484,30 @@ def main(src_dir=""):
                         do_try = 0
                         while do_try < 5:
                             handle_flag = True
-                            dst_base_path = torrent.category
+                            dst_base_path = category
                             media_type = "tv"
                             # tvshows handle if get tmdb_name successfully
                             if (
-                                torrent.category in ["TVShows", "Anime"]
+                                category in ["TVShows", "Anime"]
                                 and tmdb_name
                                 and "manual" not in tags
                             ):
                                 dst_base_path = "TVShows"
                                 media_type = (
-                                    "tv" if torrent.category == "TVShows" else "anime"
+                                    "tv" if category == "TVShows" else "anime"
                                 )
                             # movie handle
                             elif is_movie:
                                 dst_base_path = (
-                                    torrent.category if not is_nc17 else "NC17-Movies"
+                                    category if not is_nc17 else "NC17-Movies"
                                 )
                                 media_type = "movie"
                             # nsfw handle
-                            elif torrent.category == "NSFW":
-                                dst_base_path = torrent.category
+                            elif category == "NSFW":
+                                dst_base_path = category
                                 media_type = "av"
                             # music handle
-                            elif torrent.category == "Music":
+                            elif category == "Music":
                                 media_type = "music"  # todo
                             else:
                                 handle_flag = False
