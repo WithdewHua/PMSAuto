@@ -675,8 +675,7 @@ def media_handle(
                     continue
         # move to destination path
         if dst_path:
-            # move all season folders to destination path
-            # todo: move file one by one
+            # move file one by one
             for dir, subdir, files in os.walk(root):
                 for file in files:
                     file_full_path = os.path.join(dir, file)
@@ -706,6 +705,10 @@ def media_handle(
     elif media_type == "av":
         for dir, subdir, files in os.walk(root):
             remove_small_files(dir, dryrun=dryrun)
+    elif media_type == "music":
+        if dst_path and not dryrun:
+            scan_folders.append((dst_path, os.path.join(dst_path, media_name)))
+            logger.debug(f"Added scan folder: {os.path.join(dst_path, media_name)}")
     else:
         pass
         logger.warning("Unkown media type, skip……")
