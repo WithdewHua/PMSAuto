@@ -37,6 +37,7 @@ class Plex:
                 continue
             else:
                 logging.info(f"Sent scan request successfully: {path}")
+                break
 
 
 
