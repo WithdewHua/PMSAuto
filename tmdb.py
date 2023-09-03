@@ -114,7 +114,7 @@ class TMDB:
                         break
                 break
             except Exception as e:
-                logger.error(f"Exception happens: {e}")
+                logger.exception(e)
                 retry += 1
                 continue
         return name
@@ -159,8 +159,9 @@ class TMDB:
         }
         try:
             rslts = self.tmdb_media.release_dates(self.tmdb_id).get("results")
-        except Exception:
+        except Exception as e:
             logger.exception(f"Getting certifacation of {self.tmdb_id} failed")
+            logger.exception(e)
             return is_nc17
         iso_3166_1_list = [__.get("iso_3166_1") for __ in rslts]
         for _iso, _cert in _.items():
