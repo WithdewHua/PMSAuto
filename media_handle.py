@@ -7,7 +7,7 @@ import anitopy
 from tmdb import TMDB
 from log import logger
 from plex import Plex
-from settings import ORIGIN_NAME, AUTOSCAN
+from settings import ORIGIN_NAME, AUTO_SCAN
 from utils import remove_empty_folder, is_filename_length_gt_255
 
 
@@ -711,7 +711,7 @@ def media_handle(
         logger.warning("Unkown media type, skip……")
 
     # handle scan request
-    if AUTOSCAN and scan_folders:
+    if AUTO_SCAN and scan_folders:
         plex = Plex()
         for scan_info in set(scan_folders):
             plex.scan(location=scan_info[0], path=scan_info[1])
