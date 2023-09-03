@@ -190,6 +190,8 @@ def main(src_dir=""):
                                 # 更新记录
                                 write_record = True
                                 media_info_rslt.update({"tags": tags})
+                            else:
+                                tags = record_tags
                             logger.debug(
                                 f"Got {name}'s info: "
                                 f"\ntmdb_name: {tmdb_name}"
