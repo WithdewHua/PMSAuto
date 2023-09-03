@@ -121,7 +121,10 @@ def main(src_dir=""):
                         # not matched
                         if not torrent_name_match:
                             # todo: 未匹配到年份时,也进行一次匹配查询
-                            name = torrent.name
+                            try:
+                                name = re.search(r"^(.+?)[\s\.](\d{3,4}[Pp])", torrent.name).group(1)
+                            except:
+                                name = torrent.name
                         # matched year in torrent name
                         else:
                             name = " ".join(
