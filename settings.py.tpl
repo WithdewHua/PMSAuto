@@ -40,3 +40,8 @@ HANDLE_LOCAL_MEDIA = False
 
 # 重命名设置
 ORIGIN_NAME = True
+
+# plex 设置
+PLEX_BASE_URL = "https://xxx.xx"
+PLEX_API_TOKEN = "xxxxxxxxxx"
+AUTO_SCAN = True

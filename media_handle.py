@@ -6,7 +6,8 @@ import anitopy
 
 from tmdb import TMDB
 from log import logger
-from settings import ORIGIN_NAME
+from plex import Plex
+from settings import ORIGIN_NAME, AUTOSCAN
 from utils import remove_empty_folder, is_filename_length_gt_255
 
 
@@ -601,6 +602,8 @@ def media_handle(
         else:
             media_name = os.path.basename(media_path)
         
+    # folder to send scan request
+    scan_folders = []
 
     if media_type == "movie":
         for dir, subdir, files in os.walk(root):
@@ -638,6 +641,8 @@ def media_handle(
                             rslt,
                             os.path.join(dst_path, dir_name, os.path.basename(rslt)),
                         )
+                        scan_folders.append((dst_path, os.path.join(dst_path, dir_name)))
+                        logger.debug(f"Added scan folder: {os.path.join(dst_path, dir_name)}")
                     logger.info(
                         f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
                     )
@@ -691,6 +696,8 @@ def media_handle(
                             )
                         else:
                             os.rename(file_full_path, dst_file_full_path)
+                            scan_folders.append((dst_path, dst_dir_full_path))
+                            logger.debug(f"Added scan folder: {dst_dir_full_path}")
                     logger.info(f"Moved {file_full_path} to {dst_file_full_path}")
             if not dryrun:
                 # remove original media folder
@@ -703,6 +710,12 @@ def media_handle(
         pass
         logger.warning("Unkown media type, skip……")
 
+    # handle scan request
+    if AUTOSCAN and scan_folders:
+        plex = Plex()
+        for scan_info in set(scan_folders):
+            plex.scan(location=scan_info[0], path=scan_info[1])
+        
 
 if __name__ == "__main__":
     args = parse()

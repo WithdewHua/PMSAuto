@@ -3,3 +3,4 @@ anitopy
 psutil
 filelock
 tmdbv3api
+python-plexapi
