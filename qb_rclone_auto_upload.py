@@ -18,7 +18,12 @@ from autorclone import auto_rclone
 from log import logger
 from media_handle import media_handle, handle_local_media
 from tmdb import TMDB
-from utils import load_json, dump_json, send_tg_msg, remove_empty_folder
+from utils import (
+    load_json, dump_json, 
+    send_tg_msg, 
+    remove_empty_folder,
+    sumarize_tags
+)
 from settings import (
     RCLONE_ALWAYS_UPLOAD,
     QBIT,
@@ -72,6 +77,8 @@ def main(src_dir=""):
                 if torrent.progress == 1:
                     # get torrent's tags
                     tags = torrent.tags.split(", ")
+                    if "" in tags:
+                        tags.remove("")
                     category = torrent.category
 
                     # process torrents added by MoviePilot
@@ -168,14 +175,27 @@ def main(src_dir=""):
                         tmdb_name = ""
                         tmdb = TMDB(movie=is_movie)
 
-                        # get media info from file if not movie
-                        get_info_from_file = False
+                        # get media info from file
+                        local_record = False
+                        write_record = True
                         media_info_rslt = media_info.get(name, {})
                         if media_info_rslt:
-                            get_info_from_file = True
+                            local_record = True
+                            write_record = False
                             tmdb_name = media_info_rslt.get("tmdb_name")
-                            tags = media_info_rslt.get("tags")
-                            logger.debug(f"Got {name}'s tmdb_name: {tmdb_name}")
+                            record_tags = media_info_rslt.get("tags", [])
+                            # 更新 tags
+                            if tags:
+                                tags = sumarize_tags(record_tags, tags)
+                                # 更新记录
+                                write_record = True
+                                media_info_rslt.update({"tags": tags})
+                            logger.debug(
+                                f"Got {name}'s info: "
+                                f"\ntmdb_name: {tmdb_name}"
+                                f"\nrecord_tags: {record_tags}"
+                                f"\ntags: {tags if tags else record_tags}"
+                            )
                         else:
                             media_info_rslt = {
                                 "tags": tags,
@@ -210,7 +230,7 @@ def main(src_dir=""):
                         tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags))
                         tmdb_id = tmdb_id_tag.group(1) if tmdb_id_tag else None
 
-                        # 如果存在 tmdb_id, 直接通过 tmdb id 获取名字
+                        # tags 中的 tmdb id 始终优先，如果存在 tmdb_id, 直接通过 tmdb id 获取名字
                         if tmdb_id:
                             tmdb_name = (
                                 tmdb.get_name_from_tmdb_by_id(tmdb_id)
@@ -243,7 +263,7 @@ def main(src_dir=""):
                                         {"query": name, "first_air_date_year": year},
                                         year_deviation=tv_year_deviation,
                                     )
-                                    if not get_info_from_file
+                                    if not local_record
                                     else tmdb_name
                                 )
                                 save_name = torrent.name if not tmdb_name else tmdb_name
@@ -261,7 +281,7 @@ def main(src_dir=""):
                                     )
                                     if cn_match:
                                         if query_flag:
-                                            if get_info_from_file:
+                                            if local_record:
                                                 tmdb_name = tmdb_name
                                             else:
                                                 # query tmdb with chinese or other language
@@ -311,7 +331,7 @@ def main(src_dir=""):
                                             if is_movie:
                                                 tmdb_name = (
                                                     tmdb_name
-                                                    if get_info_from_file
+                                                    if local_record
                                                     else tmdb.get_name_from_tmdb(
                                                         {
                                                             "query": name,
@@ -329,7 +349,7 @@ def main(src_dir=""):
                                                     year = int(year) - int(season) + 1
                                                 tmdb_name = (
                                                     tmdb_name
-                                                    if get_info_from_file
+                                                    if local_record
                                                     else tmdb.get_name_from_tmdb(
                                                         {
                                                             "query": name,
@@ -544,7 +564,7 @@ def main(src_dir=""):
                         if (
                             name
                             and tmdb_name
-                            and (not get_info_from_file)
+                            and write_record
                             and "end" not in tags
                             and not is_movie
                         ):
@@ -552,7 +572,7 @@ def main(src_dir=""):
                             media_info.update({name: media_info_rslt})
                             dump_json(media_info, media_info_file_path)
                         # delete
-                        if get_info_from_file and "end" in tags:
+                        if local_record and "end" in tags:
                             media_info.pop(name)
                             dump_json(media_info, media_info_file_path)
 
@@ -572,7 +592,7 @@ def main(src_dir=""):
                         )
                     continue
         except Exception as e:
-            logger.error(f"{e}")
+            logger.exception(e)
             time.sleep(60)
             continue
         # clean empty folder

@@ -2,7 +2,11 @@
 
 import json
 import os
+import re
+from copy import deepcopy
+
 import requests
+
 from settings import TG_API_KEY
 from log import logger
 
@@ -87,3 +91,22 @@ def is_filename_length_gt_255(filename):
         return True
     return False
 
+
+def sumarize_tags(ori_tags: list[str], new_tags: list[str]) -> list[str]:
+    """
+    对种子 tag 进行更新：
+    1. 取并集
+    2. 相同类型取新 tag，可能类型有 Y(年份) / T(TMDB ID) / O(offset) / S(季)
+    """
+    tags = deepcopy(ori_tags)
+    for tag in new_tags:
+        # 匹配关键字 tag
+        match = re.match(r"([TYOS])-?\d+", tag)
+        if match:
+            # 获取 tag 类型
+            _type = match.group(1)
+            for _ in ori_tags:
+                if _.startswith(_type):
+                    logger.info(f"Removing tag {_}")
+                    tags.remove(_)
+    return list(set(tags).union(new_tags))
