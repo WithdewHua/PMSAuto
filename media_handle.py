@@ -2,6 +2,8 @@ import os
 import re
 import argparse
 import shutil
+from time import sleep
+
 import anitopy
 
 from tmdb import TMDB
@@ -716,6 +718,8 @@ def media_handle(
     # handle scan request
     if AUTO_SCAN and scan_folders:
         plex = Plex()
+        # sleep 一段时间，尽量避免 rclone 未更新导致路径找不到
+        sleep(30)
         for scan_info in set(scan_folders):
             plex.scan(location=scan_info[0], path=scan_info[1])
         

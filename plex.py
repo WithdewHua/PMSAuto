@@ -2,12 +2,13 @@
 
 from typing import Optional
 
-import logging
+import re
 from time import sleep
 
 from plexapi.server import PlexServer
 from plexapi.myplex import Section
 from settings import PLEX_BASE_URL, PLEX_API_TOKEN
+from log import logger
 
 
 class Plex:
@@ -23,21 +24,36 @@ class Plex:
 
         return None
 
+    def get_lastest_added_item(self, section: Section):
+        return section.recentlyAdded(1)[0]
+
+    def is_scanned(self, section: Section, path: str) -> bool:
+        media = self.get_lastest_added_item(section)
+        # 根据最近添加的项目的名字来大致确认是否扫描成功
+        titles = [title for title in [media.title, media.originalTitle] if title]
+        if re.search(r"|".join(titles), path):
+            return True
+        return False
+
     def scan(self, location: str, path: str):
         section = self.get_section_by_location(location)
         if not section:
-            logging.error("Section Not found")
+            logger.error("Section Not found")
             return False
         while True:
             try:
                 section.update(path)
             except Exception as e:
-                logging.error(e)
+                logger.error(e)
                 sleep(10)
                 continue
             else:
-                logging.info(f"Sent scan request successfully: {path}")
-                break
+                logger.info(f"Sent scan request successfully: {path}")
+                sleep(60)
+                if self.is_scanned(section, path):
+                    logger.info("Processed scan request successfully")
+                    break
+                logger.warn("Processed scan request unsuccessfully, try again")
 
 
 
