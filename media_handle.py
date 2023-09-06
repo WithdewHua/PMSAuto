@@ -719,7 +719,7 @@ def media_handle(
     if AUTO_SCAN and scan_folders:
         plex = Plex()
         # sleep 一段时间，尽量避免 rclone 未更新导致路径找不到
-        sleep(30)
+        sleep(120)
         for scan_info in set(scan_folders):
             plex.scan(location=scan_info[0], path=scan_info[1])
         

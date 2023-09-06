@@ -24,11 +24,11 @@ class Plex:
 
         return None
 
-    def get_lastest_added_item(self, section: Section):
+    def _get_lastest_added_item(self, section: Section):
         return section.recentlyAdded(1)[0]
 
-    def is_scanned(self, section: Section, path: str) -> bool:
-        media = self.get_lastest_added_item(section)
+    def _is_scanned(self, section: Section, path: str) -> bool:
+        media = self._get_lastest_added_item(section)
         # 根据最近添加的项目的名字来大致确认是否扫描成功
         titles = [title for title in [media.title, media.originalTitle] if title]
         if re.search(r"|".join(titles), path):
@@ -36,6 +36,7 @@ class Plex:
         return False
 
     def scan(self, location: str, path: str):
+        """发送扫描请求"""
         section = self.get_section_by_location(location)
         if not section:
             logger.error("Section Not found")
@@ -49,12 +50,5 @@ class Plex:
                 continue
             else:
                 logger.info(f"Sent scan request successfully: {path}")
-                sleep(60)
-                if self.is_scanned(section, path):
-                    logger.info("Processed scan request successfully")
-                    break
-                logger.warn("Processed scan request unsuccessfully, try again")
-
-
-
+                break
 
