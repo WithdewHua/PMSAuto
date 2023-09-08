@@ -236,7 +236,7 @@ def main(src_dir=""):
                         if tmdb_id:
                             tmdb_name = (
                                 tmdb.get_name_from_tmdb_by_id(tmdb_id)
-                                if not tmdb_name
+                                if not tmdb_name or write_record
                                 else tmdb_name
                             )
                             save_name = tmdb_name
