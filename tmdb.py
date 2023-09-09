@@ -117,7 +117,7 @@ class TMDB:
                 logger.exception(e)
                 retry += 1
                 continue
-        return name
+        return name.replace("/", "／")
 
     def get_name_from_tmdb_by_id(self, tmdb_id: str) -> str:
         tmdb_name = ""
@@ -147,7 +147,7 @@ class TMDB:
                 else f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
             )
 
-        return tmdb_name
+        return tmdb_name.replace("/", "／")
 
     def get_movie_certification(self) -> bool:
         """Get movie's certifacation"""
