@@ -80,6 +80,8 @@ def main(src_dir=""):
                     if "" in tags:
                         tags.remove("")
                     category = torrent.category
+                    if category == "NSFW":
+                        tags.append("no_seed")
 
                     # process torrents added by MoviePilot
                     if "MOVIEPILOT" in tags:
@@ -242,8 +244,8 @@ def main(src_dir=""):
                             save_name = tmdb_name
                         # 否则通过种子名字进行查询
                         else:
-                            tv_year_deviation = 5 if not year_tag else 0
-                            movie_year_deviation = 1 if not year_tag else 0
+                            tv_year_deviation = 0 if not year_tag else 0
+                            movie_year_deviation = 0 if not year_tag else 0
 
                             # anime 种子名比较特殊,进行特殊处理
                             if category == "Anime":
