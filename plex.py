@@ -19,8 +19,9 @@ class Plex:
 
     def get_section_by_location(self, location: str) -> Optional[Section]:
         for section in self.plex_server.library.sections():
-            if location in section.locations:
-                return section
+            for loc in section.locations:
+                if re.search(fr"{loc}", location):
+                    return section
 
         return None
 

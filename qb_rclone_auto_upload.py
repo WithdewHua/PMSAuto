@@ -397,6 +397,11 @@ def main(src_dir=""):
                         if category == "Music":
                             save_name = torrent.name
                             save_path = "Music"
+                            # 对于种子名在 [] 中包含歌手名-专辑名
+                            if "format" in tags:
+                                singer_album = re.search(r"\[(.*?)\]", torrent.name).group(1)
+                                singer, album = singer_album.split("-", 1)
+                                save_name = f"{singer}/{album}"
 
                         # full path in GoogleDrive
                         if category in ["TVShows", "Anime"]:
@@ -536,6 +541,8 @@ def main(src_dir=""):
                             # music handle
                             elif category == "Music":
                                 media_type = "music"  # todo
+                                if "format" in tags:
+                                    dst_base_path += f"/{singer}"
                             else:
                                 handle_flag = False
 
