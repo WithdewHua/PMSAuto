@@ -42,6 +42,10 @@ HANDLE_LOCAL_MEDIA = False
 ORIGIN_NAME = True
 
 # plex 设置
-PLEX_BASE_URL = "https://xxx.xx"
-PLEX_API_TOKEN = "xxxxxxxxxx"
-AUTO_SCAN = True
+PLEX_BASE_URL = "https://xxxxxxxxxx"
+PLEX_API_TOKEN = "xxxx"
+PLEX_AUTO_SCAN = True
+# emby 设置
+EMBY_BASE_URL = "https://xxxxxxxxxx"
+EMBY_API_TOKEN = "xxxx"
+EMBY_AUTO_SCAN = True

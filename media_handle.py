@@ -2,6 +2,7 @@ import os
 import re
 import argparse
 import shutil
+
 from time import sleep
 
 import anitopy
@@ -9,7 +10,8 @@ import anitopy
 from tmdb import TMDB
 from log import logger
 from plex import Plex
-from settings import ORIGIN_NAME, AUTO_SCAN
+from emby import Emby
+from settings import ORIGIN_NAME, PLEX_AUTO_SCAN, EMBY_AUTO_SCAN
 from utils import remove_empty_folder, is_filename_length_gt_255
 
 
@@ -643,7 +645,7 @@ def media_handle(
                             rslt,
                             os.path.join(dst_path, dir_name, os.path.basename(rslt)),
                         )
-                        scan_folders.append((dst_path, os.path.join(dst_path, dir_name)))
+                        scan_folders.append(os.path.join(dst_path, dir_name))
                         logger.debug(f"Added scan folder: {os.path.join(dst_path, dir_name)}")
                     logger.info(
                         f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
@@ -697,7 +699,7 @@ def media_handle(
                             )
                         else:
                             os.rename(file_full_path, dst_file_full_path)
-                            scan_folders.append((dst_path, dst_dir_full_path))
+                            scan_folders.append(dst_dir_full_path)
                             logger.debug(f"Added scan folder: {dst_dir_full_path}")
                     logger.info(f"Moved {file_full_path} to {dst_file_full_path}")
             if not dryrun:
@@ -709,19 +711,24 @@ def media_handle(
             remove_small_files(dir, dryrun=dryrun)
     elif media_type == "music":
         if dst_path and not dryrun:
-            scan_folders.append((dst_path, os.path.join(dst_path, media_name)))
+            scan_folders.append(os.path.join(dst_path, media_name))
             logger.debug(f"Added scan folder: {os.path.join(dst_path, media_name)}")
     else:
         pass
         logger.warning("Unkown media type, skip……")
 
     # handle scan request
-    if AUTO_SCAN and scan_folders:
-        plex = Plex()
+    if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
+        media_server = []
+        if PLEX_AUTO_SCAN:
+            media_server.append(Plex())
+        if EMBY_AUTO_SCAN:
+            media_server.append(Emby())
         # sleep 一段时间，尽量避免 rclone 未更新导致路径找不到
         sleep(120)
         for scan_info in set(scan_folders):
-            plex.scan(location=scan_info[0], path=scan_info[1])
+            for server in media_server:
+                server.scan(path=scan_info)
         
 
 if __name__ == "__main__":

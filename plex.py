@@ -36,9 +36,9 @@ class Plex:
             return True
         return False
 
-    def scan(self, location: str, path: str):
+    def scan(self, path: str):
         """发送扫描请求"""
-        section = self.get_section_by_location(location)
+        section = self.get_section_by_location(path)
         if not section:
             logger.error("Section Not found")
             return False
