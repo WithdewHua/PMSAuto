@@ -513,62 +513,97 @@ def main(src_dir=""):
                             )
 
                         # 处理上传完的种子
-                        do_try = 0
-                        while do_try < 5:
-                            handle_flag = True
+                        try:
+                            to_handle = load_json("to_handle_media.json")
+                        except:
+                            to_handle = {}
+                        
+                        handle_flag = True
+                        dst_base_path = category
+                        media_type = "tv"
+                        # tvshows handle if get tmdb_name successfully
+                        if (
+                            category in ["TVShows", "Anime"]
+                            and tmdb_name
+                            and "manual" not in tags
+                        ):
+                            dst_base_path = "TVShows"
+                            media_type = (
+                                "tv" if category == "TVShows" else "anime"
+                            )
+                        # movie handle
+                        elif is_movie:
+                            dst_base_path = (
+                                category if not is_nc17 else "NC17-Movies"
+                            )
+                            media_type = "movie"
+                        # nsfw handle
+                        elif category == "NSFW":
                             dst_base_path = category
-                            media_type = "tv"
-                            # tvshows handle if get tmdb_name successfully
-                            if (
-                                category in ["TVShows", "Anime"]
-                                and tmdb_name
-                                and "manual" not in tags
-                            ):
-                                dst_base_path = "TVShows"
-                                media_type = (
-                                    "tv" if category == "TVShows" else "anime"
-                                )
-                            # movie handle
-                            elif is_movie:
-                                dst_base_path = (
-                                    category if not is_nc17 else "NC17-Movies"
-                                )
-                                media_type = "movie"
-                            # nsfw handle
-                            elif category == "NSFW":
-                                dst_base_path = category
-                                media_type = "av"
-                            # music handle
-                            elif category == "Music":
-                                media_type = "music"  # todo
-                                if "format" in tags:
-                                    dst_base_path += f"/{singer}"
-                            else:
-                                handle_flag = False
+                            media_type = "av"
+                        # music handle
+                        elif category == "Music":
+                            media_type = "music"  # todo
+                            if "format" in tags:
+                                dst_base_path += f"/{singer}"
+                        else:
+                            handle_flag = False
 
-                            if handle_flag:
+                        if handle_flag:
+                            try:
+                                logger.info(f"Processing {torrent.name} starts")
+                                media_handle(
+                                    f"/Media/{save_path}/{save_name}",
+                                    media_type=media_type,
+                                    dst_path=f"/Media/{dst_base_path}",
+                                    offset=offset,
+                                )
+                            except Exception as e:
+                                logger.error(f"Exception happens: {e}")
+                                send_tg_msg(
+                                    chat_id=TG_CHAT_ID,
+                                    text=f"Failed to do auto management for `{torrent.name}`, try again later……",
+                                )
+                                # 可能因为挂载缓存问题，导致无法找到文件夹，先做记录后续再尝试
+                                to_handle.update(
+                                    {
+                                        torrent.name: {
+                                            "src": f"/Media/{save_path}/{save_name}",
+                                            "media_type": media_type,
+                                            "dst": f"/Media/{dst_base_path}",
+                                            "offset": offset
+                                        }
+                                    }
+                                )
+                            else:
+                                logger.info(
+                                    f"Processed {torrent.name} successfully"
+                                )
+                        # 处理遗留的
+                        if to_handle:
+                            for t, t_info in to_handle.items():
                                 try:
-                                    logger.info(f"Processing {torrent.name} starts")
+                                    logger.info(f"Processing {t} starts")
                                     media_handle(
-                                        f"/Media/{save_path}/{save_name}",
-                                        media_type=media_type,
-                                        dst_path=f"/Media/{dst_base_path}",
-                                        offset=offset,
+                                        t_info.get("src"),
+                                        media_type=t_info.get("media_type"),
+                                        dst_path=t_info.get("dst"),
+                                        offset=t_info.get("offset"),
                                     )
                                 except Exception as e:
                                     logger.error(f"Exception happens: {e}")
                                     send_tg_msg(
                                         chat_id=TG_CHAT_ID,
-                                        text=f"Failed to do auto management for `{torrent.name}`, try again……",
+                                        text=f"Failed to do auto management for `{t}`, try again later……",
                                     )
-                                    # 可能因为挂载缓存问题，导致无法找到文件夹，暂停一段时间后继续尝试
-                                    time.sleep(60)
-                                    do_try += 1
                                 else:
                                     logger.info(
-                                        f"Processed {torrent.name} successfully"
+                                        f"Processed {t} successfully"
                                     )
-                                    break
+                                    del to_handle[t]
+
+                        # 更新
+                        dump_json(to_handle, "to_handle_media.json")
 
                         # media_info handle
                         # add
