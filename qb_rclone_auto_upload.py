@@ -10,6 +10,8 @@ import re
 import time
 import argparse
 
+from copy import deepcopy
+
 import qbittorrentapi
 import anitopy
 
@@ -581,7 +583,8 @@ def main(src_dir=""):
                                 )
                         # 处理遗留的
                         if to_handle:
-                            for t, t_info in to_handle.items():
+                            _ = deepcopy(to_handle)
+                            for t, t_info in _.items():
                                 try:
                                     logger.info(f"Processing {t} starts")
                                     media_handle(
