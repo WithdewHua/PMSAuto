@@ -4,6 +4,8 @@ import json
 import os
 import re
 from copy import deepcopy
+from pathlib import Path
+from typing import Union
 
 import requests
 
@@ -110,3 +112,26 @@ def sumarize_tags(ori_tags: list[str], new_tags: list[str]) -> list[str]:
                     logger.info(f"Removing tag {_}")
                     tags.remove(_)
     return list(set(tags).union(new_tags))
+
+
+def remove_original_title_from_file(path: str) -> None:
+    """对指定路径下的文件进行重命名,移除 tmdb 名字中的原标题"""
+    files = iterdir_recursive(path)
+    for file in files:
+        new_name = re.sub(r"\[(.*)\].*(\(\d{4}\)\s+{tmdb-\d+})", r"\1 \2", file.name)
+        if new_name == file.name:
+            continue
+        if is_filename_length_gt_255(new_name):
+            new_name = new_name.split(" - ", 1)[1].strip()
+        file.rename(file.parent / new_name)
+        logger.info(f"Renaming {file.name} to {new_name}")
+
+
+def iterdir_recursive(path: Union[str, Path]) -> list[Path]:
+    """递归获取指定路径下所有文件"""
+    files = []
+    for p in Path(path).iterdir():
+        if p.is_dir():
+            files.extend(iterdir_recursive(p))
+        files.append(p)
+    return files
