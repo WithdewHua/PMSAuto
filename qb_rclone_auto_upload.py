@@ -20,12 +20,7 @@ from autorclone import auto_rclone
 from log import logger
 from media_handle import media_handle, handle_local_media
 from tmdb import TMDB
-from utils import (
-    load_json, dump_json, 
-    send_tg_msg, 
-    remove_empty_folder,
-    sumarize_tags
-)
+from utils import load_json, dump_json, send_tg_msg, remove_empty_folder, sumarize_tags
 from settings import (
     RCLONE_ALWAYS_UPLOAD,
     QBIT,
@@ -73,7 +68,6 @@ def main(src_dir=""):
 
     # retrieve torrents filtered by tag
     while True:
-
         try:
             for torrent in qbt_client.torrents_info():
                 if torrent.progress == 1:
@@ -89,9 +83,13 @@ def main(src_dir=""):
                     if "MOVIEPILOT" in tags:
                         category = os.path.basename(torrent.save_path.rstrip("/"))
                         # set category
-                        qbt_client.torrents_set_category(category=category, torrent_hashes=torrent.hash)
+                        qbt_client.torrents_set_category(
+                            category=category, torrent_hashes=torrent.hash
+                        )
                         # delete tag
-                        qbt_client.torrents_remove_tags(tags="MOVIEPILOT", torrent_hashes=torrent.hash)
+                        qbt_client.torrents_remove_tags(
+                            tags="MOVIEPILOT", torrent_hashes=torrent.hash
+                        )
 
                     # handle torrents with specific category
                     if category not in [
@@ -133,7 +131,9 @@ def main(src_dir=""):
                         if not torrent_name_match:
                             # todo: 未匹配到年份时,也进行一次匹配查询
                             try:
-                                name = re.search(r"^(.+?)[\s\.](\d{3,4}[Pp])", torrent.name).group(1)
+                                name = re.search(
+                                    r"^(.+?)[\s\.](\d{3,4}[Pp])", torrent.name
+                                ).group(1)
                             except:
                                 name = torrent.name
                         # matched year in torrent name
@@ -155,9 +155,7 @@ def main(src_dir=""):
                         else False
                     )
                     is_nc17 = True if category == "NC17-Movies" else False
-                    query_flag = (
-                        True if category not in ["NSFW", "Music"] else False
-                    )
+                    query_flag = True if category not in ["NSFW", "Music"] else False
                     if "no_query" in tags:
                         query_flag = False
 
@@ -401,7 +399,9 @@ def main(src_dir=""):
                             save_path = "Music"
                             # 对于种子名在 [] 中包含歌手名-专辑名
                             if "format" in tags:
-                                singer_album = re.search(r"\[(.*?)\]", torrent.name).group(1)
+                                singer_album = re.search(
+                                    r"\[(.*?)\]", torrent.name
+                                ).group(1)
                                 singer, album = singer_album.split("-", 1)
                                 save_name = f"{singer}/{album}"
 
@@ -415,9 +415,7 @@ def main(src_dir=""):
                         elif category in ["Music"]:
                             google_drive = "GD-Music"
                         else:
-                            logger.error(
-                                f"Can not find drive for category {category}"
-                            )
+                            logger.error(f"Can not find drive for category {category}")
                             continue
                         google_drive_save_path = (
                             f"{google_drive}:/{save_path}/" + save_name
@@ -463,7 +461,9 @@ def main(src_dir=""):
                             else:
                                 # delete sample foler
                                 if "Sample" in rslt.stdout:
-                                    logger.info(f"Deleting sample folder in {torrent.name}")
+                                    logger.info(
+                                        f"Deleting sample folder in {torrent.name}"
+                                    )
                                     rslt = subprocess.run(
                                         [
                                             "rclone",
@@ -519,7 +519,7 @@ def main(src_dir=""):
                             to_handle = load_json("to_handle_media.json")
                         except:
                             to_handle = {}
-                        
+
                         handle_flag = True
                         dst_base_path = category
                         media_type = "tv"
@@ -530,14 +530,10 @@ def main(src_dir=""):
                             and "manual" not in tags
                         ):
                             dst_base_path = "TVShows"
-                            media_type = (
-                                "tv" if category == "TVShows" else "anime"
-                            )
+                            media_type = "tv" if category == "TVShows" else "anime"
                         # movie handle
                         elif is_movie:
-                            dst_base_path = (
-                                category if not is_nc17 else "NC17-Movies"
-                            )
+                            dst_base_path = category if not is_nc17 else "NC17-Movies"
                             media_type = "movie"
                         # nsfw handle
                         elif category == "NSFW":
@@ -573,14 +569,12 @@ def main(src_dir=""):
                                             "src": f"/Media/{save_path}/{save_name}",
                                             "media_type": media_type,
                                             "dst": f"/Media/{dst_base_path}",
-                                            "offset": offset
+                                            "offset": offset,
                                         }
                                     }
                                 )
                             else:
-                                logger.info(
-                                    f"Processed {torrent.name} successfully"
-                                )
+                                logger.info(f"Processed {torrent.name} successfully")
                         # 处理遗留的
                         if to_handle:
                             _ = deepcopy(to_handle)
@@ -600,9 +594,7 @@ def main(src_dir=""):
                                         text=f"Failed to do auto management for `{t}`, try again later……",
                                     )
                                 else:
-                                    logger.info(
-                                        f"Processed {t} successfully"
-                                    )
+                                    logger.info(f"Processed {t} successfully")
                                     del to_handle[t]
 
                         # 更新

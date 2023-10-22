@@ -14,13 +14,13 @@ from log import logger
 class Plex:
     """class Plex"""
 
-    def __init__(self, base_url: str=PLEX_BASE_URL, token: str=PLEX_API_TOKEN):
+    def __init__(self, base_url: str = PLEX_BASE_URL, token: str = PLEX_API_TOKEN):
         self.plex_server = PlexServer(baseurl=base_url, token=token)
 
     def get_section_by_location(self, location: str) -> Optional[Section]:
         for section in self.plex_server.library.sections():
             for loc in section.locations:
-                if re.search(fr"{loc}", location):
+                if re.search(rf"{loc}", location):
                     return section
 
         return None
@@ -52,4 +52,3 @@ class Plex:
             else:
                 logger.info(f"Sent scan request successfully: {path}")
                 break
-

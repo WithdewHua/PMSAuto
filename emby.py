@@ -10,16 +10,20 @@ from settings import EMBY_BASE_URL, EMBY_API_TOKEN
 from log import logger
 
 
-class Emby():
+class Emby:
     "Emby Class"
 
-    def __init__(self, base_url: str = EMBY_BASE_URL, token: str = EMBY_API_TOKEN) -> None:
+    def __init__(
+        self, base_url: str = EMBY_BASE_URL, token: str = EMBY_API_TOKEN
+    ) -> None:
         self.token = token
         self.base_url = base_url
 
     @property
     def libraries(self) -> List[Dict[str, str]]:
-        res = requests.get(f"{self.base_url}/Library/SelectableMediaFolders?api_key={self.token}")
+        res = requests.get(
+            f"{self.base_url}/Library/SelectableMediaFolders?api_key={self.token}"
+        )
         if res.status_code != requests.codes.ok:
             logger.error(f"Error: fail to get libraries: {res.text}")
             res.raise_for_status()
@@ -45,23 +49,16 @@ class Emby():
         if not lib:
             logger.warning(f"Warning: library not found for {path}")
             return
-        payload = {
-            "Updates": [
-                {
-                    "Path": path,
-                    "UpdateType": "Created"
-                }
-            ]
-        }
+        payload = {"Updates": [{"Path": path, "UpdateType": "Created"}]}
 
         headers = {"Content-Type": "application/json"}
 
         while True:
             try:
                 res = requests.post(
-                    url=f"{self.base_url}/Library/Media/Updated?api_key={self.token}", 
-                    data=json.dumps(payload), 
-                    headers=headers
+                    url=f"{self.base_url}/Library/Media/Updated?api_key={self.token}",
+                    data=json.dumps(payload),
+                    headers=headers,
                 )
                 res.raise_for_status()
             except (requests.Timeout, requests.ConnectionError) as e:
@@ -75,4 +72,3 @@ class Emby():
             else:
                 logger.info(f"Sent scan request successfully: {path}")
                 break
-

@@ -238,7 +238,7 @@ def handle_tvshow(
 
     # remove unuseful files
     if not re.search(
-        r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb|avi", filename_suffix, re.IGNORECASE
+        r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb|avi|nfo", filename_suffix, re.IGNORECASE
     ):
         if not dryrun:
             os.remove(filepath)
@@ -339,7 +339,9 @@ def remove_small_files(root_dir_path, threshold=128 * 1024 * 1024, dryrun=False)
                 logger.info("Removed file: " + filepath + f", size {size}")
 
 
-def handle_movie(parent_dir_path, filename, tmdb_id="", nogroup=False, group="", dryrun=False):
+def handle_movie(
+    parent_dir_path, filename, tmdb_id="", nogroup=False, group="", dryrun=False
+):
     if re.search(r"tmdb-\d+", os.path.basename(parent_dir_path)):
         tmdb_name = os.path.basename(parent_dir_path)
     else:
@@ -394,6 +396,7 @@ def handle_movie(parent_dir_path, filename, tmdb_id="", nogroup=False, group="",
         "flv",
         "rmvb",
         "avi",
+        "nfo",
     ]:
         if not dryrun:
             os.remove(filepath)
@@ -436,7 +439,7 @@ def handle_movie(parent_dir_path, filename, tmdb_id="", nogroup=False, group="",
         new_filename += f" - {filename_pre}"
 
     new_filename += f".{filename_suffix}"
-     
+
     if is_filename_length_gt_255(new_filename):
         new_filename = filename
 
@@ -605,7 +608,7 @@ def media_handle(
         # or use basename of folder
         else:
             media_name = os.path.basename(media_path)
-        
+
     # folder to send scan request
     scan_folders = []
 
@@ -626,7 +629,12 @@ def media_handle(
                     logger.info(f"No need to handle {file}, skip...")
                     continue
                 rslt = handle_movie(
-                    dir, file, tmdb_id=tmdb_id, nogroup=nogroup, group=group, dryrun=dryrun
+                    dir,
+                    file,
+                    tmdb_id=tmdb_id,
+                    nogroup=nogroup,
+                    group=group,
+                    dryrun=dryrun,
                 )
                 if rslt is False:
                     logger.error("Process failed: " + os.path.join(dir, file))
@@ -646,7 +654,9 @@ def media_handle(
                             os.path.join(dst_path, dir_name, os.path.basename(rslt)),
                         )
                         scan_folders.append(os.path.join(dst_path, dir_name))
-                        logger.debug(f"Added scan folder: {os.path.join(dst_path, dir_name)}")
+                        logger.debug(
+                            f"Added scan folder: {os.path.join(dst_path, dir_name)}"
+                        )
                     logger.info(
                         f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
                     )
@@ -729,7 +739,7 @@ def media_handle(
         for scan_info in set(scan_folders):
             for server in media_server:
                 server.scan(path=scan_info)
-        
+
 
 if __name__ == "__main__":
     args = parse()
