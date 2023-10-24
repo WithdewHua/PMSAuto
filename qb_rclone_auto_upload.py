@@ -70,7 +70,7 @@ def main(src_dir=""):
     while True:
         try:
             for torrent in qbt_client.torrents_info():
-                if torrent.progress == 1:
+                if torrent.progress == 1 or torrent.state in ["uploading", "forcedUP"]:
                     # get torrent's tags
                     tags = torrent.tags.split(", ")
                     if "" in tags:
