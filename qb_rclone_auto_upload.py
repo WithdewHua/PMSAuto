@@ -69,6 +69,12 @@ def main(src_dir=""):
     # retrieve torrents filtered by tag
     while True:
         try:
+            # 上传完的种子但没有处理的种子
+            try:
+                to_handle = load_json("to_handle_media.json")
+            except:
+                to_handle = {}
+
             for torrent in qbt_client.torrents_info():
                 if torrent.progress == 1 or torrent.state in ["uploading", "forcedUP"]:
                     # get torrent's tags
@@ -514,12 +520,6 @@ def main(src_dir=""):
                                 text=f"`{save_name if save_name else torrent.name}` 已入库",
                             )
 
-                        # 处理上传完的种子
-                        try:
-                            to_handle = load_json("to_handle_media.json")
-                        except:
-                            to_handle = {}
-
                         handle_flag = True
                         dst_base_path = category
                         media_type = "tv"
@@ -575,30 +575,6 @@ def main(src_dir=""):
                                 )
                             else:
                                 logger.info(f"Processed {torrent.name} successfully")
-                        # 处理遗留的
-                        if to_handle:
-                            _ = deepcopy(to_handle)
-                            for t, t_info in _.items():
-                                try:
-                                    logger.info(f"Processing {t} starts")
-                                    media_handle(
-                                        t_info.get("src"),
-                                        media_type=t_info.get("media_type"),
-                                        dst_path=t_info.get("dst"),
-                                        offset=t_info.get("offset"),
-                                    )
-                                except Exception as e:
-                                    logger.error(f"Exception happens: {e}")
-                                    send_tg_msg(
-                                        chat_id=TG_CHAT_ID,
-                                        text=f"Failed to do auto management for `{t}`, try again later……",
-                                    )
-                                else:
-                                    logger.info(f"Processed {t} successfully")
-                                    del to_handle[t]
-
-                        # 更新
-                        dump_json(to_handle, "to_handle_media.json")
 
                         # media_info handle
                         # add
@@ -632,6 +608,32 @@ def main(src_dir=""):
                             f"{torrent.name} is in {torrent.state} ({torrent.progress * 100}%), skipping"
                         )
                     continue
+
+            # 处理遗留的
+            if to_handle:
+                _ = deepcopy(to_handle)
+                for t, t_info in _.items():
+                    try:
+                        logger.info(f"Processing {t} starts")
+                        media_handle(
+                            t_info.get("src"),
+                            media_type=t_info.get("media_type"),
+                            dst_path=t_info.get("dst"),
+                            offset=t_info.get("offset"),
+                        )
+                    except Exception as e:
+                        logger.error(f"Exception happens: {e}")
+                        send_tg_msg(
+                            chat_id=TG_CHAT_ID,
+                            text=f"Failed to do auto management for `{t}`, try again later……",
+                        )
+                    else:
+                        logger.info(f"Processed {t} successfully")
+                        del to_handle[t]
+
+            # 更新
+            dump_json(to_handle, "to_handle_media.json")
+
         except Exception as e:
             logger.exception(e)
             time.sleep(60)
