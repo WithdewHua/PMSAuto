@@ -6,7 +6,7 @@ from emby import Emby
 
 src_path = "/Media/Inbox/NSFW/Done"
 dst_path = "/Media/NSFW"
-limit = 20
+limit = 100
 
 src_dirs = os.listdir(src_path)
 dst_dirs = os.listdir(dst_path)
@@ -48,15 +48,16 @@ for src_dir in src_dirs:
                 logger.info(f"Processed {count} movies")
                 scan_folders.append(os.path.join(dst_path, src_dir))
                 logger.info(f"Added scan folder {os.path.join(dst_path, src_dir)}")
-    if count > limit:
-        break
+    # if count > limit:
+    #     break
 
 
 # send scan request
+sleep(180)
 plex = Plex()
 emby = Emby()
 for folder in set(scan_folders):
     logger.info(f"Sending scan request for {folder}")
     for media_server in [plex, emby]:
         media_server.scan(folder)
-    sleep(10)
+    sleep(30)
