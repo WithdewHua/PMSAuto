@@ -555,6 +555,7 @@ def main(src_dir=""):
                                     media_type=media_type,
                                     dst_path=f"/Media/{dst_base_path}",
                                     offset=offset,
+                                    keep_nfo=True,
                                 )
                             except Exception as e:
                                 logger.error(f"Exception happens: {e}")
@@ -570,6 +571,7 @@ def main(src_dir=""):
                                             "media_type": media_type,
                                             "dst": f"/Media/{dst_base_path}",
                                             "offset": offset,
+                                            "keep_nfo": True,
                                         }
                                     }
                                 )
@@ -620,6 +622,7 @@ def main(src_dir=""):
                             media_type=t_info.get("media_type"),
                             dst_path=t_info.get("dst"),
                             offset=t_info.get("offset"),
+                            keep_nfo=t_info.get("keep_nfo"),
                         )
                     except Exception as e:
                         logger.error(f"Exception happens: {e}")

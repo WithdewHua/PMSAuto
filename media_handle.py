@@ -39,6 +39,7 @@ def parse():
         "-T", "--media_type", choices=["movie", "tv", "anime"], help="Set video type"
     )
     parser.add_argument("--tmdb_id", default="", help="TMDB ID")
+    parser.add_argument("--keep_nfo", action="store_true", help="Keep NFO files")
 
     return parser.parse_args()
 
@@ -218,6 +219,7 @@ def handle_tvshow(
     nogroup=False,
     dryrun=False,
     offset=0,
+    keep_nfo=False,
 ):
     (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
         parent_dir_path, filename
@@ -231,75 +233,91 @@ def handle_tvshow(
     else:
         raise Exception(f"No season found: {filepath}")
 
-    # 避免重复修改
-    if re.search(r"tmdb-\d+", filename):
-        logger.info(f"{filename} contains TMDB ID, Skipping")
-        return True
-
     # remove unuseful files
-    if not re.search(
-        r"srt|ass|ssa|sup|mkv|ts|mp4|flv|rmvb|avi|nfo", filename_suffix, re.IGNORECASE
-    ):
+    keep_file_suffix = [
+        "srt",
+        "ass",
+        "ssa",
+        "sup",
+        "mkv",
+        "ts",
+        "mp4",
+        "flv",
+        "rmvb",
+        "avi",
+    ]
+    if keep_nfo:
+        keep_file_suffix.append("nfo")
+    if not re.search(r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE):
         if not dryrun:
             os.remove(filepath)
         logger.info("Removed file: " + filepath)
         return True
 
-    try:
-        (
-            episode,
-            web_source,
-            resolution,
-            medium,
-            frame,
-            codec,
-            audio,
-            version,
-            _group,
-        ) = get_media_info_from_filename(
-            filename_pre,
-            media_type=media_type,
-            regex=regex,
-            nogroup=nogroup,
-            group=group,
-        )
-    except Exception as e:
-        logger.error(e)
-        return False
-    # new file name with file extension
-    new_filename = (
-        media_name
-        + " - "
-        + f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
-    )
-
-    if version:
-        new_filename += f" [{version}]" if "edition-" not in version else f" {version}"
-    if not ORIGIN_NAME:
-        if web_source:
-            new_filename += f" [{web_source}]"
-        if resolution:
-            new_filename += f" [{resolution}]"
-        if medium:
-            new_filename += f" [{' '.join(medium)}]"
-        if frame:
-            new_filename += f" [{frame}]"
-        if codec:
-            new_filename += f" [{' '.join(codec)}]"
-        if audio:
-            new_filename += f" [{' '.join(audio)}]"
-        if _group:
-            new_filename += f" [{_group}]"
+    # 原文件中已经包含 tmdb id
+    if re.search(r"tmdb-\d+", filename):
+        new_filename = re.sub(r".*{tmdb-\d+}", media_name, filename)
+        if new_filename == filename:
+            logger.warning(f"{filename}'s name does not change, skipping...")
+            return True
     else:
-        new_filename += f" - {filename_pre}"
-
-    new_filename += f".{filename_suffix}"
-    if is_filename_length_gt_255(new_filename):
+        try:
+            (
+                episode,
+                web_source,
+                resolution,
+                medium,
+                frame,
+                codec,
+                audio,
+                version,
+                _group,
+            ) = get_media_info_from_filename(
+                filename_pre,
+                media_type=media_type,
+                regex=regex,
+                nogroup=nogroup,
+                group=group,
+            )
+        except Exception as e:
+            logger.error(e)
+            return False
+        # new file name with file extension
         new_filename = (
-            f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+            media_name
             + " - "
-            + filename
+            + f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
         )
+
+        if version:
+            new_filename += (
+                f" [{version}]" if "edition-" not in version else f" {version}"
+            )
+        if not ORIGIN_NAME:
+            if web_source:
+                new_filename += f" [{web_source}]"
+            if resolution:
+                new_filename += f" [{resolution}]"
+            if medium:
+                new_filename += f" [{' '.join(medium)}]"
+            if frame:
+                new_filename += f" [{frame}]"
+            if codec:
+                new_filename += f" [{' '.join(codec)}]"
+            if audio:
+                new_filename += f" [{' '.join(audio)}]"
+            if _group:
+                new_filename += f" [{_group}]"
+        else:
+            new_filename += f" - {filename_pre}"
+
+        new_filename += f".{filename_suffix}"
+        if is_filename_length_gt_255(new_filename):
+            new_filename = (
+                f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+                + " - "
+                + filename
+            )
 
     rename_media(parent_dir_path, filename, new_filename, dryrun=dryrun)
 
@@ -340,14 +358,55 @@ def remove_small_files(root_dir_path, threshold=128 * 1024 * 1024, dryrun=False)
 
 
 def handle_movie(
-    parent_dir_path, filename, tmdb_id="", nogroup=False, group="", dryrun=False
+    parent_dir_path,
+    filename,
+    tmdb_id="",
+    nogroup=False,
+    group="",
+    keep_nfo=False,
+    dryrun=False,
 ):
-    if re.search(r"tmdb-\d+", os.path.basename(parent_dir_path)):
-        tmdb_name = os.path.basename(parent_dir_path)
-    else:
-        if re.search(r"tmdb-\d+", filename):
-            logger.info(f"{filename} contains TMDB ID, Skipping")
+    # 初始化 tmdb
+    tmdb_name = ""
+    tmdb = TMDB(movie=True)
+
+    (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
+        parent_dir_path, filename
+    )
+
+    keep_file_suffix = [
+        "srt",
+        "ass",
+        "ssa",
+        "sup",
+        "mkv",
+        "ts",
+        "mp4",
+        "flv",
+        "rmvb",
+        "avi",
+    ]
+    if keep_nfo:
+        keep_file_suffix.append("nfo")
+    # remove unuseful files
+    if filename_suffix.lower() not in keep_file_suffix:
+        if not dryrun:
+            os.remove(filepath)
+        logger.info("Removed file: " + filepath)
+        return True
+
+    if re.search(r"tmdb-\d+", filename):
+        if not tmdb_id:
+            logger.warning(
+                f"{filename} contains tmdb id, please specify tmdb_id to update"
+            )
+            return False
+        tmdb_name = tmdb.get_name_from_tmdb_by_id(tmdb_id)
+        new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, filename)
+        if new_filename == filename:
+            logger.warning(f"{filename}'s name does not change, skipping...")
             return True
+    else:
         match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", filename)
         if not match:
             logger.error("Failed to get correct formatted name")
@@ -358,8 +417,7 @@ def handle_movie(
             r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
             name,
         )
-        tmdb_name = ""
-        tmdb = TMDB(movie=True)
+
         if tmdb_id:
             tmdb_name = tmdb.get_name_from_tmdb_by_id(tmdb_id)
         else:
@@ -377,71 +435,51 @@ def handle_movie(
                     query_dict={"query": name, "year": year}
                 )
 
-    if not tmdb_name:
-        logger.error(f"Failed to get info. for {filename} from TMDB")
-        return False
+        if not tmdb_name:
+            logger.error(f"Failed to get info. for {filename} from TMDB")
+            return False
 
-    (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
-        parent_dir_path, filename
-    )
-    # remove unuseful files
-    if filename_suffix.lower() not in [
-        "srt",
-        "ass",
-        "ssa",
-        "sup",
-        "mkv",
-        "ts",
-        "mp4",
-        "flv",
-        "rmvb",
-        "avi",
-        "nfo",
-    ]:
-        if not dryrun:
-            os.remove(filepath)
-        logger.info("Removed file: " + filepath)
-        return True
+        (
+            web_source,
+            resolution,
+            medium,
+            frame,
+            codec,
+            audio,
+            version,
+            _group,
+        ) = get_media_info_from_filename(
+            filename_pre, media_type="movie", nogroup=nogroup, group=group
+        )
+        # new file name with file extension
+        new_filename = tmdb_name
 
-    (
-        web_source,
-        resolution,
-        medium,
-        frame,
-        codec,
-        audio,
-        version,
-        _group,
-    ) = get_media_info_from_filename(
-        filename_pre, media_type="movie", nogroup=nogroup, group=group
-    )
-    # new file name with file extension
-    new_filename = tmdb_name
+        if version:
+            new_filename += (
+                f" [{version}]" if "edition-" not in version else f" {version}"
+            )
+        if not ORIGIN_NAME:
+            if web_source:
+                new_filename += f" [{web_source}]"
+            if resolution:
+                new_filename += f" [{resolution}]"
+            if medium:
+                new_filename += f" [{' '.join(medium)}]"
+            if frame:
+                new_filename += f" [{frame}]"
+            if codec:
+                new_filename += f" [{' '.join(codec)}]"
+            if audio:
+                new_filename += f" [{' '.join(audio)}]"
+            if _group:
+                new_filename += f" [{_group}]"
+        else:
+            new_filename += f" - {filename_pre}"
 
-    if version:
-        new_filename += f" [{version}]" if "edition-" not in version else f" {version}"
-    if not ORIGIN_NAME:
-        if web_source:
-            new_filename += f" [{web_source}]"
-        if resolution:
-            new_filename += f" [{resolution}]"
-        if medium:
-            new_filename += f" [{' '.join(medium)}]"
-        if frame:
-            new_filename += f" [{frame}]"
-        if codec:
-            new_filename += f" [{' '.join(codec)}]"
-        if audio:
-            new_filename += f" [{' '.join(audio)}]"
-        if _group:
-            new_filename += f" [{_group}]"
-    else:
-        new_filename += f" - {filename_pre}"
+        new_filename += f".{filename_suffix}"
 
-    new_filename += f".{filename_suffix}"
-
-    if is_filename_length_gt_255(new_filename):
-        new_filename = filename
+        if is_filename_length_gt_255(new_filename):
+            new_filename = filename
 
     parent_dir_name = os.path.basename(parent_dir_path)
 
@@ -539,6 +577,7 @@ def media_handle(
     tmdb_id="",
     dryrun=False,
     offset=0,
+    keep_nfo=False,
 ):
     """Media handler
 
@@ -554,6 +593,7 @@ def media_handle(
         tmdb_id (str, optional): tmdb id of media, if set, rename folder using tmdb name.
         dryrun (bool, optional): whether to do a dryrun or not. Defaults to False.
         offset (int, optional): offset for the episode number. Defaults to 0, which means no offset.
+        keep_nfo (bool, optional): keep nfo or not.
 
     Returns:
         bool: True if the media was handled, False otherwise
@@ -603,8 +643,13 @@ def media_handle(
             media_name = TMDB(movie=False).get_name_from_tmdb_by_id(tmdb_id)
         # rename folder
         if media_name:
-            _parent_root_dir = os.path.dirname(root)
-            root = rename_media(_parent_root_dir, media_name, name, dryrun=dryrun)
+            parent_media_dir = os.path.dirname(media_path)
+            media_basename = os.path.basename(media_path)
+            # 不移动时将文件夹改名
+            if not dst_path:
+                root = rename_media(
+                    parent_media_dir, media_basename, media_name, dryrun=dryrun
+                )
         # or use basename of folder
         else:
             media_name = os.path.basename(media_path)
@@ -634,6 +679,7 @@ def media_handle(
                     tmdb_id=tmdb_id,
                     nogroup=nogroup,
                     group=group,
+                    keep_nfo=False,
                     dryrun=dryrun,
                 )
                 if rslt is False:
@@ -661,7 +707,8 @@ def media_handle(
                         f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
                     )
         if not dryrun and dst_path:
-            remove_empty_folder(root=root, folders=[], remove_root_folder=True)
+            pass
+            # remove_empty_folder(root=root, folders=[], remove_root_folder=True)
         logger.info(f"Removed {root}")
     elif media_type in ["tv", "anime"]:
         for dir, subdir, files in os.walk(root):
@@ -682,6 +729,7 @@ def media_handle(
                     episode_bit=episode_bit,
                     dryrun=dryrun,
                     offset=offset,
+                    keep_nfo=keep_nfo,
                 )
                 if not rslt:
                     logger.warning(f"Process failed: {filename}")
@@ -696,7 +744,7 @@ def media_handle(
                     dst_file_full_path = os.path.join(
                         dst_path,
                         media_name,
-                        file_full_path.split(media_name, 1)[-1].strip("/"),
+                        file_full_path.split(os.path.basename(media_path), 1)[-1].strip("/"),
                     )
                     dst_dir_full_path = os.path.dirname(dst_file_full_path)
 
@@ -713,8 +761,9 @@ def media_handle(
                             logger.debug(f"Added scan folder: {dst_dir_full_path}")
                     logger.info(f"Moved {file_full_path} to {dst_file_full_path}")
             if not dryrun:
+                pass
                 # remove original media folder
-                remove_empty_folder(root=root, folders=[], remove_root_folder=True)
+                # remove_empty_folder(root=root, folders=[], remove_root_folder=True)
             logger.info(f"Removed {root}")
     elif media_type == "av":
         for dir, subdir, files in os.walk(root):
@@ -755,4 +804,5 @@ if __name__ == "__main__":
         tmdb_id=args.tmdb_id,
         dryrun=args.dryrun,
         offset=args.offset,
+        keep_nfo=args.keep_nfo,
     )
