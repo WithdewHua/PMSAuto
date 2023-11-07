@@ -291,7 +291,7 @@ def handle_tvshow(
 
         if version:
             new_filename += (
-                f" [{version}]" if "edition-" not in version else f" {version}"
+                f" - [{version}]" if "edition-" not in version else f" - {version}"
             )
         if not ORIGIN_NAME:
             if web_source:
@@ -456,7 +456,7 @@ def handle_movie(
 
         if version:
             new_filename += (
-                f" [{version}]" if "edition-" not in version else f" {version}"
+                f" - [{version}]" if "edition-" not in version else f" - {version}"
             )
         if not ORIGIN_NAME:
             if web_source:
@@ -744,7 +744,9 @@ def media_handle(
                     dst_file_full_path = os.path.join(
                         dst_path,
                         media_name,
-                        file_full_path.split(os.path.basename(media_path), 1)[-1].strip("/"),
+                        file_full_path.split(os.path.basename(media_path), 1)[-1].strip(
+                            "/"
+                        ),
                     )
                     dst_dir_full_path = os.path.dirname(dst_file_full_path)
 
