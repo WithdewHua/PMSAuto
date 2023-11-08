@@ -679,7 +679,7 @@ def media_handle(
                     tmdb_id=tmdb_id,
                     nogroup=nogroup,
                     group=group,
-                    keep_nfo=False,
+                    keep_nfo=keep_nfo,
                     dryrun=dryrun,
                 )
                 if rslt is False:
