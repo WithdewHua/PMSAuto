@@ -14,22 +14,25 @@ from settings import RC_ADDR
 
 
 # ------------配置项开始------------------
-UUID = time.time()
-
 # Account目录
 sa_json_folder = r"/root/.config/rclone/accounts"  # 绝对目录，最后没有 '/'，路径中不要有空格
 
 # Rclone运行命令相关
+# > 更新 rc 地址
+if not RC_ADDR:
+    rc_addr = "localhost:5572"
+else:
+    rc_addr = RC_ADDR if not re.match("^:", RC_ADDR) else f"localhost{RC_ADDR}"
 src_path = "/home/tomove"
 dest_path = "/tmp"
-rclone_log_file = f"/tmp/rclone_{UUID}.log"
+rclone_log_file = f"/tmp/rclone_{rc_addr}.log"
 
 # 检查rclone间隔 (s)
 check_after_start = 15  # 在拉起rclone进程后，休息xxs后才开始检查rclone状态，防止 rclone rc core/stats 报错退出
 check_interval = 5  # 主进程每次进行rclone rc core/stats检查的间隔
 
 # rclone帐号更换监测条件
-switch_sa_level = 1  # 需要满足的规则条数，数字越大切换条件越严格，一定小于下面True（即启用）的数量，即 1 - 4(max)
+switch_sa_level = 2  # 需要满足的规则条数，数字越大切换条件越严格，一定小于下面True（即启用）的数量，即 1 - 4(max)
 switch_sa_rules = {
     "up_than_750": True,  # 当前帐号已经传过750G
     "error_user_rate_limit": True,  # Rclone 直接提示rate limit错误
@@ -47,11 +50,12 @@ rclone_config_path = "/root/.config/rclone/rclone.conf"  # Rclone 配置文件�
 rclone_dest_name = "GoogleDrive"  # Rclone目的地名称（与cmd_rclone中对应相同，并保证SA均已添加）
 
 # 本脚本临时文件
-instance_lock_path = f"/tmp/autorclone_{UUID}.lock"
-instance_config_path = f"/tmp/autorclone_{UUID}.conf"
+# > 文件锁
+instance_lock_path = f"/tmp/autorclone_{rc_addr}.lock"
+instance_config_path = f"/tmp/autorclone_{rc_addr}.conf"
 
 # 本脚本运行日志
-script_log_file = f"/tmp/autorclone_{UUID}.log"
+script_log_file = f"/tmp/autorclone_{rc_addr}.log"
 logging_datefmt = "%m/%d/%Y %H:%M:%S"
 logging_format = "[%(asctime)s][%(levelname)s]<%(funcName)s>: %(message)s"
 
@@ -160,29 +164,26 @@ def auto_rclone(src_path, dest_path):
 
         # 加载instance配置
         if os.path.exists(instance_config_path):
-            logger.info("Instance config exist, Load it...")
+            logger.info(f"Instance config {instance_config_path} exist, Load it...")
             config_raw = open(instance_config_path).read()
             instance_config = json.loads(config_raw)
 
         # 对上次记录的pid信息进行检查
         if "last_pid" in instance_config:
             last_pid = instance_config.get("last_pid")
-            logger.debug("Last PID exist, Start to check if it is still alive")
+            logger.debug(
+                f"Last PID {last_pid} exist, Start to check if it is still alive"
+            )
             force_kill_rclone_subproc_by_parent_pid(last_pid)
 
         # 对上次记录的sa信息进行检查，如果有的话，重排sa_jsons
         # 这样我们就每次都从一个新的750G开始了
         last_sa = instance_config.get("last_sa", "")
         if last_sa in sa_jsons:
-            logger.info("Get `last_sa` from config, resort list `sa_jsons`")
+            logger.info(f"Get `last_sa` {last_sa} from config, resort list `sa_jsons`")
             last_sa_index = sa_jsons.index(last_sa)
             sa_jsons = sa_jsons[last_sa_index:] + sa_jsons[:last_sa_index]
 
-        # 更新 rc 地址
-        if not RC_ADDR:
-            rc_addr = "localhost:5572"
-        else:
-            rc_addr = RC_ADDR if not re.match("^:", RC_ADDR) else f"localhost{RC_ADDR}"
         cmd_rclone = f'rclone copy "{src_path}" "{dest_path}" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {rc_addr}'
 
         # 帐号切换循环
@@ -197,9 +198,8 @@ def auto_rclone(src_path, dest_path):
 
             # 切换Rclone运行命令
             if switch_sa_way == "config":
-                pass
                 # switch_sa_by_config(current_sa)
-                # cmd_rclone_current_sa = cmd_rclone
+                cmd_rclone_current_sa = cmd_rclone
             else:
                 # 默认情况视为`runtime`，附加'--drive-service-account-file'参数
                 cmd_rclone_current_sa = (
