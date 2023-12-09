@@ -215,7 +215,7 @@ def main(src_dir=""):
                         # GoogleDrive's default base save path
                         save_path = "Inbox" + "/" + category
                         # default save name
-                        save_name = torrent.name
+                        save_name = tmdb_name or torrent.name
 
                         season = ""
                         # get year from tag
