@@ -408,10 +408,14 @@ def main(src_dir=""):
                             save_path = "Music"
                             # 对于种子名在 [] 中包含歌手名-专辑名
                             if "format" in tags:
-                                singer_album = re.search(
+                                singer_album_match = re.search(
                                     r"\[(.*?)\]", torrent.name
-                                ).group(1)
-                                singer, album = singer_album.split("-", 1)
+                                )
+                                if singer_album_match:
+                                    singer_album = singer_album_match.group(1)
+                                    singer, album = singer_album.split("-", 1)
+                                else:
+                                    singer, album = torrent.name.split("-", 1)
                                 save_name = f"{singer}/{album}"
 
                         # full path in GoogleDrive
