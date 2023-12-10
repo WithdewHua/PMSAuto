@@ -416,6 +416,8 @@ def main(src_dir=""):
                                     singer, album = singer_album.split("-", 1)
                                 else:
                                     singer, album = torrent.name.split("-", 1)
+                                singer = singer.strip()
+                                album = album.strip()
                                 save_name = f"{singer}/{album}"
 
                         # full path in GoogleDrive
