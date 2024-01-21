@@ -684,7 +684,8 @@ def media_handle(
                 )
                 if rslt is False:
                     logger.error("Process failed: " + os.path.join(dir, file))
-                    continue
+                    # continue
+                    raise
                 elif (not isinstance(rslt, bool)) and dst_path:
                     dir_name = os.path.basename(os.path.dirname(rslt))
                     if not dryrun:
@@ -732,9 +733,9 @@ def media_handle(
                     keep_nfo=keep_nfo,
                 )
                 if not rslt:
-                    logger.warning(f"Process failed: {filename}")
-                    # break
-                    continue
+                    logger.error(f"Process failed: {filename}")
+                    # continue
+                    raise
         # move to destination path
         if dst_path:
             # move file one by one

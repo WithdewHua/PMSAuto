@@ -564,6 +564,7 @@ def main(src_dir=""):
                                     media_type=media_type,
                                     dst_path=f"/Media/{dst_base_path}",
                                     offset=offset,
+                                    tmdb_id=tmdb_id,
                                     keep_nfo=True,
                                 )
                             except Exception as e:
