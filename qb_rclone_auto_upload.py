@@ -273,7 +273,7 @@ def main(src_dir=""):
                                         year = int(year) - int(season) + 1
                                 tmdb_name = (
                                     tmdb.get_name_from_tmdb(
-                                        {"query": name, "first_air_date_year": year},
+                                        {"query": name, "first_air_date_year": int(year)},
                                         year_deviation=tv_year_deviation,
                                     )
                                     if not local_record

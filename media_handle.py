@@ -412,7 +412,7 @@ def handle_movie(
             logger.error("Failed to get correct formatted name")
             return False
         name = " ".join(match.group(2).strip(".").split("."))
-        year = match.group(3)
+        year = int(match.group(3))
         cn_match = re.match(
             r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
             name,
