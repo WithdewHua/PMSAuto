@@ -271,14 +271,14 @@ def main(src_dir=""):
                                     )
                                     if season and int(season) != 1:
                                         year = int(year) - int(season) + 1
-                                tmdb_name, tmdb_id = (
-                                    tmdb.get_name_from_tmdb(
-                                        {"query": name, "first_air_date_year": int(year)},
+                                if not local_record:
+                                    tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
+                                        {
+                                            "query": name,
+                                            "first_air_date_year": int(year),
+                                        },
                                         year_deviation=tv_year_deviation,
                                     )
-                                    if not local_record
-                                    else tmdb_name
-                                )
                                 save_name = torrent.name if not tmdb_name else tmdb_name
                             # 一般种子
                             else:
@@ -294,14 +294,15 @@ def main(src_dir=""):
                                     )
                                     if cn_match:
                                         if query_flag:
-                                            if local_record:
-                                                tmdb_name = tmdb_name
-                                            else:
+                                            if not local_record:
                                                 # query tmdb with chinese or other language
                                                 for i in range(2):
                                                     _g = i + 1
                                                     if is_movie:
-                                                        tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
+                                                        (
+                                                            tmdb_name,
+                                                            tmdb_id,
+                                                        ) = tmdb.get_name_from_tmdb(
                                                             {
                                                                 "query": cn_match.group(
                                                                     _g
@@ -321,7 +322,10 @@ def main(src_dir=""):
                                                                 - int(season)
                                                                 + 1
                                                             )
-                                                        tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
+                                                        (
+                                                            tmdb_name,
+                                                            tmdb_id,
+                                                        ) = tmdb.get_name_from_tmdb(
                                                             {
                                                                 "query": cn_match.group(
                                                                     _g
@@ -341,29 +345,31 @@ def main(src_dir=""):
                                         )
                                     else:
                                         if query_flag:
-                                            if is_movie:
-                                                tmdb_name, tmdb_id = (
-                                                    tmdb_name
-                                                    if local_record
-                                                    else tmdb.get_name_from_tmdb(
+                                            if not local_record:
+                                                if is_movie:
+                                                    (
+                                                        tmdb_name,
+                                                        tmdb_id,
+                                                    ) = tmdb.get_name_from_tmdb(
                                                         {
                                                             "query": name,
                                                             "year": int(year),
                                                         },
                                                         year_deviation=movie_year_deviation,
                                                     )
-                                                )
-                                            else:
-                                                if (
-                                                    not year_tag
-                                                    and season
-                                                    and int(season) != 1
-                                                ):
-                                                    year = int(year) - int(season) + 1
-                                                tmdb_name, tmdb_id = (
-                                                    tmdb_name
-                                                    if local_record
-                                                    else tmdb.get_name_from_tmdb(
+                                                else:
+                                                    if (
+                                                        not year_tag
+                                                        and season
+                                                        and int(season) != 1
+                                                    ):
+                                                        year = (
+                                                            int(year) - int(season) + 1
+                                                        )
+                                                    (
+                                                        tmdb_name,
+                                                        tmdb_id,
+                                                    ) = tmdb.get_name_from_tmdb(
                                                         {
                                                             "query": name,
                                                             "first_air_date_year": int(
@@ -372,12 +378,11 @@ def main(src_dir=""):
                                                         },
                                                         year_deviation=tv_year_deviation,
                                                     )
-                                                )
-                                        save_name = (
-                                            name + " " + f"({year})"
-                                            if not tmdb_name
-                                            else tmdb_name
-                                        )
+                                            save_name = (
+                                                name + " " + f"({year})"
+                                                if not tmdb_name
+                                                else tmdb_name
+                                            )
 
                         # stop if rename fail
                         if (
