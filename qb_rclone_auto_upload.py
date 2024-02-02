@@ -271,7 +271,7 @@ def main(src_dir=""):
                                     )
                                     if season and int(season) != 1:
                                         year = int(year) - int(season) + 1
-                                tmdb_name = (
+                                tmdb_name, tmdb_id = (
                                     tmdb.get_name_from_tmdb(
                                         {"query": name, "first_air_date_year": int(year)},
                                         year_deviation=tv_year_deviation,
@@ -301,7 +301,7 @@ def main(src_dir=""):
                                                 for i in range(2):
                                                     _g = i + 1
                                                     if is_movie:
-                                                        tmdb_name = tmdb.get_name_from_tmdb(
+                                                        tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
                                                             {
                                                                 "query": cn_match.group(
                                                                     _g
@@ -321,7 +321,7 @@ def main(src_dir=""):
                                                                 - int(season)
                                                                 + 1
                                                             )
-                                                        tmdb_name = tmdb.get_name_from_tmdb(
+                                                        tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
                                                             {
                                                                 "query": cn_match.group(
                                                                     _g
@@ -342,7 +342,7 @@ def main(src_dir=""):
                                     else:
                                         if query_flag:
                                             if is_movie:
-                                                tmdb_name = (
+                                                tmdb_name, tmdb_id = (
                                                     tmdb_name
                                                     if local_record
                                                     else tmdb.get_name_from_tmdb(
@@ -360,7 +360,7 @@ def main(src_dir=""):
                                                     and int(season) != 1
                                                 ):
                                                     year = int(year) - int(season) + 1
-                                                tmdb_name = (
+                                                tmdb_name, tmdb_id = (
                                                     tmdb_name
                                                     if local_record
                                                     else tmdb.get_name_from_tmdb(
@@ -582,6 +582,7 @@ def main(src_dir=""):
                                             "dst": f"/Media/{dst_base_path}",
                                             "offset": offset,
                                             "keep_nfo": True,
+                                            "tmdb_id": tmdb_id,
                                         }
                                     }
                                 )
@@ -633,6 +634,7 @@ def main(src_dir=""):
                             dst_path=t_info.get("dst"),
                             offset=t_info.get("offset"),
                             keep_nfo=t_info.get("keep_nfo"),
+                            tmdb_id=t_info.get("tmdb_id"),
                         )
                     except Exception as e:
                         logger.error(f"Exception happens: {e}")

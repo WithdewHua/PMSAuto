@@ -425,13 +425,13 @@ def handle_movie(
                 # 分别用中文和英文进行查询
                 for i in range(2):
                     name = cn_match.group(i + 1)
-                    tmdb_name = tmdb.get_name_from_tmdb(
+                    tmdb_name, _ = tmdb.get_name_from_tmdb(
                         query_dict={"query": name, "year": year}
                     )
                     if tmdb_name:
                         break
             else:
-                tmdb_name = tmdb.get_name_from_tmdb(
+                tmdb_name, _ = tmdb.get_name_from_tmdb(
                     query_dict={"query": name, "year": year}
                 )
 
@@ -574,7 +574,7 @@ def media_handle(
     name="",
     nogroup=False,
     episode_bit=2,
-    tmdb_id="",
+    tmdb_id=None,
     dryrun=False,
     offset=0,
     keep_nfo=False,
@@ -590,7 +590,7 @@ def media_handle(
         name (str, optional): rename the show's root folder. Defaults to "".
         nogroup (bool, optional): whether to set the group or not. Defaults to False.
         episode_bit (int, optional): number of bits to use for the episode number. Defaults to 2.
-        tmdb_id (str, optional): tmdb id of media, if set, rename folder using tmdb name.
+        tmdb_id (str | None | int, optional): tmdb id of media, if set, rename folder using tmdb name.
         dryrun (bool, optional): whether to do a dryrun or not. Defaults to False.
         offset (int, optional): offset for the episode number. Defaults to 0, which means no offset.
         keep_nfo (bool, optional): keep nfo or not.
@@ -604,7 +604,7 @@ def media_handle(
     if os.path.isfile(root):
         isfile = True
         root = os.path.dirname(root)
-    tmdb_id = str(tmdb_id)
+    tmdb_id = str(tmdb_id) if tmdb_id is not None else ""
     # modify season name as Season XX
     if media_type not in ["movie", "av"]:
         if isfile:

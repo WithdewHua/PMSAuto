@@ -117,7 +117,7 @@ class TMDB:
                 logger.exception(e)
                 retry += 1
                 continue
-        return name.replace("/", "／")
+        return name.replace("/", "／"), self.tmdb_id
 
     def get_name_from_tmdb_by_id(self, tmdb_id: str) -> str:
         tmdb_name = ""
