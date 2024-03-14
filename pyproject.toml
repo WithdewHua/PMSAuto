@@ -1,0 +1,35 @@
+[project]
+name = "pmsauto"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "WithdewHua", email = "i@10101.io" }
+]
+dependencies = [
+    "qbittorrent-api==2023.7.52",
+    "anitopy==2.1.1",
+    "psutil==5.9.5",
+    "filelock==3.12.3",
+    "tmdbv3api==1.7.7",
+    "plexapi==4.15.1",
+    "urllib3==1.26.9",
+    "requests==2.31.0",
+    "apscheduler>=3.10.4",
+    "sqlalchemy>=2.0.28",
+]
+readme = "README.md"
+requires-python = ">= 3.10"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
