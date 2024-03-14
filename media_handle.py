@@ -799,6 +799,7 @@ def media_handle(
             trigger="date",
             run_date=datetime.datetime.now() + datetime.timedelta(minutes=3),
         )
+        logger.debug("Added scheduler job")
 
 
 if __name__ == "__main__":
