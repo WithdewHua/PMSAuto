@@ -794,12 +794,14 @@ def media_handle(
 
     if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
         # 120s 后执行, 尽量避免 rclone 未更新导致路径找不到
+        run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
         scheduler.add_job(
             __send_scan_request,
             trigger="date",
-            run_date=datetime.datetime.now() + datetime.timedelta(minutes=3),
+            run_date=run_date,
+            misfire_grace_time=60,
         )
-        logger.debug("Added scheduler job")
+        logger.debug(f"Added scheduler job: next run at {str(run_date)}")
 
 
 if __name__ == "__main__":
