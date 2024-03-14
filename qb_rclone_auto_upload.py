@@ -414,7 +414,7 @@ def main(src_dir=""):
                             # 对于种子名在 [] 中包含歌手名-专辑名
                             if "format" in tags:
                                 singer_album_match = re.search(
-                                    r"\[(.*?)\]", torrent.name
+                                    r"^\[(.*?)\]", torrent.name
                                 )
                                 if singer_album_match:
                                     singer_album = singer_album_match.group(1)
