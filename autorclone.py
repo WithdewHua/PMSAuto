@@ -15,7 +15,9 @@ from settings import RC_ADDR
 
 # ------------配置项开始------------------
 # Account目录
-sa_json_folder = r"/root/.config/rclone/accounts"  # 绝对目录，最后没有 '/'，路径中不要有空格
+sa_json_folder = (
+    r"/root/.config/rclone/accounts"  # 绝对目录，最后没有 '/'，路径中不要有空格
+)
 
 # Rclone运行命令相关
 # > 更新 rc 地址
@@ -47,7 +49,9 @@ switch_sa_way = "runtime"
 
 # rclone配置参数 （当且仅当 switch_sa_way 为 `config` 时使用，且需要修改）
 rclone_config_path = "/root/.config/rclone/rclone.conf"  # Rclone 配置文件位置
-rclone_dest_name = "GoogleDrive"  # Rclone目的地名称（与cmd_rclone中对应相同，并保证SA均已添加）
+rclone_dest_name = (
+    "GoogleDrive"  # Rclone目的地名称（与cmd_rclone中对应相同，并保证SA均已添加）
+)
 
 # 本脚本临时文件
 # > 文件锁
@@ -66,9 +70,7 @@ logFormatter = logging.Formatter(fmt=logging_format, datefmt=logging_datefmt)
 
 logger = logging.getLogger()
 logger.setLevel(logging.NOTSET)
-while (
-    logger.handlers
-):  # Remove un-format logging in Stream, or all of messages are appearing more than once.
+while logger.handlers:  # Remove un-format logging in Stream, or all of messages are appearing more than once.
     logger.handlers.pop()
 
 if script_log_file:
@@ -326,7 +328,9 @@ def auto_rclone(src_path, dest_path):
                         "Transfer Limit may hit (%s), Try to Switch.........."
                         % switch_reason
                     )
-                    force_kill_rclone_subproc_by_parent_pid(proc.pid)  # 杀掉当前rclone进程
+                    force_kill_rclone_subproc_by_parent_pid(
+                        proc.pid
+                    )  # 杀掉当前rclone进程
                     break  # 退出主进程监测循环，从而切换到下一个帐号
 
                 time.sleep(check_interval)

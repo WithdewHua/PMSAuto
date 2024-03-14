@@ -59,5 +59,13 @@ emby = Emby()
 for folder in set(scan_folders):
     logger.info(f"Sending scan request for {folder}")
     for media_server in [plex, emby]:
-        media_server.scan(folder)
+        while True:
+            try:
+                media_server.scan(folder)
+            except Exception:
+                sleep(60)
+                continue
+            else:
+                break
+
     sleep(30)

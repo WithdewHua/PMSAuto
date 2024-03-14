@@ -2,6 +2,7 @@ import os
 import re
 import argparse
 import shutil
+import datetime
 
 from time import sleep
 
@@ -13,6 +14,7 @@ from plex import Plex
 from emby import Emby
 from settings import ORIGIN_NAME, PLEX_AUTO_SCAN, EMBY_AUTO_SCAN
 from utils import remove_empty_folder, is_filename_length_gt_255
+from scheduler import scheduler
 
 
 def parse():
@@ -779,18 +781,24 @@ def media_handle(
         pass
         logger.warning("Unkown media type, skip……")
 
-    # handle scan request
-    if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
+    def __send_scan_request():
+        # handle scan request
         media_server = []
         if PLEX_AUTO_SCAN:
             media_server.append(Plex())
         if EMBY_AUTO_SCAN:
             media_server.append(Emby())
-        # sleep 一段时间，尽量避免 rclone 未更新导致路径找不到
-        sleep(120)
         for scan_info in set(scan_folders):
             for server in media_server:
                 server.scan(path=scan_info)
+
+    if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
+        # 120s 后执行, 尽量避免 rclone 未更新导致路径找不到
+        scheduler.add_job(
+            __send_scan_request,
+            trigger="date",
+            run_date=datetime.datetime.now() + datetime.timedelta(minutes=3),
+        )
 
 
 if __name__ == "__main__":
