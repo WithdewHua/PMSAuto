@@ -786,15 +786,16 @@ def media_handle(
         logger.warning("Unkown media type, skip……")
 
     def __send_scan_request():
+        _plex_scan_folder = [os.path.dirname(_) for _ in scan_folders if os.path.isfile(_)]
         # handle scan request
-        media_server = []
         if PLEX_AUTO_SCAN:
-            media_server.append(Plex())
+            _plex = Plex()
+            for scan_info in set(_plex_scan_folder):
+                _plex.scan(path=scan_info)
         if EMBY_AUTO_SCAN:
-            media_server.append(Emby())
-        for scan_info in set(scan_folders):
-            for server in media_server:
-                server.scan(path=scan_info)
+            _emby = Emby()
+            for scan_info in set(scan_folders):
+                _emby.scan(path=scan_info)
 
     if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
         # 120s 后执行, 尽量避免 rclone 未更新导致路径找不到
@@ -824,3 +825,8 @@ if __name__ == "__main__":
         offset=args.offset,
         keep_nfo=args.keep_nfo,
     )
+
+    while True:
+        if not scheduler.get_jobs():
+            break
+        sleep(30)
