@@ -1,6 +1,6 @@
 #!/user/bin/env python3
 
-from typing import Optional
+from typing import Optional, Union, Sequence
 
 import re
 from time import sleep
@@ -36,19 +36,27 @@ class Plex:
             return True
         return False
 
-    def scan(self, path: str):
+    def scan(self, path: Union[str, Sequence]):
         """发送扫描请求"""
-        section = self.get_section_by_location(path)
-        if not section:
-            logger.error("Section Not found")
+        if isinstance(path, str):
+            path = [path]
+        _path = set(path)
+        for p in set(path):
+            section = self.get_section_by_location(p)
+            if not section:
+                logger.error("Section Not found")
+                _path.remove(p)
+        if not _path:
             return False
-        while True:
-            try:
-                section.update(path)
-            except Exception as e:
-                logger.error(e)
-                sleep(10)
-                continue
-            else:
-                logger.info(f"Sent scan request successfully: {path}")
-                break
+
+        for p in _path:
+            while True:
+                try:
+                    section.update(p)
+                except Exception as e:
+                    logger.error(e)
+                    sleep(10)
+                    continue
+                else:
+                    logger.info(f"Sent scan request successfully: {path}")
+                    break
