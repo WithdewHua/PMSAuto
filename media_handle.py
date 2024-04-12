@@ -703,9 +703,11 @@ def media_handle(
                             os.path.join(dst_path, dir_name, os.path.basename(rslt)),
                         )
                         # emby scan parent folder, so add file name in case of library scanning
-                        scan_folders.append(os.path.join(dst_path, dir_name, os.path.basename(rslt)))
+                        scan_folders.append(
+                            os.path.join(dst_path, dir_name, os.path.basename(rslt))
+                        )
                         logger.debug(
-                            f"Added scan folder: {os.path.join(dst_path, dir_name)}"
+                            f"Added scan folder: {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
                         )
                     logger.info(
                         f"Moved {rslt} to {os.path.join(dst_path, dir_name, os.path.basename(rslt))}"
@@ -763,8 +765,9 @@ def media_handle(
                             )
                         else:
                             os.rename(file_full_path, dst_file_full_path)
+                            # emby scan parent folder, so add file name in case of library scanning
                             scan_folders.append(dst_file_full_path)
-                            logger.debug(f"Added scan folder: {dst_dir_full_path}")
+                            logger.debug(f"Added scan folder: {dst_file_full_path}")
                     logger.info(f"Moved {file_full_path} to {dst_file_full_path}")
             if not dryrun:
                 pass
