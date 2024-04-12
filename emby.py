@@ -45,13 +45,18 @@ class Emby:
 
     def scan(self, path: Union[str, Sequence]) -> None:
         """发送扫描请求"""
-        lib = self.get_library_by_location(path)
-        if not lib:
-            logger.warning(f"Warning: library not found for {path}")
-            return
         if isinstance(path, str):
             path = [path]
-        payload = {"Updates": [{"Path": p} for p in path]}
+        _path = set(path)
+        for p in set(path):
+            lib = self.get_library_by_location(p)
+            if not lib:
+                logger.warning(f"Warning: library not found for {p}")
+                _path.remove(p)
+        if not _path:
+            return
+                
+        payload = {"Updates": [{"Path": p} for p in _path]}
 
         headers = {"Content-Type": "application/json"}
 
@@ -72,5 +77,5 @@ class Emby:
                 sleep(10)
                 continue
             else:
-                logger.info(f"Sent scan request successfully: {path}")
+                logger.info(f"Sent scan request successfully: {_path}")
                 break
