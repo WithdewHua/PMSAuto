@@ -4,7 +4,7 @@ import requests
 import json
 
 from time import sleep
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union, Sequence
 
 from settings import EMBY_BASE_URL, EMBY_API_TOKEN
 from log import logger
@@ -43,13 +43,15 @@ class Emby:
                 return lib.get("library")
         return None
 
-    def scan(self, path: str) -> None:
+    def scan(self, path: Union[str, Sequence]) -> None:
         """发送扫描请求"""
         lib = self.get_library_by_location(path)
         if not lib:
             logger.warning(f"Warning: library not found for {path}")
             return
-        payload = {"Updates": [{"Path": path, "UpdateType": "Created"}]}
+        if isinstance(path, str):
+            path = [path]
+        payload = {"Updates": [{"Path": p} for p in path]}
 
         headers = {"Content-Type": "application/json"}
 

@@ -794,8 +794,7 @@ def media_handle(
                 _plex.scan(path=scan_info)
         if EMBY_AUTO_SCAN:
             _emby = Emby()
-            for scan_info in set(scan_folders):
-                _emby.scan(path=scan_info)
+            _emby.scan(path=set(scan_folders))
 
     if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
         # 120s 后执行, 尽量避免 rclone 未更新导致路径找不到
