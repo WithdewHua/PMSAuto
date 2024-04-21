@@ -409,20 +409,20 @@ def handle_movie(
             logger.warning(f"{filename}'s name does not change, skipping...")
             return True
     else:
-        match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", filename)
-        if not match:
-            logger.error("Failed to get correct formatted name")
-            return False
-        name = " ".join(match.group(2).strip(".").split("."))
-        year = int(match.group(3))
-        cn_match = re.match(
-            r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
-            name,
-        )
-
         if tmdb_id:
             tmdb_name = tmdb.get_name_from_tmdb_by_id(tmdb_id)
         else:
+            match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", filename)
+            if not match:
+                logger.error("Failed to get correct formatted name")
+                return False
+            name = " ".join(match.group(2).strip(".").split("."))
+            year = int(match.group(3))
+            cn_match = re.match(
+                r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
+                name,
+            )
+
             if cn_match:
                 # 分别用中文和英文进行查询
                 for i in range(2):
