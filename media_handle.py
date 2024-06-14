@@ -616,6 +616,19 @@ def handle_local_media(
                     logger.error(f"Failed to process {media_folder}")
 
 
+def send_scan_request(scan_folders):
+    # handle scan request
+    media_servers = []
+    if PLEX_AUTO_SCAN:
+        _plex = Plex()
+        media_servers.append(_plex)
+    if EMBY_AUTO_SCAN:
+        _emby = Emby()
+        media_servers.append(_emby)
+    for server in media_servers:
+        server.scan(path=set(scan_folders))
+
+
 def media_handle(
     path,
     media_type,
@@ -628,6 +641,7 @@ def media_handle(
     dryrun=False,
     offset=0,
     keep_nfo=False,
+    keep_job_persisted=True,
 ):
     """Media handler
 
@@ -643,6 +657,7 @@ def media_handle(
         dryrun (bool, optional): whether to do a dryrun or not. Defaults to False.
         offset (int, optional): offset for the episode number. Defaults to 0, which means no offset.
         keep_nfo (bool, optional): keep nfo or not.
+        keep_job_persisted (bool, optional): scheduler jobstore
 
     Returns:
         bool: True if the media was handled, False otherwise
@@ -694,32 +709,23 @@ def media_handle(
             remove_small_files(dir, dryrun=dryrun)
     elif media_type == "music":
         if dst_path and not dryrun:
-            scan_folders.append(os.path.join(dst_path, media_name))
-            logger.debug(f"Added scan folder: {os.path.join(dst_path, media_name)}")
+            scan_folders.append(os.path.join(dst_path, os.path.basename(root)))
+            logger.debug(f"Added scan folder: {os.path.join(dst_path, os.path.basename(root))}")
     else:
         pass
         logger.warning("Unkown media type, skip……")
-
-    def __send_scan_request():
-        # handle scan request
-        media_servers = []
-        if PLEX_AUTO_SCAN:
-            _plex = Plex()
-            media_servers.append(_plex)
-        if EMBY_AUTO_SCAN:
-            _emby = Emby()
-            media_servers.append(_emby)
-        for server in media_servers:
-            server.scan(path=set(scan_folders))
 
     if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
         # 120s 后执行, 尽量避免 rclone 未更新导致路径找不到
         run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
         scheduler.add_job(
-            __send_scan_request,
+            send_scan_request,
+            args=(scan_folders,),
             trigger="date",
             run_date=run_date,
             misfire_grace_time=60,
+            jobstore="sqlite" if keep_job_persisted else "default",
+            replace_existing=True,
         )
         logger.debug(f"Added scheduler job: next run at {str(run_date)}")
 
@@ -738,6 +744,7 @@ if __name__ == "__main__":
         dryrun=args.dryrun,
         offset=args.offset,
         keep_nfo=args.keep_nfo,
+        keep_job_persisted=False,
     )
 
     while True:
