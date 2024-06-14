@@ -38,8 +38,21 @@ TG_CHAT_ID = [
 REMOVE_EMPTY_FOLDER = False
 HANDLE_LOCAL_MEDIA = False
 
-# 重命名设置
+# 媒体处理设置
 ORIGIN_NAME = True
+# 媒体后缀
+MEDIA_SUFFIX = [
+    "srt",
+    "ass",
+    "ssa",
+    "sup",
+    "mkv",
+    "ts",
+    "mp4",
+    "flv",
+    "rmvb",
+    "avi",
+]
 
 # plex 设置
 PLEX_BASE_URL = "https://xxxxxxxxxx"

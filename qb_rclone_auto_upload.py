@@ -246,7 +246,7 @@ def main(src_dir=""):
                             or (local_record and tmdb_id not in ",".join(record_tags))
                         ):
                             tmdb_name = (
-                                tmdb.get_name_from_tmdb_by_id(tmdb_id)
+                                tmdb.get_info_from_tmdb_by_id(tmdb_id).get("tmdb_name")
                                 if not tmdb_name or write_record
                                 else tmdb_name
                             )

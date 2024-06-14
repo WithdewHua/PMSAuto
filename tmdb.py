@@ -28,7 +28,7 @@ class TMDB:
             self.tmdb_media = TV()
         self.tmdb_id = None
 
-    def get_name_from_tmdb(self, query_dict: dict, year_deviation: int = 0) -> str:
+    def get_name_from_tmdb(self, query_dict: dict, year_deviation: int = 0) -> tuple:
         """Get TV/Movie name from tmdb"""
 
         search_func = (
@@ -119,16 +119,22 @@ class TMDB:
                 continue
         return name.replace("/", "／"), self.tmdb_id
 
-    def get_name_from_tmdb_by_id(self, tmdb_id: str) -> str:
+    def get_info_from_tmdb_by_id(self, tmdb_id: str) -> dict:
+        """Get movies/shows' details using tmdb_id"""
         tmdb_name = ""
         self.tmdb_id = tmdb_id
         details = self.tmdb_media.details(self.tmdb_id)
         date = details.release_date if self.is_movie else details.first_air_date
-        year = date.split("-")[0]
+        year, month = date.split("-")[:2]
         original_title = (
             details.original_title if self.is_movie else details.original_name
         )
         title = details.title if self.is_movie else details.name
+        production_contries = "&".join(
+            sorted(
+                [country.get("iso_3166_1") for country in details.production_countries]
+            )
+        )
         if details.original_language == "zh":
             tmdb_name = f"{original_title} ({year}) {{tmdb-{tmdb_id}}}"
         else:
@@ -147,7 +153,12 @@ class TMDB:
                 else f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
             )
 
-        return tmdb_name.replace("/", "／")
+        return {
+            "tmdb_name": tmdb_name.replace("/", "／"),
+            "year": year,
+            "month": month,
+            "country": production_contries,
+        }
 
     def get_movie_certification(self) -> bool:
         """Get movie's certifacation"""
@@ -183,3 +194,11 @@ class TMDB:
                     return True
 
         return is_nc17
+
+
+if __name__ == "__main__":
+    tmdb = TMDB(movie=True)
+    print(tmdb.get_info_from_tmdb_by_id(tmdb_id=27205))
+
+    tmdb_tv = TMDB(movie=False)
+    print(tmdb_tv.get_info_from_tmdb_by_id(tmdb_id=64197))
