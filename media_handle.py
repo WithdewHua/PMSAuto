@@ -726,6 +726,7 @@ def media_handle(
             misfire_grace_time=60,
             jobstore="sqlite" if keep_job_persisted else "default",
             replace_existing=True,
+            id=f"scan_task_at_{run_date}",
         )
         logger.debug(f"Added scheduler job: next run at {str(run_date)}")
 
