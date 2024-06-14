@@ -130,9 +130,9 @@ class TMDB:
             details.original_title if self.is_movie else details.original_name
         )
         title = details.title if self.is_movie else details.name
-        production_contries = "&".join(
+        contries = "&".join(
             sorted(
-                [country.get("iso_3166_1") for country in details.production_countries]
+                details.origin_country
             )
         )
         if details.original_language == "zh":
@@ -155,9 +155,10 @@ class TMDB:
 
         return {
             "tmdb_name": tmdb_name.replace("/", "／"),
+            "title": title,
             "year": year,
             "month": month,
-            "country": production_contries,
+            "country": contries,
         }
 
     def get_movie_certification(self) -> bool:

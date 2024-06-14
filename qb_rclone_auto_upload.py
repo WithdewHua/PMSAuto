@@ -237,7 +237,7 @@ def main(src_dir=""):
                                 )
                                 season = season_match.group(1) if season_match else ""
                         # get tmdb_id from tag
-                        tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags))
+                        tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags) + tmdb_name)
                         tmdb_id = tmdb_id_tag.group(1) if tmdb_id_tag else None
 
                         # tags 中的 tmdb id 始终优先，如果存在 tmdb_id, 直接通过 tmdb id 获取名字

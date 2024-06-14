@@ -3,6 +3,7 @@ import re
 import argparse
 import shutil
 import datetime
+import textwrap
 
 from time import sleep
 from copy import deepcopy
@@ -249,7 +250,7 @@ def query_tmdb_id(name, media_type):
     if media_type != "anima":
         match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", name)
         if not match:
-            logger.error("Failed to get correct formatted name")
+            logger.error(f"Failed to get correct formatted name: {name}")
             raise
         name = " ".join(match.group(2).strip(".").split("."))
         year = int(match.group(3))
@@ -279,6 +280,18 @@ def query_tmdb_id(name, media_type):
     return tmdb_id
 
 
+def add_plexmatch_file(dir, title, year, tmdb_id, season=None):
+    plexmatch_format = textwrap.dedent(f"""
+    title: {title}
+    year: {year}
+    {f"season: {season}" if season is not None else ""}
+    tmdbid: {tmdb_id}
+    """)
+    os.makedirs(dir, exist_ok=True)
+    with open(os.path.join(dir, ".plexmatch"), "w") as f:
+        f.write(plexmatch_format)
+
+
 def handle_tvshow(
     media_path,
     tmdb_id,
@@ -301,7 +314,7 @@ def handle_tvshow(
     if scan_folders is None:
         scan_folders = []
     # get tmdb id if not specified
-    tmdb_id = tmdb_id or query_tmdb_id(media_path)
+    tmdb_id = tmdb_id or query_tmdb_id(media_path, media_type=media_type)
     if not tmdb_id:
         raise Exception(f"Failed to get info. for {media_path} from TMDB")
     # get details from tmdb
@@ -400,9 +413,11 @@ def handle_tvshow(
                         + " - "
                         + file
                     )
-            new_dir = os.path.join(dst_path, country, year, month, tmdb_name, f"Season {season}")
+            new_dir = os.path.join(dst_path, country, f"Aired_{year}{month}", tmdb_name, f"Season {season}")
             new_file_path = os.path.join(new_dir, new_filename)
-            if dst_path != media_path:
+            if dst_path != media_path and not dryrun:
+                if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
+                    add_plexmatch_file(new_dir, details.get("title"), year=year, tmdb_id=tmdb_id, season=int(season))
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
 
@@ -421,8 +436,9 @@ def handle_movie(
     dryrun=False,
     scan_folders=None
 ):
+    isfile = False
+    media_name = os.path.basename(media_path)
     if os.path.isfile(media_path):
-        media_name = os.path.basename(media_path)
         media_path = os.path.dirname(media_path)
         isfile = True
     if dst_path is None:
@@ -448,7 +464,7 @@ def handle_movie(
                 logger.info(f"No need to handle {filename}, skip...")
                 continue
             # for collections, query for each file
-            tmdb_id = tmdb_id or query_tmdb_id(filename)
+            tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
             if not tmdb_id:
                 raise Exception(f"Failed to get info. for {media_path} from TMDB")
             (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
@@ -518,12 +534,14 @@ def handle_movie(
 
             if is_filename_length_gt_255(new_filename):
                 new_filename = filename
-            new_dir = os.path.join(dst_path, country, year, month, tmdb_name)
+            new_dir = os.path.join(dst_path, country, f"Released_{year}{month}", tmdb_name)
             new_file_path = os.path.join(new_dir, new_filename)
-            if dst_path != media_path:
+            if dst_path != media_path and not dryrun:
+                if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
+                    add_plexmatch_file(new_dir, details.get("title"), year=year, tmdb_id=tmdb_id)
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
-            rename_media(filename, new_file_path, dryrun=dryrun)
+            rename_media(os.path.join(dir, filename), new_file_path, dryrun=dryrun)
 
     return scan_folders
 
@@ -641,10 +659,12 @@ def media_handle(
             scan_folders = handle_movie(
                 media_path=root,
                 tmdb_id=tmdb_id,
+                dst_path=dst_path,
                 nogroup=nogroup,
                 group=group,
                 keep_nfo=keep_nfo,
                 dryrun=dryrun,
+                scan_folders=scan_folders,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}" )
