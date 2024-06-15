@@ -418,7 +418,7 @@ def handle_tvshow(
                         + file
                     )
             new_dir = os.path.join(
-                dst_path, country, f"Aired_{year}{month}", tmdb_name, f"Season {season}"
+                dst_path, country, f"Aired_{year}", tmdb_name, f"Season {season}"
             )
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
@@ -547,7 +547,7 @@ def handle_movie(
             if is_filename_length_gt_255(new_filename):
                 new_filename = filename
             new_dir = os.path.join(
-                dst_path, country, f"Released_{year}{month}", tmdb_name
+                dst_path, country, f"Released_{year}", tmdb_name
             )
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
