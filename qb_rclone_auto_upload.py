@@ -207,6 +207,7 @@ def main(src_dir=""):
                             logger.debug(
                                 f"Got {name}'s info: "
                                 f"\ntmdb_name: {tmdb_name}"
+                                f"\ntmdb_id: {tmdb_id}"
                                 f"\nrecord_tags: {record_tags}"
                                 f"\ntags: {tags if tags else record_tags}"
                             )
@@ -467,7 +468,8 @@ def main(src_dir=""):
                                 src_file_path = os.path.join(src_path, torrent_file)
                                 logger.debug(f"Uploading {src_file_path}")
                                 auto_rclone(
-                                    src_path=src_file_path, dest_path=google_drive_save_path
+                                    src_path=src_file_path,
+                                    dest_path=google_drive_save_path,
                                 )
                         except Exception as e:
                             logger.error(f"Copying {torrent.name} failed: {e}")
@@ -615,7 +617,9 @@ def main(src_dir=""):
                             and "end" not in tags
                             and not is_movie
                         ):
-                            media_info_rslt.update({"tmdb_name": tmdb_name})
+                            media_info_rslt.update(
+                                {"tmdb_name": tmdb_name, "tmdb_id": tmdb_id}
+                            )
                             media_info.update({name: media_info_rslt})
                         # delete
                         if local_record and "end" in tags:
