@@ -449,20 +449,26 @@ def main(src_dir=""):
                         # full path in host
                         if src_dir:
                             host_dir, container_dir = src_dir.split(":")
-                            src_path = torrent.content_path.replace(
+                            src_path = torrent.save_path.replace(
                                 container_dir, host_dir
                             )
                         else:
-                            src_path = torrent.content_path
+                            src_path = torrent.save_path
+                        # torrent files list
+                        torrent_files = [file.get("name") for file in torrent.files]
+                        logger.debug(torrent_files)
 
                         # rclone copy
                         logger.info(f"{torrent.name} is completed, copying")
 
                         # rslt = subprocess.run(["rclone", "copy", torrent.content_path, f"{google_drive_save_path}"])
                         try:
-                            rslt = auto_rclone(
-                                src_path=src_path, dest_path=google_drive_save_path
-                            )
+                            for torrent_file in torrent_files:
+                                src_file_path = os.path.join(src_path, torrent_file)
+                                logger.debug(f"Uploading {src_file_path}")
+                                auto_rclone(
+                                    src_path=src_file_path, dest_path=google_drive_save_path
+                                )
                         except Exception as e:
                             logger.error(f"Copying {torrent.name} failed: {e}")
                             send_tg_msg(
