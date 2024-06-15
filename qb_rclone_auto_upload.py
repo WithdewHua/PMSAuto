@@ -181,6 +181,7 @@ def main(src_dir=""):
                     # torrent is downloaded, and not uploaded to GoogleDrive
                     if "up_done" not in tags:
                         tmdb_name = ""
+                        tmdb_id = None
                         tmdb = TMDB(movie=is_movie)
 
                         # get media info from file
@@ -191,6 +192,7 @@ def main(src_dir=""):
                             local_record = True
                             write_record = False
                             tmdb_name = media_info_rslt.get("tmdb_name")
+                            tmdb_id = media_info_rslt.get("tmdb_id")
                             record_tags = media_info_rslt.get("tags", [])
                             # 更新 tags
                             if tags:
@@ -237,8 +239,8 @@ def main(src_dir=""):
                                 )
                                 season = season_match.group(1) if season_match else ""
                         # get tmdb_id from tag
-                        tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags) + tmdb_name)
-                        tmdb_id = tmdb_id_tag.group(1) if tmdb_id_tag else None
+                        tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags))
+                        tmdb_id = tmdb_id_tag.group(1) if tmdb_id_tag else tmdb_id
 
                         # tags 中的 tmdb id 始终优先，如果存在 tmdb_id, 直接通过 tmdb id 获取名字
                         if tmdb_id and (
