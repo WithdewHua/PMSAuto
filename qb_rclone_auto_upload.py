@@ -248,7 +248,7 @@ def main(src_dir=""):
                         # tags 中的 tmdb id 始终优先，如果存在 tmdb_id, 直接通过 tmdb id 获取名字
                         if tmdb_id and (
                             not local_record
-                            or (local_record and tmdb_id not in ",".join(record_tags))
+                            or (local_record and str(tmdb_id) not in ",".join(record_tags))
                         ):
                             tmdb_name = (
                                 tmdb.get_info_from_tmdb_by_id(tmdb_id).get("tmdb_name")

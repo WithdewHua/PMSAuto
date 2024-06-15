@@ -107,7 +107,7 @@ class TMDB:
                                         if title and title != original_title
                                         else f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
                                     )
-                                self.tmdb_id = rslt.id
+                                self.tmdb_id = str(rslt.id)
 
                                 logger.info(f"Renaming {query_title} to {name}")
                                 break
