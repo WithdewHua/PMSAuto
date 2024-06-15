@@ -30,8 +30,8 @@ dest_path = "/tmp"
 rclone_log_file = f"/tmp/rclone_{rc_addr}.log"
 
 # 检查rclone间隔 (s)
-check_after_start = 15  # 在拉起rclone进程后，休息xxs后才开始检查rclone状态，防止 rclone rc core/stats 报错退出
-check_interval = 5  # 主进程每次进行rclone rc core/stats检查的间隔
+check_after_start = 5  # 在拉起rclone进程后，休息xxs后才开始检查rclone状态，防止 rclone rc core/stats 报错退出
+check_interval = 3  # 主进程每次进行rclone rc core/stats检查的间隔
 
 # rclone帐号更换监测条件
 switch_sa_level = 2  # 需要满足的规则条数，数字越大切换条件越严格，一定小于下面True（即启用）的数量，即 1 - 4(max)
@@ -150,7 +150,7 @@ def force_kill_rclone_subproc_by_parent_pid(sh_pid):
                 child_proc.kill()
 
 
-def auto_rclone(src_path, dest_path):
+def auto_rclone(src_path, dest_path, files_from=None):
     # 运行变量
     instance_config = {}
     sa_jsons = []
@@ -187,6 +187,8 @@ def auto_rclone(src_path, dest_path):
             sa_jsons = sa_jsons[last_sa_index:] + sa_jsons[:last_sa_index]
 
         cmd_rclone = f'rclone copy "{src_path}" "{dest_path}" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {rc_addr}'
+        if files_from:
+            cmd_rclone += f" --files-from {files_from}"
 
         # 帐号切换循环
         while True:
@@ -238,7 +240,7 @@ def auto_rclone(src_path, dest_path):
                 except subprocess.CalledProcessError as error:
                     cnt_error = cnt_error + 1
                     err_msg = "check core/stats failed for %s times," % cnt_error
-                    if cnt_error > 3:
+                    if cnt_error >= 3:
                         logger.error(
                             err_msg + " Force kill exist rclone process %s." % proc.pid
                         )

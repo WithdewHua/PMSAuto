@@ -67,6 +67,9 @@ def main(src_dir=""):
     logger.info(f"qBittorrent Web API: {qbt_client.app.web_api_version}")
     # for k,v in qbt_client.app.build_info.items(): print(f'{k}: {v}')
 
+    # current uuid
+    uuid = os.urandom(16).hex()
+
     # retrieve torrents filtered by tag
     while True:
         try:
@@ -450,27 +453,31 @@ def main(src_dir=""):
                         # full path in host
                         if src_dir:
                             host_dir, container_dir = src_dir.split(":")
-                            src_path = torrent.save_path.replace(
+                            src_path = torrent.content_path.replace(
                                 container_dir, host_dir
                             )
                         else:
-                            src_path = torrent.save_path
+                            src_path = torrent.content_path
                         # torrent files list
-                        torrent_files = [file.get("name") for file in torrent.files]
+                        torrent_files = [file.get("name").removeprefix(os.path.basename(src_path)).lstrip("/") for file in torrent.files]
                         logger.debug(torrent_files)
+                        if len(torrent_files) > 1:
+                            files_from_file = f"/tmp/files_from_{uuid}.txt"
+                            with open(files_from_file, "w") as f:
+                                f.write("\n".join(torrent_files))
+                        else:
+                            files_from_file = None
 
                         # rclone copy
                         logger.info(f"{torrent.name} is completed, copying")
 
                         # rslt = subprocess.run(["rclone", "copy", torrent.content_path, f"{google_drive_save_path}"])
                         try:
-                            for torrent_file in torrent_files:
-                                src_file_path = os.path.join(src_path, torrent_file)
-                                logger.debug(f"Uploading {src_file_path}")
-                                auto_rclone(
-                                    src_path=src_file_path,
-                                    dest_path=google_drive_save_path,
-                                )
+                            auto_rclone(
+                                src_path=src_path,
+                                dest_path=google_drive_save_path,
+                                files_from=files_from_file,
+                            )
                         except Exception as e:
                             logger.error(f"Copying {torrent.name} failed: {e}")
                             send_tg_msg(
