@@ -9,6 +9,7 @@ import os
 import re
 import time
 import argparse
+import pickle
 
 from copy import deepcopy
 
@@ -72,7 +73,7 @@ def main(src_dir=""):
             # 上传完的种子但没有处理的种子
             try:
                 to_handle = load_json("to_handle_media.json")
-            except:
+            except Exception:
                 to_handle = {}
 
             for torrent in qbt_client.torrents_info():
@@ -119,9 +120,10 @@ def main(src_dir=""):
                             continue
 
                     # get media info
-                    media_info_file_path = os.path.join(script_path, "media_info.json")
+                    media_info_file_path = os.path.join(script_path, "media_info.cache")
                     if os.path.exists(media_info_file_path):
-                        media_info: dict = load_json(media_info_file_path)
+                        with open(media_info_file_path, "rb") as f:
+                            media_info: dict = pickle.load(f)
                     else:
                         media_info = {}
 
@@ -609,11 +611,12 @@ def main(src_dir=""):
                         ):
                             media_info_rslt.update({"tmdb_name": tmdb_name})
                             media_info.update({name: media_info_rslt})
-                            dump_json(media_info, media_info_file_path)
                         # delete
                         if local_record and "end" in tags:
                             media_info.pop(name)
-                            dump_json(media_info, media_info_file_path)
+                        # 持久化
+                        with open(media_info_file_path, "wb") as f:
+                            pickle.dump(media_info, f)
 
                 else:
                     # torrent is in inappropiate state
