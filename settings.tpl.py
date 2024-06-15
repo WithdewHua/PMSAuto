@@ -22,7 +22,7 @@ QBIT = {
     "host": "127.0.0.1",
     "port": 8080,
     "user": "admin",
-    "password": 'kkUtDJ%q2nf@he&j5xXCZ!Nd'
+    "password": "kkUtDJ%q2nf@he&j5xXCZ!Nd",
 }
 
 # TG 通知相关设置

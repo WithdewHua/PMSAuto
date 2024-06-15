@@ -257,7 +257,7 @@ def query_tmdb_id(name, media_type):
     else:
         name = anitopy.parse(name).get("anime_title")
         year = anitopy.parse(name).get("anime_title")
-    
+
     cn_match = re.match(
         r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
         name,
@@ -338,7 +338,9 @@ def handle_tvshow(
             keep_file_suffix = deepcopy(MEDIA_SUFFIX)
             if keep_nfo:
                 keep_file_suffix.append("nfo")
-            if not re.search(r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE):
+            if not re.search(
+                r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
+            ):
                 if not dryrun:
                     os.remove(filepath)
                 logger.info("Removed file: " + filepath)
@@ -386,7 +388,9 @@ def handle_tvshow(
 
                 if version:
                     new_filename += (
-                        f" - [{version}]" if "edition-" not in version else f" - {version}"
+                        f" - [{version}]"
+                        if "edition-" not in version
+                        else f" - {version}"
                     )
                 if not ORIGIN_NAME:
                     if web_source:
@@ -413,11 +417,19 @@ def handle_tvshow(
                         + " - "
                         + file
                     )
-            new_dir = os.path.join(dst_path, country, f"Aired_{year}{month}", tmdb_name, f"Season {season}")
+            new_dir = os.path.join(
+                dst_path, country, f"Aired_{year}{month}", tmdb_name, f"Season {season}"
+            )
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
                 if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
-                    add_plexmatch_file(new_dir, details.get("title"), year=year, tmdb_id=tmdb_id, season=int(season))
+                    add_plexmatch_file(
+                        new_dir,
+                        details.get("title"),
+                        year=year,
+                        tmdb_id=tmdb_id,
+                        season=int(season),
+                    )
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
 
@@ -434,7 +446,7 @@ def handle_movie(
     group="",
     keep_nfo=False,
     dryrun=False,
-    scan_folders=None
+    scan_folders=None,
 ):
     isfile = False
     media_name = os.path.basename(media_path)
@@ -534,11 +546,15 @@ def handle_movie(
 
             if is_filename_length_gt_255(new_filename):
                 new_filename = filename
-            new_dir = os.path.join(dst_path, country, f"Released_{year}{month}", tmdb_name)
+            new_dir = os.path.join(
+                dst_path, country, f"Released_{year}{month}", tmdb_name
+            )
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
                 if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
-                    add_plexmatch_file(new_dir, details.get("title"), year=year, tmdb_id=tmdb_id)
+                    add_plexmatch_file(
+                        new_dir, details.get("title"), year=year, tmdb_id=tmdb_id
+                    )
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
             rename_media(os.path.join(dir, filename), new_file_path, dryrun=dryrun)
@@ -665,7 +681,7 @@ def media_handle(
     """
     root = os.path.expanduser(path.rstrip("/"))
     tmdb_id = str(tmdb_id) if tmdb_id is not None else ""
-        
+
     # folder to send scan request
     scan_folders = []
 
@@ -682,7 +698,7 @@ def media_handle(
                 scan_folders=scan_folders,
             )
         except Exception as e:
-            logger.error(f"Process {root} failed dut to {e}" )
+            logger.error(f"Process {root} failed dut to {e}")
             raise e
     elif media_type in ["tv", "anime"]:
         # handle media folder
@@ -699,7 +715,7 @@ def media_handle(
                 dryrun=dryrun,
                 offset=offset,
                 keep_nfo=keep_nfo,
-                scan_folders=scan_folders
+                scan_folders=scan_folders,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
@@ -710,7 +726,9 @@ def media_handle(
     elif media_type == "music":
         if dst_path and not dryrun:
             scan_folders.append(os.path.join(dst_path, os.path.basename(root)))
-            logger.debug(f"Added scan folder: {os.path.join(dst_path, os.path.basename(root))}")
+            logger.debug(
+                f"Added scan folder: {os.path.join(dst_path, os.path.basename(root))}"
+            )
     else:
         pass
         logger.warning("Unkown media type, skip……")

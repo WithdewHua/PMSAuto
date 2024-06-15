@@ -130,11 +130,7 @@ class TMDB:
             details.original_title if self.is_movie else details.original_name
         )
         title = details.title if self.is_movie else details.name
-        contries = "&".join(
-            sorted(
-                details.origin_country
-            )
-        )
+        contries = "&".join(sorted(details.origin_country))
         if details.original_language == "zh":
             tmdb_name = f"{original_title} ({year}) {{tmdb-{tmdb_id}}}"
         else:

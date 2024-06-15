@@ -55,7 +55,7 @@ class Emby:
                 _path.remove(p)
         if not _path:
             return
-                
+
         payload = {"Updates": [{"Path": p} for p in _path]}
 
         headers = {"Content-Type": "application/json"}
