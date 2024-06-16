@@ -251,6 +251,7 @@ def query_tmdb_id(name, media_type):
     is_movie = True if media_type == "movie" else False
     # init TMDB
     tmdb = TMDB(movie=is_movie)
+    tmdb_id = None
     if media_type != "anima":
         match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", name)
         if not match:
@@ -311,8 +312,7 @@ def handle_tvshow(
     scan_folders=None,
 ):
     if not os.path.isdir(media_path):
-        logger.error("Please specify a folder")
-        return False
+        raise Exception("Please specify a folder")
     if dst_path is None:
         dst_path = media_path
     if scan_folders is None:
