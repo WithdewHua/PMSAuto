@@ -32,8 +32,8 @@ for src_dir in src_dirs:
     logger.info(f"Removed folder: {os.path.join(src_path, src_dir)}")
     scan_folders.append(dst_dir)
 
-for scan_folder in set(scan_folders):
-    run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
+for idx, scan_folder in enumerate(set(scan_folders)):
+    run_date = datetime.datetime.now() + datetime.timedelta(minutes=3, seconds=30 * idx)
     scheduler.add_job(
         send_scan_request,
         args=(scan_folder,),
@@ -44,7 +44,6 @@ for scan_folder in set(scan_folders):
         id=f"scan_task_at_{run_date}",
     )
     logger.debug(f"Added scheduler job: next run at {str(run_date)}")
-    sleep(30)
 
 while True:
     if not scheduler.get_jobs():
