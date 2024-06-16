@@ -7,6 +7,7 @@ import textwrap
 
 from time import sleep
 from copy import deepcopy
+from typing import Union
 
 import anitopy
 
@@ -636,8 +637,10 @@ def handle_local_media(
                     logger.error(f"Failed to process {media_folder}")
 
 
-def send_scan_request(scan_folders):
+def send_scan_request(scan_folders: Union[str, list, tuple]):
     # handle scan request
+    if not isinstance(scan_folders, (list, tuple)):
+        scan_folders = [scan_folders]
     media_servers = []
     if PLEX_AUTO_SCAN:
         _plex = Plex()
