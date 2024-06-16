@@ -244,6 +244,10 @@ def remove_small_files(root_dir_path, threshold=128 * 1024 * 1024, dryrun=False)
 
 
 def query_tmdb_id(name, media_type):
+    # check if name has tmdb
+    tmdb_id_match = re.search(r"tmdb-(\d+)", name)
+    if tmdb_id_match:
+        return tmdb_id_match.group(1)
     is_movie = True if media_type == "movie" else False
     # init TMDB
     tmdb = TMDB(movie=is_movie)
