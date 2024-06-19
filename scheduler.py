@@ -7,7 +7,6 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 scheduler = BackgroundScheduler(
     jobstores={
         "default": MemoryJobStore(),
-        "sqlite": SQLAlchemyJobStore(url="sqlite:///jobs.sql"),
     },
     executors={
         "default": ThreadPoolExecutor(100),

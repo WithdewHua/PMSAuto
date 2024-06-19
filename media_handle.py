@@ -18,6 +18,7 @@ from emby import Emby
 from settings import ORIGIN_NAME, PLEX_AUTO_SCAN, EMBY_AUTO_SCAN, MEDIA_SUFFIX
 from utils import remove_empty_folder, is_filename_length_gt_255
 from scheduler import scheduler
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 
 def parse():
@@ -743,6 +744,8 @@ def media_handle(
     if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
         # 120s 后执行, 尽量避免 rclone 未更新导致路径找不到
         run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
+        if keep_job_persisted:
+            scheduler.add_jobstore(SQLAlchemyJobStore(url="sqlite:///jobs.sql"), alias="sqlite")
         scheduler.add_job(
             send_scan_request,
             args=(scan_folders,),
