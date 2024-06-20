@@ -125,7 +125,11 @@ class TMDB:
         self.tmdb_id = tmdb_id
         details = self.tmdb_media.details(self.tmdb_id)
         date = details.release_date if self.is_movie else details.first_air_date
-        year, month = date.split("-")[:2]
+        date_list = date.split("-")
+        if len(date_list) > 1:
+            year, month = date_list[:2]
+        else:
+            year, month = date_list[0], "01"
         original_title = (
             details.original_title if self.is_movie else details.original_name
         )
