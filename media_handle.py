@@ -1,4 +1,5 @@
 import os
+import traceback
 import re
 import argparse
 import shutil
@@ -707,6 +708,7 @@ def media_handle(
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
+            logger.error(traceback.format_exc())
             raise e
     elif media_type in ["tv", "anime"]:
         # handle media folder
@@ -727,6 +729,7 @@ def media_handle(
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
+            logger.error(traceback.format_exc())
             raise e
     elif media_type == "av":
         for dir, subdir, files in os.walk(root):
