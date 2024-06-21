@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import threading
 from copy import deepcopy
 from pathlib import Path
 from typing import Union
@@ -135,3 +136,14 @@ def iterdir_recursive(path: Union[str, Path]) -> list[Path]:
             files.extend(iterdir_recursive(p))
         files.append(p)
     return files
+
+
+class Singleton(type):
+    _instance_lock = threading.Lock()
+
+    def __call__(cls, *args, **kwds):
+        with Singleton._instance_lock:
+            if hasattr(cls, "_instance"):
+                cls._instance = super().__call__(*args, **kwds)
+        return cls._instance
+            
