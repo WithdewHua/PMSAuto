@@ -66,9 +66,7 @@ class TMDB:
                                 if self.is_movie
                                 else rslt.first_air_date
                             )
-                            year = date.split("-")[0]
-                            if not year:
-                                raise Exception("Failed to get year")
+                            year = date.split("-")[0] or query_year
                             title = rslt.title if self.is_movie else rslt.name
                             original_title = (
                                 rslt.original_title
@@ -132,6 +130,8 @@ class TMDB:
             year, month = date_list[:2]
         else:
             year, month = date_list[0], "01"
+        if not year:
+            raise Exception("Not found first_air_date")
         original_title = (
             details.original_title if self.is_movie else details.original_name
         )
