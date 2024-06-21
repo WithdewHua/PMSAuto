@@ -143,7 +143,7 @@ class Singleton(type):
 
     def __call__(cls, *args, **kwds):
         with Singleton._instance_lock:
-            if hasattr(cls, "_instance"):
+            if not hasattr(cls, "_instance"):
                 cls._instance = super().__call__(*args, **kwds)
         return cls._instance
             
