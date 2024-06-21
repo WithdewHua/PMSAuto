@@ -23,8 +23,9 @@ class Scheduler(metaclass=Singleton):
     def shutdown(self):
         self.scheduler.shutdown()
 
-    def add_jobstore(self, *args, **kwargs):
-        self.scheduler.add_jobstore(*args, **kwargs)
+    def add_jobstore(self, jobstore, alias, **kwargs):
+        self.jobstores.update({alias: jobstore})
+        self.scheduler.add_jobstore(jobstore, alias=alias, **kwargs)
 
     def add_job(self, *args, **kwargs):
         self.scheduler.add_job(*args, **kwargs)
