@@ -129,8 +129,8 @@ class TMDB:
         if len(date_list) > 1:
             year, month = date_list[:2]
         else:
-            year, month = date_list[0], "01"
-        if not year:
+            year, month = date_list[0], None
+        if not year or not month:
             raise Exception("Not found first_air_date")
         original_title = (
             details.original_title if self.is_movie else details.original_name
@@ -147,7 +147,7 @@ class TMDB:
                         translation.get("iso_3166_1") == "SG"
                         and translation.get("iso_639_1") == "zh"
                     ):
-                        title = translation.get("data")["name"]
+                        title = translation.get("data")["name"] if not self.is_movie else translation.get("data")["title"]
                         break
             tmdb_name = (
                 f"[{title}] {original_title} ({year}) {{tmdb-{self.tmdb_id}}}"

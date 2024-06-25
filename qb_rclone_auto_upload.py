@@ -118,9 +118,7 @@ def main(src_dir=""):
                             qbt_client.torrents_delete(
                                 delete_files=True, torrent_hashes=torrent.hash
                             )
-                            continue
-                        else:
-                            continue
+                        continue
 
                     # get media info
                     media_info_file_path = os.path.join(script_path, "media_info.cache")
@@ -172,17 +170,20 @@ def main(src_dir=""):
 
                     # torrent is downloaded, and uploaded to GoogleDrive
                     # clean up torrent
-                    if "up_done" in tags and "no_seed" in tags:
-                        logger.info(
-                            f"{torrent.name} is completed and uploaded to GoogleDrive, cleaning up..."
-                        )
-                        qbt_client.torrents_delete(
-                            delete_files=True, torrent_hashes=torrent.hash
-                        )
+                    logger.debug(f"{torrent.name}'s tag: {tags}")
+                    if "up_done" in tags:
+                        if "no_seed" in tags:
+                            logger.info(
+                                f"{torrent.name} is completed and uploaded to GoogleDrive, cleaning up..."
+                            )
+                            qbt_client.torrents_delete(
+                                delete_files=True, torrent_hashes=torrent.hash
+                            )
                         if "end" in tags:
                             media_info.pop(name)
-                            dump_json(media_info, media_info_file_path)
-                            logger.debug(f"Removing {name}'s record...")
+                            with open(media_info_file_path, "wb") as f:
+                                pickle.dump(media_info, f)
+                            logger.info(f"Removing {name}'s record...")
                     # torrent is downloaded, and not uploaded to GoogleDrive
                     if "up_done" not in tags:
                         tmdb_name = ""

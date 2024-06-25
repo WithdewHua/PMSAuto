@@ -44,6 +44,8 @@ def parse():
     )
     parser.add_argument("--tmdb_id", default="", help="TMDB ID")
     parser.add_argument("--keep_nfo", action="store_true", help="Keep NFO files")
+    parser.add_argument("--keep_job_persisted", action="store_true", help="Keep scheduler jobs persisted")
+    parser.add_argument("--force", action="store_true", help="Force to handle")
 
     return parser.parse_args()
 
@@ -313,6 +315,7 @@ def handle_tvshow(
     offset=0,
     keep_nfo=False,
     scan_folders=None,
+    force=False,
 ):
     if not os.path.isdir(media_path):
         raise Exception("Please specify a folder")
@@ -353,6 +356,13 @@ def handle_tvshow(
                 logger.info("Removed file: " + filepath)
                 continue
 
+            # remove season.nfo/tvshow.nfo
+            if re.search(r"(season|tvshow)\.nfo", file):
+                if not dryrun:
+                    os.remove(filepath)
+                logger.info(f"Removed file: {filepath}")
+                continue
+
             season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
             if not season_match:
                 raise Exception(f"Not found season number: {dir + file}")
@@ -365,7 +375,7 @@ def handle_tvshow(
             # 原文件中已经包含 tmdb id
             if re.search(r"tmdb-\d+", file):
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
-                if new_filename == file:
+                if new_filename == file and not force:
                     logger.warning(f"{file}'s name does not change, skipping...")
                     continue
             else:
@@ -425,7 +435,7 @@ def handle_tvshow(
                         + file
                     )
             new_dir = os.path.join(
-                dst_path, country, f"Aired_{year}", tmdb_name, f"Season {season}"
+                dst_path, f"Aired_{year}", f"M{month}", tmdb_name, f"Season {season}"
             )
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
@@ -454,6 +464,7 @@ def handle_movie(
     keep_nfo=False,
     dryrun=False,
     scan_folders=None,
+    force=False,
 ):
     isfile = False
     media_name = os.path.basename(media_path)
@@ -508,53 +519,53 @@ def handle_movie(
 
             if re.search(r"tmdb-\d+", filename):
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, filename)
-                if new_filename == filename:
+                if new_filename == filename and not force:
                     logger.warning(f"{filename}'s name does not change, skipping...")
                     continue
-
-            (
-                web_source,
-                resolution,
-                medium,
-                frame,
-                codec,
-                audio,
-                version,
-                _group,
-            ) = get_media_info_from_filename(
-                filename_pre, media_type="movie", nogroup=nogroup, group=group
-            )
-            # new file name with file extension
-            new_filename = tmdb_name
-
-            if version:
-                new_filename += (
-                    f" - [{version}]" if "edition-" not in version else f" - {version}"
-                )
-            if not ORIGIN_NAME:
-                if web_source:
-                    new_filename += f" [{web_source}]"
-                if resolution:
-                    new_filename += f" [{resolution}]"
-                if medium:
-                    new_filename += f" [{' '.join(medium)}]"
-                if frame:
-                    new_filename += f" [{frame}]"
-                if codec:
-                    new_filename += f" [{' '.join(codec)}]"
-                if audio:
-                    new_filename += f" [{' '.join(audio)}]"
-                if _group:
-                    new_filename += f" [{_group}]"
             else:
-                new_filename += f" - {filename_pre}"
+                (
+                    web_source,
+                    resolution,
+                    medium,
+                    frame,
+                    codec,
+                    audio,
+                    version,
+                    _group,
+                ) = get_media_info_from_filename(
+                    filename_pre, media_type="movie", nogroup=nogroup, group=group
+                )
+                # new file name with file extension
+                new_filename = tmdb_name
 
-            new_filename += f".{filename_suffix}"
+                if version:
+                    new_filename += (
+                        f" - [{version}]" if "edition-" not in version else f" - {version}"
+                    )
+                if not ORIGIN_NAME:
+                    if web_source:
+                        new_filename += f" [{web_source}]"
+                    if resolution:
+                        new_filename += f" [{resolution}]"
+                    if medium:
+                        new_filename += f" [{' '.join(medium)}]"
+                    if frame:
+                        new_filename += f" [{frame}]"
+                    if codec:
+                        new_filename += f" [{' '.join(codec)}]"
+                    if audio:
+                        new_filename += f" [{' '.join(audio)}]"
+                    if _group:
+                        new_filename += f" [{_group}]"
+                else:
+                    new_filename += f" - {filename_pre}"
 
-            if is_filename_length_gt_255(new_filename):
-                new_filename = filename
+                new_filename += f".{filename_suffix}"
+
+                if is_filename_length_gt_255(new_filename):
+                    new_filename = filename
             new_dir = os.path.join(
-                dst_path, country, f"Released_{year}", tmdb_name
+                dst_path, f"Released_{year}",f"M{month}", tmdb_name
             )
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
@@ -573,14 +584,17 @@ def handle_local_media(
     root="/Media/Inbox",
     dst_root="/Media",
     folders=["TVShows", "Movies", "Anime", "NSFW", "NC17-Movies", "Concerts"],
+    ignore_filter=None,
     query=False,
     dryrun=False,
+    force=False,
 ):
     """处理本地已有资源
 
     Args:
         root (str): 处理的根目录
         folders (list): 需要处理的目录（分类）
+        ignore_filter (str): 用于过滤忽略的文件夹, 使用正则表达式
         query (bool): 是否需要查询 TMDB
         dryrun (bool):
 
@@ -596,7 +610,7 @@ def handle_local_media(
             dst_base_path = "TVShows"
             media_type = "anime"
         if re.search(r"(movie|concert)", folder, flags=re.I):
-            dst_base_path = "Movies"
+            pass
         if re.search(r"nsfw", folder, flags=re.I):
             dst_base_path = "Inbox/NSFW"
             media_type = "av"
@@ -605,17 +619,22 @@ def handle_local_media(
         media_folders = [
             os.path.join(path, p)
             for p in os.listdir(path)
-            if os.path.isdir(os.path.join(path, p))
+            if os.path.isdir(os.path.join(path, p)) and not (ignore_filter and re.search(ignore_filter, p))
         ]
         for media_folder in media_folders:
-            tmdb_name = re.search(r"tmdb-\d+", media_folder)
+            tmdb_name = re.search(r"tmdb-(\d+)", media_folder)
             try:
                 if tmdb_name:
-                    ret = media_handle(
+                    tmdb_id = tmdb_name.group(1)
+                    media_handle(
                         path=media_folder,
                         media_type=media_type,
                         dst_path=os.path.join(dst_root, dst_base_path),
+                        tmdb_id=tmdb_id,
+                        keep_nfo=True,
+                        keep_job_persisted=False,
                         dryrun=dryrun,
+                        force=force,
                     )
                 else:
                     # 若不进行 TMDB 查询
@@ -623,20 +642,20 @@ def handle_local_media(
                         logger.info(f"Skipping {media_folder}")
                         continue
                     else:
-                        ret = media_handle(
+                        media_handle(
                             path=media_folder,
                             media_type=media_type,
                             dst_path=os.path.join(dst_root, dst_base_path),
+                            keep_job_persisted=False,
                             dryrun=dryrun,
+                            force=force,
                         )
             except Exception as e:
                 logger.error(e)
+                logger.error(f"Failed to process {media_folder}")
                 continue
             else:
-                if ret:
-                    logger.info(f"Processed {media_folder}")
-                else:
-                    logger.error(f"Failed to process {media_folder}")
+                logger.info(f"Processed {media_folder}")
 
 
 def send_scan_request(scan_folders: Union[str, list, tuple]):
@@ -667,6 +686,7 @@ def media_handle(
     offset=0,
     keep_nfo=False,
     keep_job_persisted=True,
+    force=False,
 ):
     """Media handler
 
@@ -705,6 +725,7 @@ def media_handle(
                 keep_nfo=keep_nfo,
                 dryrun=dryrun,
                 scan_folders=scan_folders,
+                force=force,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
@@ -726,6 +747,7 @@ def media_handle(
                 offset=offset,
                 keep_nfo=keep_nfo,
                 scan_folders=scan_folders,
+                force=force,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
@@ -777,10 +799,14 @@ if __name__ == "__main__":
         dryrun=args.dryrun,
         offset=args.offset,
         keep_nfo=args.keep_nfo,
-        keep_job_persisted=False,
+        keep_job_persisted=args.keep_job_persisted,
+        force=args.force,
     )
 
+    scheduler = Scheduler()
     while True:
-        if not scheduler.get_jobs():
+        if not scheduler.scheduler.get_jobs():
             break
         sleep(30)
+    sleep(30)
+
