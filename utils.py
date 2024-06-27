@@ -4,6 +4,7 @@ import json
 import os
 import re
 import threading
+import shutil
 from copy import deepcopy
 from pathlib import Path
 from typing import Union
@@ -64,29 +65,44 @@ def remove_empty_folder(
     root="/Media/Inbox",
     folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"],
     remove_root_folder=False,
+    exclude_filter: str=None,
+    delete_file_filter: str=None,
 ):
-    """Remove empty folder"""
+    """Remove empty folder
+    args:
+        exclude_filter: folders to exclude
+        delete_file_filter: folders only contains the specified file will be deleted
+    """
 
     if not folders:
         folders = [root]
 
-    for dir in folders:
-        root_folder = dir if dir == root else os.path.join(root, dir)
+    for folder in folders:
+        root_folder = folder if folder == root else os.path.join(root, folder)
         logger.debug(f"Checking folder: {root_folder}")
         if not os.path.exists(root_folder):
             continue
 
-        while True:
-            redo = False
-            for dir, subdir, files in os.walk(root_folder, topdown=False):
-                if not files and not subdir:
-                    if os.path.basename(dir) == root_folder and not remove_root_folder:
-                        continue
-                    logger.info(f"Removing empty foler: {dir}")
-                    os.rmdir(dir)
-                    redo = True
-            if not redo:
-                break
+        for rootdir, subdir, files in os.walk(root_folder, topdown=False):
+            # 跳过匹配 exclude_filter 的文件夹 
+            if exclude_filter and re.search(rf"{exclude_filter}", rootdir):
+                continue
+            if os.path.basename(rootdir) == root_folder and not remove_root_folder:
+                continue
+            # 空文件夹
+            if not files and not subdir:
+                logger.info(f"Removing empty foler: {rootdir}")
+                os.rmdir(rootdir)
+            # 文件夹中只包含匹配 delete_file_filter 的文件
+            if not subdir and delete_file_filter:
+                all_match = True
+                for file in files:
+                    if not re.search(rf"{delete_file_filter}", file):
+                        all_match = False
+                        break
+                if all_match:
+                    shutil.rmtree(rootdir, ignore_errors=True)
+                    logger.info(f"Removing foler: {rootdir}, which contains {files}")
 
 
 def is_filename_length_gt_255(filename):
