@@ -670,7 +670,16 @@ def send_scan_request(scan_folders: Union[str, list, tuple]):
         _emby = Emby()
         media_servers.append(_emby)
     for server in media_servers:
-        server.scan(path=set(scan_folders))
+        while True:
+            try:
+                server.scan(path=set(scan_folders))
+            except Exception as e:
+                logger.error(f"Send scan request failed due to: {e}")
+                logger.error(traceback.format_exc())
+                sleep(60)
+                continue
+            else:
+                break
 
 
 def media_handle(
