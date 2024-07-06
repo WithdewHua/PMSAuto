@@ -41,7 +41,7 @@ for src_dir in src_dirs:
             continue
         year, month, _ = date_match.group(1).split("-")
 
-        dst_dir = os.path.join(dst_path, year, month, number)
+        dst_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", number)
         if os.path.exists(dst_dir):
             logger.warning(f"Folder already exists: {dst_dir}")
             continue
