@@ -658,15 +658,15 @@ def handle_local_media(
                 logger.info(f"Processed {media_folder}")
 
 
-def send_scan_request(scan_folders: Union[str, list, tuple]):
+def send_scan_request(scan_folders: Union[str, list, tuple], plex=PLEX_AUTO_SCAN, emby=EMBY_AUTO_SCAN):
     # handle scan request
     if not isinstance(scan_folders, (list, tuple)):
         scan_folders = [scan_folders]
     media_servers = []
-    if PLEX_AUTO_SCAN:
+    if plex:
         _plex = Plex()
         media_servers.append(_plex)
-    if EMBY_AUTO_SCAN:
+    if emby:
         _emby = Emby()
         media_servers.append(_emby)
     for server in media_servers:
