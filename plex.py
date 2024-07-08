@@ -60,3 +60,23 @@ class Plex:
                 else:
                     logger.info(f"Sent scan request successfully: {path}")
                     break
+
+    def refresh_recently_added(self, path: str, max: int=10):
+        section = self.get_section_by_location(path)
+        if not section:
+            logger.error(f"Section not found by path {path}")
+            return False
+        items = section.recentlyAdded(max)
+        for item in items:
+            # 刷新元数据
+            while True:
+                try:
+                    item.refresh()
+                except Exception as e:
+                    logger.error(e)
+                    sleep(10)
+                    continue
+                else:
+                    logger.info(f"Refresh {item.title} successfully")
+                    break
+

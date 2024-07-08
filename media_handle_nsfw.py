@@ -6,6 +6,8 @@ from time import sleep
 
 from log import logger
 from media_handle import rename_media, send_scan_request
+from plex import Plex
+from utils import remove_empty_folder
 
 
 src_path = "/Media/Inbox/NSFW/Done"
@@ -48,7 +50,13 @@ for src_dir in src_dirs:
         rename_media(os.path.join(src_path, src_dir, number), dst_dir)
         scan_folders.append(dst_dir)
 
-for scan_folder in set(scan_folders):
-    send_scan_request(scan_folder)
-    sleep(30)
+# remove empty folder
+# remove_empty_folder(root=src_path, folders=None)
 
+_plex = Plex()
+for scan_folder in set(scan_folders):
+    send_scan_request(scan_folder, plex=True, emby=False)
+    sleep(30)
+    # refresh metadata
+    _plex.refresh_recently_added("/Media/NSFW", max=5)
+    
