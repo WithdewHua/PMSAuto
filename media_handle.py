@@ -26,7 +26,7 @@ def parse():
     parser = argparse.ArgumentParser(description="Media handle")
     parser.add_argument("path", help="The path of the video")
     parser.add_argument(
-        "-d", "--dst_path", default="", help="Move the handled video to this path"
+        "-d", "--dst_path", default=None, help="Move the handled video to this path"
     )
     parser.add_argument("-D", "--dryrun", action="store_true", help="Dryrun")
     parser.add_argument("--nogroup", action="store_true", help="No group info")
@@ -73,7 +73,14 @@ def get_media_info_from_filename(
 ):
     if media_type == "anime":
         parse_rslt = anitopy.parse(filename_pre)
-        episode = parse_rslt.get("episode_number")
+        if regex:
+            try:
+                episode = re.search(regex, filename_pre, re.IGNORECASE).group(1)
+            except Exception as e:
+                logger.error(f"No episode number found in file: {filename_pre}")
+                return False
+        else:
+            episode = parse_rslt.get("episode_number")
         resolution = parse_rslt.get("video_resolution", "")
         medium = parse_rslt.get("source", [])
         if isinstance(medium, str):
