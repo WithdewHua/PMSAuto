@@ -1,25 +1,23 @@
-import os
-import traceback
-import re
 import argparse
-import shutil
 import datetime
+import os
+import re
+import shutil
 import textwrap
-
-from time import sleep
+import traceback
 from copy import deepcopy
+from time import sleep
 from typing import Union
 
 import anitopy
-
-from tmdb import TMDB
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from emby import Emby
 from log import logger
 from plex import Plex
-from emby import Emby
-from settings import ORIGIN_NAME, PLEX_AUTO_SCAN, EMBY_AUTO_SCAN, MEDIA_SUFFIX
-from utils import remove_empty_folder, is_filename_length_gt_255
 from scheduler import Scheduler
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from settings import EMBY_AUTO_SCAN, MEDIA_SUFFIX, ORIGIN_NAME, PLEX_AUTO_SCAN
+from tmdb import TMDB
+from utils import is_filename_length_gt_255, remove_empty_folder
 
 
 def parse():
@@ -44,7 +42,11 @@ def parse():
     )
     parser.add_argument("--tmdb_id", default="", help="TMDB ID")
     parser.add_argument("--keep_nfo", action="store_true", help="Keep NFO files")
-    parser.add_argument("--keep_job_persisted", action="store_true", help="Keep scheduler jobs persisted")
+    parser.add_argument(
+        "--keep_job_persisted",
+        action="store_true",
+        help="Keep scheduler jobs persisted",
+    )
     parser.add_argument("--force", action="store_true", help="Force to handle")
 
     return parser.parse_args()
@@ -547,7 +549,9 @@ def handle_movie(
 
                 if version:
                     new_filename += (
-                        f" - [{version}]" if "edition-" not in version else f" - {version}"
+                        f" - [{version}]"
+                        if "edition-" not in version
+                        else f" - {version}"
                     )
                 if not ORIGIN_NAME:
                     if web_source:
@@ -571,9 +575,7 @@ def handle_movie(
 
                 if is_filename_length_gt_255(new_filename):
                     new_filename = filename
-            new_dir = os.path.join(
-                dst_path, f"Released_{year}",f"M{month}", tmdb_name
-            )
+            new_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", tmdb_name)
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
                 if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
@@ -626,7 +628,8 @@ def handle_local_media(
         media_folders = [
             os.path.join(path, p)
             for p in os.listdir(path)
-            if os.path.isdir(os.path.join(path, p)) and not (ignore_filter and re.search(ignore_filter, p))
+            if os.path.isdir(os.path.join(path, p))
+            and not (ignore_filter and re.search(ignore_filter, p))
         ]
         for media_folder in media_folders:
             tmdb_name = re.search(r"tmdb-(\d+)", media_folder)
@@ -665,7 +668,9 @@ def handle_local_media(
                 logger.info(f"Processed {media_folder}")
 
 
-def send_scan_request(scan_folders: Union[str, list, tuple], plex=PLEX_AUTO_SCAN, emby=EMBY_AUTO_SCAN):
+def send_scan_request(
+    scan_folders: Union[str, list, tuple], plex=PLEX_AUTO_SCAN, emby=EMBY_AUTO_SCAN
+):
     # handle scan request
     if not isinstance(scan_folders, (list, tuple)):
         scan_folders = [scan_folders]
@@ -787,7 +792,9 @@ def media_handle(
         run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
         scheduler = Scheduler()
         if keep_job_persisted and not scheduler.jobstores.get("sqlite"):
-            scheduler.add_jobstore(SQLAlchemyJobStore(url="sqlite:///jobs.sql"), alias="sqlite")
+            scheduler.add_jobstore(
+                SQLAlchemyJobStore(url="sqlite:///jobs.sql"), alias="sqlite"
+            )
         scheduler.add_job(
             send_scan_request,
             args=(scan_folders,),
@@ -825,4 +832,3 @@ if __name__ == "__main__":
             break
         sleep(30)
     sleep(30)
-

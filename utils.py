@@ -3,16 +3,15 @@
 import json
 import os
 import re
-import threading
 import shutil
+import threading
 from copy import deepcopy
 from pathlib import Path
 from typing import Union
 
 import requests
-
-from settings import TG_API_KEY
 from log import logger
+from settings import TG_API_KEY
 
 
 def load_json(path):
@@ -65,8 +64,8 @@ def remove_empty_folder(
     root="/Media/Inbox",
     folders=["Anime", "Movies", "TVShows", "NSFW", "NC17-Movies", "Concerts"],
     remove_root_folder=False,
-    exclude_filter: str=None,
-    delete_file_filter: str=None,
+    exclude_filter: str = None,
+    delete_file_filter: str = None,
 ):
     """Remove empty folder
     args:
@@ -84,7 +83,7 @@ def remove_empty_folder(
             continue
 
         for rootdir, subdir, files in os.walk(root_folder, topdown=False):
-            # 跳过匹配 exclude_filter 的文件夹 
+            # 跳过匹配 exclude_filter 的文件夹
             if exclude_filter and re.search(rf"{exclude_filter}", rootdir):
                 continue
             if os.path.basename(rootdir) == root_folder and not remove_root_folder:
@@ -162,4 +161,3 @@ class Singleton(type):
             if not hasattr(cls, "_instance"):
                 cls._instance = super().__call__(*args, **kwds)
         return cls._instance
-            

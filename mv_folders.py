@@ -1,25 +1,26 @@
-import re
-import os
-import traceback
+import argparse
 import datetime
 import json
+import os
 import pickle
-import argparse
-
+import re
+import traceback
 from pathlib import Path
 from time import sleep
 
-from tmdb import TMDB
-from media_handle import rename_media, send_scan_request, add_plexmatch_file
-from scheduler import Scheduler
 from log import logger
+from media_handle import add_plexmatch_file, rename_media, send_scan_request
+from scheduler import Scheduler
+from tmdb import TMDB
 
 
 def parse():
     parser = argparse.ArgumentParser(description="MV Media handle")
     parser.add_argument("path", help="The path of media to handle")
     parser.add_argument("-t", "--type", default="movies", help="media type")
-    parser.add_argument("-i", "--ignore_filter", default=None, help="regex to filter folders")
+    parser.add_argument(
+        "-i", "--ignore_filter", default=None, help="regex to filter folders"
+    )
     return parser.parse_args()
 
 
@@ -61,10 +62,14 @@ def main(root_folder, media_type="movie", ignore_filter=None):
                     month = details.get("month")
                     title = details.get("title")
                     season = None
-                    
-                    new_folder = Path(root_folder, f"{prefix}_{year}", f"M{month}", tmdb_name)
+
+                    new_folder = Path(
+                        root_folder, f"{prefix}_{year}", f"M{month}", tmdb_name
+                    )
                     if not is_movie:
-                        season_match = re.search(r"S(eason)?\s?(\d{1,2})", str(filepath))
+                        season_match = re.search(
+                            r"S(eason)?\s?(\d{1,2})", str(filepath)
+                        )
                         if season_match:
                             season = season_match.group(2).zfill(2)
                             new_folder = new_folder / f"Season {season}"
@@ -115,7 +120,7 @@ def main(root_folder, media_type="movie", ignore_filter=None):
 
         while True:
             if not scheduler.scheduler.get_jobs():
-                break    
+                break
             sleep(30)
         sleep(60)
 
@@ -123,8 +128,7 @@ def main(root_folder, media_type="movie", ignore_filter=None):
 if __name__ == "__main__":
     args = parse()
     main(
-        root_folder=args.path, 
+        root_folder=args.path,
         media_type=args.type,
         ignore_filter=args.ignore_filter,
     )
-

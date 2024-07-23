@@ -5,7 +5,6 @@ import logging
 
 from settings import LOG_LEVEL
 
-
 # 日志格式
 logging_datefmt = "%m/%d/%Y %H:%M:%S"
 logging_format = "[%(asctime)s][%(levelname)s]<%(funcName)s>: %(message)s"

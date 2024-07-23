@@ -1,17 +1,15 @@
+import glob
+import json
+import logging
 import os
 import re
-import json
-import time
-import glob
-import psutil
-import logging
 import subprocess
+import time
+from logging.handlers import RotatingFileHandler
 
 import filelock
-
-from logging.handlers import RotatingFileHandler
+import psutil
 from settings import RC_ADDR
-
 
 # ------------配置项开始------------------
 # Account目录

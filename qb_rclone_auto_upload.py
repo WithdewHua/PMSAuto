@@ -4,31 +4,31 @@
 #
 
 
-import subprocess
-import os
-import re
-import time
 import argparse
+import os
 import pickle
-
+import re
+import subprocess
+import time
+import traceback
 from copy import deepcopy
-
-import qbittorrentapi
-import anitopy
-
 from datetime import date
+
+import anitopy
+import qbittorrentapi
 from autorclone import auto_rclone
 from log import logger
-from media_handle import media_handle, handle_local_media
-from tmdb import TMDB
-from utils import load_json, dump_json, send_tg_msg, remove_empty_folder, sumarize_tags
+from media_handle import handle_local_media, media_handle
 from settings import (
-    RCLONE_ALWAYS_UPLOAD,
-    QBIT,
-    TG_CHAT_ID,
-    REMOVE_EMPTY_FOLDER,
     HANDLE_LOCAL_MEDIA,
+    QBIT,
+    RCLONE_ALWAYS_UPLOAD,
+    REMOVE_EMPTY_FOLDER,
+    TG_CHAT_ID,
 )
+from tmdb import TMDB
+from tmdbv3api.exceptions import TMDbException
+from utils import dump_json, load_json, remove_empty_folder, send_tg_msg, sumarize_tags
 
 script_path = os.path.split(os.path.realpath(__file__))[0]
 
@@ -252,14 +252,24 @@ def main(src_dir=""):
                         # tags 中的 tmdb id 始终优先，如果存在 tmdb_id, 直接通过 tmdb id 获取名字
                         if tmdb_id and (
                             not local_record
-                            or (local_record and str(tmdb_id) not in ",".join(record_tags))
-                        ):
-                            tmdb_name = (
-                                tmdb.get_info_from_tmdb_by_id(tmdb_id).get("tmdb_name")
-                                if not tmdb_name or write_record
-                                else tmdb_name
+                            or (
+                                local_record
+                                and str(tmdb_id) not in ",".join(record_tags)
                             )
-                            save_name = tmdb_name
+                        ):
+                            try:
+                                tmdb_name = (
+                                    tmdb.get_info_from_tmdb_by_id(tmdb_id).get(
+                                        "tmdb_name"
+                                    )
+                                    if not tmdb_name or write_record
+                                    else tmdb_name
+                                )
+                                save_name = tmdb_name
+                            except Exception as e:
+                                logger.error(f"Failed to get tmdb info: {e}")
+                                logger.error(traceback.format_exc())
+                                continue
                         # 否则通过种子名字进行查询
                         else:
                             tv_year_deviation = 0 if not year_tag else 0
@@ -460,7 +470,12 @@ def main(src_dir=""):
                         else:
                             src_path = torrent.content_path
                         # torrent files list
-                        torrent_files = [file.get("name").removeprefix(os.path.basename(src_path)).lstrip("/") for file in torrent.files]
+                        torrent_files = [
+                            file.get("name")
+                            .removeprefix(os.path.basename(src_path))
+                            .lstrip("/")
+                            for file in torrent.files
+                        ]
                         logger.debug(torrent_files)
                         if len(torrent_files) > 1:
                             files_from_file = f"/tmp/files_from_{uuid}.txt"
@@ -594,6 +609,15 @@ def main(src_dir=""):
                                     tmdb_id=tmdb_id,
                                     keep_nfo=True,
                                 )
+                            # tmdb resource deleted
+                            except TMDbException as e:
+                                logger.error(f"Exception happens: {e}")
+                                send_tg_msg(
+                                    chat_id=TG_CHAT_ID,
+                                    text=f"Failed to get TMDB item for `{torrent.name}`, please check……",
+                                )
+                                if name in media_info:
+                                    media_info.pop(name)
                             except Exception as e:
                                 logger.error(f"Exception happens: {e}")
                                 send_tg_msg(

@@ -1,13 +1,12 @@
 #! /usr/bin/env python3
 
-import requests
 import json
-
 from time import sleep
-from typing import List, Dict, Optional, Union, Sequence
+from typing import Dict, List, Optional, Sequence, Union
 
-from settings import EMBY_BASE_URL, EMBY_API_TOKEN
+import requests
 from log import logger
+from settings import EMBY_API_TOKEN, EMBY_BASE_URL
 
 
 class Emby:

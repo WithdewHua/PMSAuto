@@ -2,9 +2,9 @@
 
 import datetime
 
-from tmdbv3api import TMDb, Search, TV, Movie
-from settings import TMDB_API_KEY, LOG_LEVEL
 from log import logger
+from settings import LOG_LEVEL, TMDB_API_KEY
+from tmdbv3api import TV, Movie, Search, TMDb
 
 
 class TMDB:
@@ -147,7 +147,11 @@ class TMDB:
                         translation.get("iso_3166_1") == "SG"
                         and translation.get("iso_639_1") == "zh"
                     ):
-                        title = translation.get("data")["name"] if not self.is_movie else translation.get("data")["title"]
+                        title = (
+                            translation.get("data")["name"]
+                            if not self.is_movie
+                            else translation.get("data")["title"]
+                        )
                         break
             tmdb_name = (
                 f"[{title}] {original_title} ({year}) {{tmdb-{self.tmdb_id}}}"

@@ -7,6 +7,7 @@
 #   all-features: false
 #   with-sources: false
 #   generate-hashes: false
+#   universal: false
 
 -e file:.
 anitopy==2.1.1
@@ -36,6 +37,7 @@ requests==2.31.0
     # via pmsauto
     # via qbittorrent-api
     # via tmdbv3api
+ruff==0.5.4
 six==1.16.0
     # via apscheduler
     # via qbittorrent-api

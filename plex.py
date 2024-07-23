@@ -1,14 +1,13 @@
 #!/user/bin/env python3
 
-from typing import Optional, Union, Sequence
-
 import re
 from time import sleep
+from typing import Optional, Sequence, Union
 
-from plexapi.server import PlexServer
-from plexapi.myplex import Section
-from settings import PLEX_BASE_URL, PLEX_API_TOKEN
 from log import logger
+from plexapi.myplex import Section
+from plexapi.server import PlexServer
+from settings import PLEX_API_TOKEN, PLEX_BASE_URL
 
 
 class Plex:
@@ -61,7 +60,7 @@ class Plex:
                     logger.info(f"Sent scan request successfully: {path}")
                     break
 
-    def refresh_recently_added(self, path: str, max: int=10):
+    def refresh_recently_added(self, path: str, max: int = 10):
         section = self.get_section_by_location(path)
         if not section:
             logger.error(f"Section not found by path {path}")
@@ -79,4 +78,3 @@ class Plex:
                 else:
                     logger.info(f"Refresh {item.title} successfully")
                     break
-
