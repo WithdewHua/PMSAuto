@@ -89,8 +89,8 @@ def main(src_dir=""):
                     if category == "NSFW":
                         tags.append("no_seed")
 
-                    # 跳过已上传，需要做种，且标记了忽略的种子
-                    if "up_done" in tags and "no_seed" not in tags and "ignore" in tags:
+                    # 跳过需要做种，且标记了忽略的种子
+                    if "no_seed" not in tags and "ignore" in tags:
                         continue
 
                     # process torrents added by MoviePilot
