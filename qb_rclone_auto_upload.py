@@ -89,6 +89,17 @@ def main(src_dir=""):
                     if category == "NSFW":
                         tags.append("no_seed")
 
+                    # 非媒体库目录
+                    if category not in ["TVShows", "Anime", "Movies", "Music", "NC17-Movies", "NSFW", "Concerts"]:
+                        if "up_done" in tags and "no_seed":
+                            logger.info(
+                                f"{torrent.name} is completed and uploaded, cleaning up..."
+                            )
+                            qbt_client.torrents_delete(
+                                delete_files=True, torrent_hashes=torrent.hash
+                            )
+                        continue
+
                     # 跳过需要做种，且标记了忽略的种子
                     if "no_seed" not in tags and "ignore" in tags:
                         continue
