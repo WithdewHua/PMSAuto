@@ -450,26 +450,32 @@ def main(src_dir=""):
                             )
                         else:
                             src_path = torrent.content_path
-                        # torrent files list
-                        torrent_files = [
-                            file.get("name")
-                            .removeprefix(os.path.basename(src_path))
-                            .lstrip("/")
-                            for file in torrent.files
-                        ]
-                        logger.debug(torrent.files)
-                        logger.debug(torrent_files)
-                        if not torrent_files:
-                            logger.error(f"Can not find files of {torrent.name}")
-                            send_tg_msg(
-                                chat_id=TG_CHAT_ID,
-                                text=f"Can not find files of {torrent.name}",
-                            )
-                            continue
-                        # rclone file include
-                        files_from_file = f"/tmp/files_from_{uuid}.txt"
-                        with open(files_from_file, "w") as f:
-                            f.write("\n".join(torrent_files))
+
+                        # 如果是单文件
+                        if os.path.isfile(src_path):
+                            files_from_file = None
+                        # 如果是文件夹
+                        else:
+                            # torrent files list
+                            torrent_files = [
+                                file.get("name")
+                                .removeprefix(os.path.basename(src_path))
+                                .lstrip("/")
+                                for file in torrent.files
+                            ]
+                            logger.debug(torrent.files)
+                            logger.debug(torrent_files)
+                            if not torrent_files:
+                                logger.error(f"Can not find files of {torrent.name}")
+                                send_tg_msg(
+                                    chat_id=TG_CHAT_ID,
+                                    text=f"Can not find files of {torrent.name}",
+                                )
+                                continue
+                            # rclone file include
+                            files_from_file = f"/tmp/files_from_{uuid}.txt"
+                            with open(files_from_file, "w") as f:
+                                f.write("\n".join(torrent_files))
 
                         # rclone copy
                         logger.info(f"{torrent.name} is completed, copying")
