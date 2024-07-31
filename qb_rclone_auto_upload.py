@@ -101,25 +101,6 @@ def main(src_dir=""):
                             tags="MOVIEPILOT", torrent_hashes=torrent.hash
                         )
 
-                    # handle torrents with specific category
-                    if category not in [
-                        "Movies",
-                        "TVShows",
-                        "NSFW",
-                        "NC17-Movies",
-                        "Concerts",
-                        "Anime",
-                        "Music",
-                    ]:
-                        if "no_seed" in tags:
-                            logger.info(
-                                f"{torrent.name} does not need to seed, cleaning up..."
-                            )
-                            qbt_client.torrents_delete(
-                                delete_files=True, torrent_hashes=torrent.hash
-                            )
-                        continue
-
                     # get media info
                     media_info_file_path = os.path.join(script_path, "media_info.cache")
                     if os.path.exists(media_info_file_path):
@@ -174,7 +155,7 @@ def main(src_dir=""):
                     if "up_done" in tags:
                         if "no_seed" in tags:
                             logger.info(
-                                f"{torrent.name} is completed and uploaded to GoogleDrive, cleaning up..."
+                                f"{torrent.name} is completed and uploaded, cleaning up..."
                             )
                             qbt_client.torrents_delete(
                                 delete_files=True, torrent_hashes=torrent.hash
@@ -553,10 +534,6 @@ def main(src_dir=""):
                                 # add tag "up_done"
                                 qbt_client.torrents_add_tags(
                                     tags="up_done", torrent_hashes=torrent.hash
-                                )
-                                # change category to "Seed"
-                                qbt_client.torrents_set_category(
-                                    category="Seed", torrent_hashes=torrent.hash
                                 )
                             else:
                                 # delete torrent and data if no need to seed
