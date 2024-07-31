@@ -457,13 +457,19 @@ def main(src_dir=""):
                             .lstrip("/")
                             for file in torrent.files
                         ]
+                        logger.debug(torrent.files)
                         logger.debug(torrent_files)
-                        if len(torrent_files) > 1:
-                            files_from_file = f"/tmp/files_from_{uuid}.txt"
-                            with open(files_from_file, "w") as f:
-                                f.write("\n".join(torrent_files))
-                        else:
-                            files_from_file = None
+                        if not torrent_files:
+                            logger.error(f"Can not find files of {torrent.name}")
+                            send_tg_msg(
+                                chat_id=TG_CHAT_ID,
+                                text=f"Can not find files of {torrent.name}",
+                            )
+                            continue
+                        # rclone file include
+                        files_from_file = f"/tmp/files_from_{uuid}.txt"
+                        with open(files_from_file, "w") as f:
+                            f.write("\n".join(torrent_files))
 
                         # rclone copy
                         logger.info(f"{torrent.name} is completed, copying")
