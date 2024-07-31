@@ -160,7 +160,7 @@ def main(src_dir=""):
                             qbt_client.torrents_delete(
                                 delete_files=True, torrent_hashes=torrent.hash
                             )
-                        if "end" in tags:
+                        if "end" in tags and name in media_info:
                             media_info.pop(name)
                             with open(media_info_file_path, "wb") as f:
                                 pickle.dump(media_info, f)
