@@ -89,6 +89,10 @@ def main(src_dir=""):
                     if category == "NSFW":
                         tags.append("no_seed")
 
+                    # 跳过已上传，需要做种，且标记了忽略的种子
+                    if "up_done" in tags and "no_seed" not in tags and "ignore" in tags:
+                        continue
+
                     # process torrents added by MoviePilot
                     if "MOVIEPILOT" in tags:
                         category = os.path.basename(torrent.save_path.rstrip("/"))
@@ -164,6 +168,10 @@ def main(src_dir=""):
                             media_info.pop(name)
                             with open(media_info_file_path, "wb") as f:
                                 pickle.dump(media_info, f)
+                            # add ignore tag
+                            qbt_client.torrents_add_tags(
+                                tags="ignore", torrent_hashes=torrent.hash
+                            )
                             logger.info(f"Removing {name}'s record...")
                     # torrent is downloaded, and not uploaded to GoogleDrive
                     if "up_done" not in tags:
@@ -645,6 +653,10 @@ def main(src_dir=""):
                         # delete
                         if local_record and "end" in tags:
                             media_info.pop(name)
+                            qbt_client.torrents_add_tags(
+                                tags="ignore", torrent_hashes=torrent.hash
+                            )
+
                         # 持久化
                         with open(media_info_file_path, "wb") as f:
                             pickle.dump(media_info, f)
