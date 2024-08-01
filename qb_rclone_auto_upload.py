@@ -89,6 +89,18 @@ def main(src_dir=""):
                     if category == "NSFW":
                         tags.append("no_seed")
 
+                    # process torrents added by MoviePilot
+                    if "MOVIEPILOT" in tags:
+                        category = os.path.basename(torrent.save_path.rstrip("/"))
+                        # set category
+                        qbt_client.torrents_set_category(
+                            category=category, torrent_hashes=torrent.hash
+                        )
+                        # delete tag
+                        qbt_client.torrents_remove_tags(
+                            tags="MOVIEPILOT", torrent_hashes=torrent.hash
+                        )
+
                     # 非媒体库目录
                     if category not in ["TVShows", "Anime", "Movies", "Music", "NC17-Movies", "NSFW", "Concerts"]:
                         if "up_done" in tags and "no_seed" in tags:
@@ -103,18 +115,6 @@ def main(src_dir=""):
                     # 跳过需要做种，且标记了忽略的种子
                     if "no_seed" not in tags and "ignore" in tags:
                         continue
-
-                    # process torrents added by MoviePilot
-                    if "MOVIEPILOT" in tags:
-                        category = os.path.basename(torrent.save_path.rstrip("/"))
-                        # set category
-                        qbt_client.torrents_set_category(
-                            category=category, torrent_hashes=torrent.hash
-                        )
-                        # delete tag
-                        qbt_client.torrents_remove_tags(
-                            tags="MOVIEPILOT", torrent_hashes=torrent.hash
-                        )
 
                     # get media info
                     media_info_file_path = os.path.join(script_path, "media_info.cache")
