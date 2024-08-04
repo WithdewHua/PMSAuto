@@ -390,7 +390,12 @@ def handle_tvshow(
                 # 替换 tmdb name
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
                 # 替换 season number
-                new_filename = re.sub(r"S\d{2}", f"S{season}", new_filename)
+                new_filename = re.sub(r"S\d{2}", f"S{season}", new_filename, count=1)
+                # 替换 episode
+                if offset:
+                    episode = re.search(r"E(\d+)", new_filename).group(1)
+                    episode = str(int(episode) - int(offset)).zfill(len(episode))
+                    new_filename = re.sub(r"E(\d+)", f"E{episode}", new_filename, count=1)
                 if new_filename == file and not force:
                     logger.warning(f"{file}'s name does not change, skipping...")
                     continue
