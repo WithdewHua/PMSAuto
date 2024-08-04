@@ -387,7 +387,10 @@ def handle_tvshow(
 
             # 原文件中已经包含 tmdb id
             if re.search(r"tmdb-\d+", file):
+                # 替换 tmdb name
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
+                # 替换 season number
+                new_filename = re.sub(r"S\d{2}", f"S{season}", new_filename)
                 if new_filename == file and not force:
                     logger.warning(f"{file}'s name does not change, skipping...")
                     continue
