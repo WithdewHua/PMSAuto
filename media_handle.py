@@ -35,6 +35,7 @@ def parse():
         default="",
         help="Regex expression for getting episode (episode number in group(1))",
     )
+    parser.add_argument("-S", "--season", default=None, help="Season number")
     parser.add_argument("-N", "--episode_bit", default=2, help="Episodes' bit")
     parser.add_argument("--offset", default=0, help="Offset of episode number")
     parser.add_argument(
@@ -318,6 +319,7 @@ def handle_tvshow(
     dst_path=None,
     regex="",
     group="",
+    season=None,
     episode_bit=2,
     nogroup=False,
     dryrun=False,
@@ -372,10 +374,12 @@ def handle_tvshow(
                 logger.info(f"Removed file: {filepath}")
                 continue
 
-            season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
-            if not season_match:
-                raise Exception(f"Not found season number: {dir + file}")
-            season = season_match.group(2).zfill(2)
+            if not season:
+                season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
+                if not season_match:
+                    raise Exception(f"Not found season number: {dir + file}")
+                season = season_match.group(2)
+            season = season.zfill(2)
 
             # special seaon
             if "Specials" in filepath:
@@ -704,6 +708,7 @@ def media_handle(
     episode_bit=2,
     tmdb_id=None,
     dryrun=False,
+    season=None,
     offset=0,
     keep_nfo=False,
     keep_job_persisted=True,
@@ -763,6 +768,7 @@ def media_handle(
                 regex=regex,
                 group=group,
                 nogroup=nogroup,
+                season=season,
                 episode_bit=episode_bit,
                 dryrun=dryrun,
                 offset=offset,
@@ -775,7 +781,7 @@ def media_handle(
             logger.error(traceback.format_exc())
             raise e
     elif media_type == "av":
-        for dir, subdir, files in os.walk(root):
+        for dir, _, _ in os.walk(root):
             remove_small_files(dir, dryrun=dryrun)
     elif media_type == "music":
         if dst_path and not dryrun:
@@ -817,6 +823,7 @@ if __name__ == "__main__":
         regex=args.regex,
         group=args.group,
         nogroup=args.nogroup,
+        season=args.season,
         episode_bit=args.episode_bit,
         tmdb_id=args.tmdb_id,
         dryrun=args.dryrun,
