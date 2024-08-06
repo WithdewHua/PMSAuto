@@ -102,7 +102,15 @@ def main(src_dir=""):
                         )
 
                     # 非媒体库目录
-                    if category not in ["TVShows", "Anime", "Movies", "Music", "NC17-Movies", "NSFW", "Concerts"]:
+                    if category not in [
+                        "TVShows",
+                        "Anime",
+                        "Movies",
+                        "Music",
+                        "NC17-Movies",
+                        "NSFW",
+                        "Concerts",
+                    ]:
                         if "up_done" in tags and "no_seed" in tags:
                             logger.info(
                                 f"{torrent.name} is completed and uploaded, cleaning up..."

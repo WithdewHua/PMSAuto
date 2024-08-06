@@ -378,24 +378,29 @@ def handle_tvshow(
                 season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
                 if not season_match:
                     raise Exception(f"Not found season number: {dir + file}")
-                season = season_match.group(2)
-            season = season.zfill(2)
+                _season = season_match.group(2)
+            else:
+                _season = season
+            _season = _season.zfill(2)
+            logger.debug(f"Got season: {_season}")
 
             # special seaon
             if "Specials" in filepath:
-                season = "00"
+                _season = "00"
 
             # 原文件中已经包含 tmdb id
             if re.search(r"tmdb-\d+", file):
                 # 替换 tmdb name
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
                 # 替换 season number
-                new_filename = re.sub(r"S\d{2}", f"S{season}", new_filename, count=1)
+                new_filename = re.sub(r"S\d{2}", f"S{_season}", new_filename, count=1)
                 # 替换 episode
                 if offset:
                     episode = re.search(r"E(\d+)", new_filename).group(1)
                     episode = str(int(episode) - int(offset)).zfill(len(episode))
-                    new_filename = re.sub(r"E(\d+)", f"E{episode}", new_filename, count=1)
+                    new_filename = re.sub(
+                        r"E(\d+)", f"E{episode}", new_filename, count=1
+                    )
                 if new_filename == file and not force:
                     logger.warning(f"{file}'s name does not change, skipping...")
                     continue
@@ -421,7 +426,7 @@ def handle_tvshow(
                 new_filename = (
                     tmdb_name
                     + " - "
-                    + f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+                    + f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
                 )
 
                 if version:
@@ -451,12 +456,12 @@ def handle_tvshow(
                 new_filename += f".{filename_suffix}"
                 if is_filename_length_gt_255(new_filename):
                     new_filename = (
-                        f"S{season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+                        f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
                         + " - "
                         + file
                     )
             new_dir = os.path.join(
-                dst_path, f"Aired_{year}", f"M{month}", tmdb_name, f"Season {season}"
+                dst_path, f"Aired_{year}", f"M{month}", tmdb_name, f"Season {_season}"
             )
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
@@ -466,7 +471,7 @@ def handle_tvshow(
                         details.get("title"),
                         year=year,
                         tmdb_id=tmdb_id,
-                        season=int(season),
+                        season=int(_season),
                     )
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
