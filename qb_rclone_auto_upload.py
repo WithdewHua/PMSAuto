@@ -121,12 +121,20 @@ def main(src_dir=""):
                         continue
 
                     # 跳过需要做种，且标记了忽略的种子
-                    if "no_seed" not in tags and "ignore" in tags:
-                        continue
                     if "ignore" in tags:
                         if "no_seed" in tags:
                             qbt_client.torrents_delete(
                                 delete_files=True, torrent_hashes=torrent.hash
+                            )
+                        continue
+
+                    # 如果下载量为 0，说明为辅种，直接 ignore
+                    if torrent.downloaded == 0:
+                        if "ignore" not in tags:
+                            tags.append("ignore")
+                            # add ignore tag
+                            qbt_client.torrents_add_tags(
+                                tags="ignore", torrent_hashes=torrent.hash
                             )
                         continue
 
