@@ -229,13 +229,12 @@ def auto_rclone(src_path, dest_path, files_from=None):
             cnt_error = 0
             cnt_403_retry = 0
             cnt_transfer_last = 0
-            cnt_get_rate_limit = False
             while True:
                 try:
                     response = subprocess.check_output(
                         f"rclone rc core/stats --url http://{rc_addr}", shell=True
                     )
-                except subprocess.CalledProcessError as error:
+                except subprocess.CalledProcessError:
                     cnt_error = cnt_error + 1
                     err_msg = "check core/stats failed for %s times," % cnt_error
                     if cnt_error >= 3:

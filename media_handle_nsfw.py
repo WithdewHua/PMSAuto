@@ -1,12 +1,10 @@
 import os
 import re
-import shutil
 from time import sleep
 
 from log import logger
 from media_handle import rename_media, send_scan_request
 from plex import Plex
-from utils import remove_empty_folder
 
 src_path = "/Media/Inbox/NSFW/Done"
 dst_path = "/Media/NSFW"

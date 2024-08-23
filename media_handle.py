@@ -17,7 +17,7 @@ from plex import Plex
 from scheduler import Scheduler
 from settings import EMBY_AUTO_SCAN, MEDIA_SUFFIX, ORIGIN_NAME, PLEX_AUTO_SCAN
 from tmdb import TMDB
-from utils import is_filename_length_gt_255, remove_empty_folder
+from utils import is_filename_length_gt_255
 
 
 def parse():
@@ -79,7 +79,7 @@ def get_media_info_from_filename(
         if regex:
             try:
                 episode = re.search(regex, filename_pre, re.IGNORECASE).group(1)
-            except Exception as e:
+            except Exception:
                 logger.error(f"No episode number found in file: {filename_pre}")
                 return False
         else:
@@ -110,7 +110,7 @@ def get_media_info_from_filename(
             _regex = regex
         try:
             episode = re.search(_regex, filename_pre, re.IGNORECASE).group(1)
-        except Exception as e:
+        except Exception:
             logger.error("No episode number found in file: " + filename_pre)
             return False
 
@@ -342,7 +342,6 @@ def handle_tvshow(
     tmdb = TMDB(movie=False)
     details = tmdb.get_info_from_tmdb_by_id(tmdb_id=tmdb_id)
     tmdb_name = details.get("tmdb_name")
-    country = details.get("country")
     year = details.get("year")
     month = details.get("month")
 
@@ -460,9 +459,10 @@ def handle_tvshow(
                         + " - "
                         + file
                     )
-            new_dir = os.path.join(
-                dst_path, f"Aired_{year}", f"M{month}", tmdb_name, f"Season {_season}"
+            new_media_dir = os.path.join(
+                dst_path, f"Aired_{year}", f"M{month}", tmdb_name
             )
+            new_dir = os.path.join(new_media_dir, f"Season {_season}")
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
                 if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
@@ -472,6 +472,10 @@ def handle_tvshow(
                         year=year,
                         tmdb_id=tmdb_id,
                         season=int(_season),
+                    )
+                if not os.path.exists(os.path.join(new_media_dir, ".plexmatch")):
+                    add_plexmatch_file(
+                        new_media_dir, details.get("title"), year=year, tmdb_id=tmdb_id
                     )
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
@@ -539,7 +543,6 @@ def handle_movie(
 
             details = tmdb.get_info_from_tmdb_by_id(tmdb_id=tmdb_id)
             tmdb_name = details.get("tmdb_name")
-            country = details.get("country")
             year = details.get("year")
             month = details.get("month")
 
