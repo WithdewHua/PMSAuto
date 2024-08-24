@@ -3,6 +3,7 @@ import datetime
 import os
 import re
 import shutil
+import subprocess
 import textwrap
 import traceback
 from copy import deepcopy
@@ -486,7 +487,13 @@ def handle_tvshow(
             rename_media(os.path.join(dir, file), new_file_path, dryrun=dryrun)
 
     if handled_files == 0:
-        if not os.listdir(media_path):
+        rslt = subprocess.run(
+            ["rclone", "ls", media_path],
+            encoding="utf-8",
+            capture_output=True,
+        )
+        # 空文件夹
+        if not rslt.stdout:
             logger.debug(f"Empty Folder: {media_path}")
         else:
             # raise, 交由上层继续处理
