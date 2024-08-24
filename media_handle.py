@@ -345,7 +345,9 @@ def handle_tvshow(
     year = details.get("year")
     month = details.get("month")
 
-    for dir, subdir, files in os.walk(media_path):
+    # 用于记录处理的文件数量,如果为 0,则认为为空文件夹
+    handled_files = 0
+    for dir, _, files in os.walk(media_path):
         removed_files = remove_hidden_files(dir, dryrun=dryrun)
         for file in removed_files:
             if file[1] == 0:
@@ -387,6 +389,7 @@ def handle_tvshow(
             if "Specials" in filepath:
                 _season = "00"
 
+            handled_files += 1
             # 原文件中已经包含 tmdb id
             if re.search(r"tmdb-\d+", file):
                 # 替换 tmdb name
@@ -481,6 +484,9 @@ def handle_tvshow(
                 logger.debug(f"Added scan folder: {new_dir}")
 
             rename_media(os.path.join(dir, file), new_file_path, dryrun=dryrun)
+
+    if handled_files == 0:
+        raise Exception(f"Empty media folder: {media_path}")
 
     return scan_folders
 
