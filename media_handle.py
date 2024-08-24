@@ -486,7 +486,11 @@ def handle_tvshow(
             rename_media(os.path.join(dir, file), new_file_path, dryrun=dryrun)
 
     if handled_files == 0:
-        raise Exception(f"Empty media folder: {media_path}")
+        if not os.listdir(media_path):
+            logger.debug(f"Empty Folder: {media_path}")
+        else:
+            # raise, 交由上层继续处理
+            raise Exception(f"Meida Not Found: {media_path}")
 
     return scan_folders
 
