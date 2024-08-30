@@ -637,7 +637,7 @@ def main(src_dir=""):
                                     dst_path=f"/Media/{dst_base_path}",
                                     offset=offset,
                                     tmdb_id=tmdb_id,
-                                    keep_nfo=True,
+                                    keep_nfo=False,
                                 )
                             # tmdb resource deleted
                             except TMDbException as e:

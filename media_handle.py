@@ -3,7 +3,6 @@ import datetime
 import os
 import re
 import shutil
-import subprocess
 import textwrap
 import traceback
 from copy import deepcopy
@@ -19,6 +18,8 @@ from scheduler import Scheduler
 from settings import EMBY_AUTO_SCAN, MEDIA_SUFFIX, ORIGIN_NAME, PLEX_AUTO_SCAN
 from tmdb import TMDB
 from utils import is_filename_length_gt_255
+
+DEFAULT_EPISODE_REGEX = r"[ep](\d{2,4})(?!\d)"
 
 
 def parse():
@@ -106,9 +107,7 @@ def get_media_info_from_filename(
 
     if media_type != "movie":
         # get episode of series
-        _regex = r"[ep](\d{2,4})(?!\d)"
-        if regex:
-            _regex = regex
+        _regex = regex or DEFAULT_EPISODE_REGEX
         try:
             episode = re.search(_regex, filename_pre, re.IGNORECASE).group(1)
         except Exception:
@@ -348,156 +347,160 @@ def handle_tvshow(
 
     # 用于记录处理的文件数量,如果为 0,则认为为空文件夹
     handled_files = 0
-    for dir, _, files in os.walk(media_path):
-        removed_files = remove_hidden_files(dir, dryrun=dryrun)
-        for file in removed_files:
-            if file[1] == 0:
-                files.remove(file[0])
-        for file in files:
-            (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
-                dir, file
-            )
-            # remove unuseful files
-            keep_file_suffix = deepcopy(MEDIA_SUFFIX)
-            if keep_nfo:
-                keep_file_suffix.append("nfo")
-            if not re.search(
-                r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
-            ):
-                if not dryrun:
-                    os.remove(filepath)
-                logger.info("Removed file: " + filepath)
-                continue
-
-            # remove season.nfo/tvshow.nfo
-            if re.search(r"(season|tvshow)\.nfo", file):
-                if not dryrun:
-                    os.remove(filepath)
-                logger.info(f"Removed file: {filepath}")
-                continue
-
-            if not season:
-                season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
-                if not season_match:
-                    raise Exception(f"Not found season number: {dir + file}")
-                _season = season_match.group(2)
-            else:
-                _season = season
-            _season = _season.zfill(2)
-            logger.debug(f"Got season: {_season}")
-
-            # special seaon
-            if "Specials" in filepath:
-                _season = "00"
-
-            handled_files += 1
-            # 原文件中已经包含 tmdb id
-            if re.search(r"tmdb-\d+", file):
-                # 替换 tmdb name
-                new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
-                # 替换 season number
-                new_filename = re.sub(r"S\d{2}", f"S{_season}", new_filename, count=1)
-                # 替换 episode
-                if offset:
-                    episode = re.search(r"E(\d+)", new_filename).group(1)
-                    episode = str(int(episode) - int(offset)).zfill(len(episode))
-                    new_filename = re.sub(
-                        r"E(\d+)", f"E{episode}", new_filename, count=1
-                    )
-                if new_filename == file and not force:
-                    logger.warning(f"{file}'s name does not change, skipping...")
+    # workaround: 由于可能出现 os.walk 无内容的情况，暂时增加重试次数来规避下
+    retry = 3
+    while retry > 0:
+        for dir, _, files in os.walk(media_path):
+            removed_files = remove_hidden_files(dir, dryrun=dryrun)
+            for file in removed_files:
+                if file[1] == 0:
+                    files.remove(file[0])
+            for file in files:
+                (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
+                    dir, file
+                )
+                # remove unuseful files
+                keep_file_suffix = deepcopy(MEDIA_SUFFIX)
+                if keep_nfo:
+                    keep_file_suffix.append("nfo")
+                if not re.search(
+                    r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
+                ):
+                    if not dryrun:
+                        os.remove(filepath)
+                    logger.info("Removed file: " + filepath)
                     continue
-            else:
-                (
-                    episode,
-                    web_source,
-                    resolution,
-                    medium,
-                    frame,
-                    codec,
-                    audio,
-                    version,
-                    _group,
-                ) = get_media_info_from_filename(
-                    filename_pre,
-                    media_type=media_type,
-                    regex=regex,
-                    nogroup=nogroup,
-                    group=group,
-                )
-                # new file name with file extension
-                new_filename = (
-                    tmdb_name
-                    + " - "
-                    + f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
-                )
 
-                if version:
-                    new_filename += (
-                        f" - [{version}]"
-                        if "edition-" not in version
-                        else f" - {version}"
-                    )
-                if not ORIGIN_NAME:
-                    if web_source:
-                        new_filename += f" [{web_source}]"
-                    if resolution:
-                        new_filename += f" [{resolution}]"
-                    if medium:
-                        new_filename += f" [{' '.join(medium)}]"
-                    if frame:
-                        new_filename += f" [{frame}]"
-                    if codec:
-                        new_filename += f" [{' '.join(codec)}]"
-                    if audio:
-                        new_filename += f" [{' '.join(audio)}]"
-                    if _group:
-                        new_filename += f" [{_group}]"
+                # remove season.nfo/tvshow.nfo
+                if re.search(r"(season|tvshow)\.nfo", file):
+                    if not dryrun:
+                        os.remove(filepath)
+                    logger.info(f"Removed file: {filepath}")
+                    continue
+
+                if not season:
+                    season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
+                    if not season_match:
+                        raise Exception(f"Not found season number: {dir + file}")
+                    _season = season_match.group(2)
                 else:
-                    new_filename += f" - {filename_pre}"
+                    _season = season
+                _season = _season.zfill(2)
+                logger.debug(f"Got season: {_season}")
 
-                new_filename += f".{filename_suffix}"
-                if is_filename_length_gt_255(new_filename):
+                # special seaon
+                if "Specials" in filepath:
+                    _season = "00"
+
+                handled_files += 1
+                # 原文件中已经包含 tmdb id
+                if re.search(r"tmdb-\d+", file):
+                    # 替换 tmdb name
+                    new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
+                    # 替换 season number
+                    new_filename = re.sub(
+                        r"S\d{2}", f"S{_season}", new_filename, count=1
+                    )
+                    # 替换 episode
+                    if offset:
+                        episode = re.search(r"S\d{2}E(\d+)", new_filename).group(1)
+                        episode = str(int(episode) - int(offset)).zfill(len(episode))
+                        new_filename = re.sub(
+                            r"E(\d+)", f"E{episode}", new_filename, count=1
+                        )
+                    if new_filename == file and not force:
+                        logger.warning(f"{file}'s name does not change, skipping...")
+                        continue
+                else:
+                    (
+                        episode,
+                        web_source,
+                        resolution,
+                        medium,
+                        frame,
+                        codec,
+                        audio,
+                        version,
+                        _group,
+                    ) = get_media_info_from_filename(
+                        filename_pre,
+                        media_type=media_type,
+                        regex=regex,
+                        nogroup=nogroup,
+                        group=group,
+                    )
+                    # new file name with file extension
                     new_filename = (
-                        f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+                        tmdb_name
                         + " - "
-                        + file
+                        + f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
                     )
-            new_media_dir = os.path.join(
-                dst_path, f"Aired_{year}", f"M{month}", tmdb_name
-            )
-            new_dir = os.path.join(new_media_dir, f"Season {_season}")
-            new_file_path = os.path.join(new_dir, new_filename)
-            if dst_path != media_path and not dryrun:
-                if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
-                    add_plexmatch_file(
-                        new_dir,
-                        details.get("title"),
-                        year=year,
-                        tmdb_id=tmdb_id,
-                        season=int(_season),
-                    )
-                if not os.path.exists(os.path.join(new_media_dir, ".plexmatch")):
-                    add_plexmatch_file(
-                        new_media_dir, details.get("title"), year=year, tmdb_id=tmdb_id
-                    )
-                scan_folders.append(new_dir)
-                logger.debug(f"Added scan folder: {new_dir}")
 
-            rename_media(os.path.join(dir, file), new_file_path, dryrun=dryrun)
+                    if version:
+                        new_filename += (
+                            f" - [{version}]"
+                            if "edition-" not in version
+                            else f" - {version}"
+                        )
+                    if not ORIGIN_NAME:
+                        if web_source:
+                            new_filename += f" [{web_source}]"
+                        if resolution:
+                            new_filename += f" [{resolution}]"
+                        if medium:
+                            new_filename += f" [{' '.join(medium)}]"
+                        if frame:
+                            new_filename += f" [{frame}]"
+                        if codec:
+                            new_filename += f" [{' '.join(codec)}]"
+                        if audio:
+                            new_filename += f" [{' '.join(audio)}]"
+                        if _group:
+                            new_filename += f" [{_group}]"
+                    else:
+                        new_filename += f" - {filename_pre}"
+
+                    new_filename += f".{filename_suffix}"
+                    if is_filename_length_gt_255(new_filename):
+                        new_filename = (
+                            f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+                            + " - "
+                            + file
+                        )
+                new_media_dir = os.path.join(
+                    dst_path, f"Aired_{year}", f"M{month}", tmdb_name
+                )
+                new_dir = os.path.join(new_media_dir, f"Season {_season}")
+                new_file_path = os.path.join(new_dir, new_filename)
+                if dst_path != media_path and not dryrun:
+                    if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
+                        add_plexmatch_file(
+                            new_dir,
+                            details.get("title"),
+                            year=year,
+                            tmdb_id=tmdb_id,
+                            season=int(_season),
+                        )
+                    if not os.path.exists(os.path.join(new_media_dir, ".plexmatch")):
+                        add_plexmatch_file(
+                            new_media_dir,
+                            details.get("title"),
+                            year=year,
+                            tmdb_id=tmdb_id,
+                        )
+                    scan_folders.append(new_dir)
+                    logger.debug(f"Added scan folder: {new_dir}")
+
+                rename_media(os.path.join(dir, file), new_file_path, dryrun=dryrun)
+
+        if handled_files != 0:
+            break
+        retry -= 1
+        sleep(30)
 
     if handled_files == 0:
-        rslt = subprocess.run(
-            ["rclone", "ls", media_path],
-            encoding="utf-8",
-            capture_output=True,
-        )
-        # 空文件夹
-        if not rslt.stdout:
-            logger.debug(f"Empty Folder: {media_path}")
-        else:
-            # raise, 交由上层继续处理
-            raise Exception(f"Meida Not Found: {media_path}")
+        # raise, 交由上层继续处理
+        raise Exception(f"Meida Not Found: {media_path}")
 
     return scan_folders
 
