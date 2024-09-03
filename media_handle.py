@@ -499,8 +499,11 @@ def handle_tvshow(
         sleep(30)
 
     if handled_files == 0:
-        # raise, 交由上层继续处理
-        raise Exception(f"Meida Not Found: {media_path}")
+        if not os.listdir(media_path):
+            logger.debug(f"Empty folder: {media_path}")
+        else:
+            # raise, 交由上层继续处理
+            raise Exception(f"Meida Not Found: {media_path}")
 
     return scan_folders
 
