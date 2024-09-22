@@ -52,6 +52,7 @@ MEDIA_SUFFIX = [
     "flv",
     "rmvb",
     "avi",
+    "mov",
 ]
 
 # plex 设置
