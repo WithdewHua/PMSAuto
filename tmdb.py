@@ -57,7 +57,8 @@ class TMDB:
                     if not res:
                         logger.info(f"No result for {query_title}, exit")
                         year_deviation -= 1
-                        query_year -= 1
+                        if year_deviation > 0:
+                            query_year -= 1
                         continue
                     else:
                         for rslt in res:
