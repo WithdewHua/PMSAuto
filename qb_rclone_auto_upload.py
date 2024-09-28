@@ -492,6 +492,8 @@ def main(src_dir=""):
                         else:
                             src_path = torrent.content_path
 
+                        src_path = src_path.replace("$", r"\$")
+
                         # 如果是单文件
                         if os.path.isfile(src_path):
                             files_from_file = None
