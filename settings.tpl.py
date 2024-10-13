@@ -37,25 +37,95 @@ TG_CHAT_ID = [
 # GD 相关设置
 REMOVE_EMPTY_FOLDER = False
 HANDLE_LOCAL_MEDIA = False
-CATEGORY_GDDRIVE_MAPPING = {
-    "TVShows": "GD-TVShows",
-    "Anime": "GD-TVShows",
-    "Movies": "GD-Movies",
-    "NC17-Movies": "GD-Movies",
-    "Concerts": "GD-Movies",
-    "NSFW": "GD-NSFW",
-    "Music": "GD-Music",
-}
 
-# 分类与本地文件夹映射
-CATEGORY_LOCAL_FOLDER_MAPPING = {
-    "TVShows": "TVShows",
-    "Anime": "TVShows",
-    "Movies": "Movies",
-    "NC17-Movies": "NC17-Movies",
-    "Concerts": "Concerts",
-    "NSFW": "NSFW",
-    "Music": "Music",
+# 分类设置
+CATEGORY_SETTINGS_MAPPING = {
+    "TVShows": [
+        (
+            (None, 2024),
+            {
+                "rclone": "GD-TVShows",
+                "local": "TVShows",
+                "mount_point": "/Media",
+            },
+        ),
+        (
+            (2025, None),
+            {
+                "rclone": "GD-TVShows2",
+                "local": "TVShows",
+                "mount_point": "/Media2",
+            },
+        ),
+    ],
+    "Anime": [
+        (
+            (None, 2024),
+            {
+                "rclone": "GD-TVShows",
+                "local": "TVShows",
+                "mount_point": "/Media",
+            },
+        ),
+        (
+            (2025, None),
+            {
+                "rclone": "GD-TVShows2",
+                "local": "TVShows",
+                "mount_point": "/Media2",
+            },
+        ),
+    ],
+    "Movies": [
+        (
+            (None, None),
+            {
+                "rclone": "GD-Movies",
+                "local": "Movies",
+                "mount_point": "/Media",
+            },
+        ),
+    ],
+    "NC17-Movies": [
+        (
+            (None, None),
+            {
+                "rclone": "GD-Movies",
+                "local": "NC17-Movies",
+                "mount_point": "/Media",
+            },
+        ),
+    ],
+    "Concerts": [
+        (
+            (None, None),
+            {
+                "rclone": "GD-Movies",
+                "local": "Concerts",
+                "mount_point": "/Media",
+            },
+        ),
+    ],
+    "NSFW": [
+        (
+            (None, None),
+            {
+                "rclone": "GD-NSFW",
+                "local": "NSFW",
+                "mount_point": "/Media",
+            },
+        ),
+    ],
+    "Music": [
+        (
+            (None, None),
+            {
+                "rclone": "GD-Music",
+                "local": "Music",
+                "mount_point": "/Media",
+            },
+        ),
+    ],
 }
 
 # 媒体处理设置

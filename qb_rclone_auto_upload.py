@@ -20,8 +20,7 @@ from autorclone import auto_rclone
 from log import logger
 from media_handle import handle_local_media, media_handle
 from settings import (
-    CATEGORY_GDDRIVE_MAPPING,
-    CATEGORY_LOCAL_FOLDER_MAPPING,
+    CATEGORY_SETTINGS_MAPPING,
     HANDLE_LOCAL_MEDIA,
     QBIT,
     RCLONE_ALWAYS_UPLOAD,
@@ -104,7 +103,7 @@ def main(src_dir=""):
                         )
 
                     # 非媒体库目录
-                    if category not in CATEGORY_GDDRIVE_MAPPING.keys():
+                    if category not in CATEGORY_SETTINGS_MAPPING.keys():
                         if "up_done" in tags and "no_seed" in tags:
                             logger.info(
                                 f"{torrent.name} is completed and uploaded, cleaning up..."
@@ -462,8 +461,30 @@ def main(src_dir=""):
                                 album = album.strip()
                                 save_name = f"{singer}/{album}"
 
+                        # 根据分类/年份来决定 GD/挂载点等
+                        configs = {}
+                        if query_flag:
+                            if tmdb_name:
+                                year = re.search(r"\s\((\d{4})\)\s", tmdb_name).group(1)
+                            for (
+                                start_year,
+                                end_year,
+                            ), settings in CATEGORY_SETTINGS_MAPPING[category]:
+                                if (start_year is None or start_year <= int(year)) and (
+                                    end_year is None or int(year) <= end_year
+                                ):
+                                    configs = settings
+                                    break
+                        else:
+                            configs = CATEGORY_SETTINGS_MAPPING[category][-1][1]
+                        if not configs:
+                            logger.error(
+                                f"Can not find settings for category {category}"
+                            )
+                            continue
+
                         # full path in GoogleDrive
-                        google_drive = CATEGORY_GDDRIVE_MAPPING.get(category)
+                        google_drive = configs.get("rclone")
                         if not google_drive:
                             logger.error(f"Can not find drive for category {category}")
                             continue
@@ -591,9 +612,7 @@ def main(src_dir=""):
                             )
 
                         handle_flag = True
-                        dst_base_path = CATEGORY_LOCAL_FOLDER_MAPPING.get(
-                            category, category
-                        )
+                        dst_base_path = configs.get("local")
                         media_type = "tv"
                         # tvshows handle if get tmdb_name successfully
                         if (
@@ -620,9 +639,9 @@ def main(src_dir=""):
                             try:
                                 logger.info(f"Processing {torrent.name} starts")
                                 media_handle(
-                                    f"/Media/{save_path}/{save_name}",
+                                    f"/{configs.get('mount_point')}/{save_path}/{save_name}",
                                     media_type=media_type,
-                                    dst_path=f"/Media/{dst_base_path}",
+                                    dst_path=f"/{configs.get('mount_point')}/{dst_base_path}",
                                     offset=offset,
                                     tmdb_id=tmdb_id,
                                     keep_nfo=False,
@@ -646,9 +665,9 @@ def main(src_dir=""):
                                 to_handle.update(
                                     {
                                         torrent.name: {
-                                            "src": f"/Media/{save_path}/{save_name}",
+                                            "src": f"/{configs.get('mount_point')}/{save_path}/{save_name}",
                                             "media_type": media_type,
-                                            "dst": f"/Media/{dst_base_path}",
+                                            "dst": f"/{configs.get('mount_point')}/{dst_base_path}",
                                             "offset": offset,
                                             "keep_nfo": True,
                                             "tmdb_id": tmdb_id,
@@ -731,7 +750,7 @@ def main(src_dir=""):
             continue
         # clean empty folder
         if REMOVE_EMPTY_FOLDER:
-            remove_empty_folder(folders=list(CATEGORY_GDDRIVE_MAPPING.keys()))
+            remove_empty_folder(folders=list(CATEGORY_SETTINGS_MAPPING.keys()))
 
         # 处理本地资源，可能是手动加入的或者处理失败的
         if HANDLE_LOCAL_MEDIA:
