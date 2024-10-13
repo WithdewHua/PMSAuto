@@ -174,7 +174,9 @@ def main(src_dir=""):
                         True if re.search(r"Movies|Concerts", category) else False
                     )
                     is_nc17 = True if re.search(r"NC17-Movies", category) else False
-                    query_flag = True if re.search(r"NSFW|Music", category) else False
+                    query_flag = (
+                        True if not re.search(r"NSFW|Music", category) else False
+                    )
                     if "no_query" in tags:
                         query_flag = False
 
@@ -290,7 +292,7 @@ def main(src_dir=""):
                             movie_year_deviation = 0 if not year_tag else 0
 
                             # anime 种子名比较特殊,进行特殊处理
-                            if category == "Anime":
+                            if "Anime" in category:
                                 parse_rslt = anitopy.parse(torrent.name)
                                 # name = parse_rslt.get("anime_title")
                                 season = (
