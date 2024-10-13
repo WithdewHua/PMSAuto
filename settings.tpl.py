@@ -37,6 +37,26 @@ TG_CHAT_ID = [
 # GD 相关设置
 REMOVE_EMPTY_FOLDER = False
 HANDLE_LOCAL_MEDIA = False
+CATEGORY_GDDRIVE_MAPPING = {
+    "TVShows": "GD-TVShows",
+    "Anime": "GD-TVShows",
+    "Movies": "GD-Movies",
+    "NC17-Movies": "GD-Movies",
+    "Concerts": "GD-Movies",
+    "NSFW": "GD-NSFW",
+    "Music": "GD-Music",
+}
+
+# 分类与本地文件夹映射
+CATEGORY_LOCAL_FOLDER_MAPPING = {
+    "TVShows": "TVShows",
+    "Anime": "TVShows",
+    "Movies": "Movies",
+    "NC17-Movies": "NC17-Movies",
+    "Concerts": "Concerts",
+    "NSFW": "NSFW",
+    "Music": "Music",
+}
 
 # 媒体处理设置
 ORIGIN_NAME = True

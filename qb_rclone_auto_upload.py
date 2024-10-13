@@ -20,6 +20,8 @@ from autorclone import auto_rclone
 from log import logger
 from media_handle import handle_local_media, media_handle
 from settings import (
+    CATEGORY_GDDRIVE_MAPPING,
+    CATEGORY_LOCAL_FOLDER_MAPPING,
     HANDLE_LOCAL_MEDIA,
     QBIT,
     RCLONE_ALWAYS_UPLOAD,
@@ -86,7 +88,7 @@ def main(src_dir=""):
                     if "" in tags:
                         tags.remove("")
                     category = torrent.category
-                    if category == "NSFW":
+                    if re.search(r"NSFW", category):
                         tags.append("no_seed")
 
                     # process torrents added by MoviePilot
@@ -102,15 +104,7 @@ def main(src_dir=""):
                         )
 
                     # 非媒体库目录
-                    if category not in [
-                        "TVShows",
-                        "Anime",
-                        "Movies",
-                        "Music",
-                        "NC17-Movies",
-                        "NSFW",
-                        "Concerts",
-                    ]:
+                    if category not in CATEGORY_GDDRIVE_MAPPING.keys():
                         if "up_done" in tags and "no_seed" in tags:
                             logger.info(
                                 f"{torrent.name} is completed and uploaded, cleaning up..."
@@ -147,7 +141,7 @@ def main(src_dir=""):
                         media_info = {}
 
                     # get media title
-                    if category == "Anime":
+                    if re.search(r"Anime", category):
                         parse_rslt = anitopy.parse(torrent.name)
                         name = parse_rslt.get("anime_title")
                     else:
@@ -177,12 +171,10 @@ def main(src_dir=""):
 
                     # flag
                     is_movie = (
-                        True
-                        if category in ["Movies", "NC17-Movies", "Concerts"]
-                        else False
+                        True if re.search(r"Movies|Concerts", category) else False
                     )
-                    is_nc17 = True if category == "NC17-Movies" else False
-                    query_flag = True if category not in ["NSFW", "Music"] else False
+                    is_nc17 = True if re.search(r"NC17-Movies", category) else False
+                    query_flag = True if re.search(r"NSFW|Music", category) else False
                     if "no_query" in tags:
                         query_flag = False
 
@@ -256,7 +248,7 @@ def main(src_dir=""):
                         offset_tag = re.search(r"O(-?\d+)", ", ".join(tags))
                         offset = int(offset_tag.group(1)) if offset_tag else 0
                         # get season info for tvshows
-                        if category in ["TVShows", "Anime"]:
+                        if re.search(r"TVShows|Anime", category):
                             # get season info from ", ".join(tags)
                             rslt = re.search(r"S(\d{2})", ", ".join(tags))
                             if rslt:
@@ -440,7 +432,7 @@ def main(src_dir=""):
                             )
                             continue
                         # add season info for tvshows
-                        if category in ["TVShows", "Anime"] and season:
+                        if re.search(r"TVShows|Anime", category) and season:
                             save_name = save_name + "/" + f"Season {season.zfill(2)}"
 
                         # get certification info for movie
@@ -449,7 +441,7 @@ def main(src_dir=""):
                             if is_nc17:
                                 save_path = "Inbox/NC17-Movies"
 
-                        if category == "Music":
+                        if re.search(r"Music", category):
                             save_name = torrent.name
                             if "-HHWEB" in torrent.name:
                                 tags.append("format")
@@ -469,15 +461,8 @@ def main(src_dir=""):
                                 save_name = f"{singer}/{album}"
 
                         # full path in GoogleDrive
-                        if category in ["TVShows", "Anime"]:
-                            google_drive = "GD-TVShows"
-                        elif category in ["Movies", "Concerts", "NC17-Movies"]:
-                            google_drive = "GD-Movies"
-                        elif category in ["NSFW"]:
-                            google_drive = "GD-NSFW"
-                        elif category in ["Music"]:
-                            google_drive = "GD-Music"
-                        else:
+                        google_drive = CATEGORY_GDDRIVE_MAPPING.get(category)
+                        if not google_drive:
                             logger.error(f"Can not find drive for category {category}")
                             continue
                         google_drive_save_path = (
@@ -604,23 +589,22 @@ def main(src_dir=""):
                             )
 
                         handle_flag = True
-                        dst_base_path = category
+                        dst_base_path = CATEGORY_LOCAL_FOLDER_MAPPING.get(
+                            category, category
+                        )
                         media_type = "tv"
                         # tvshows handle if get tmdb_name successfully
                         if (
-                            category in ["TVShows", "Anime"]
+                            re.search(r"TVShows|Anime", category)
                             and tmdb_name
                             and "manual" not in tags
                         ):
-                            dst_base_path = "TVShows"
-                            media_type = "tv" if category == "TVShows" else "anime"
+                            media_type = "tv" if "TVShows" in category else "anime"
                         # movie handle
                         elif is_movie:
-                            dst_base_path = category if not is_nc17 else "NC17-Movies"
                             media_type = "movie"
                         # nsfw handle
                         elif category == "NSFW":
-                            dst_base_path = category
                             media_type = "av"
                         # music handle
                         elif category == "Music":
@@ -745,16 +729,7 @@ def main(src_dir=""):
             continue
         # clean empty folder
         if REMOVE_EMPTY_FOLDER:
-            remove_empty_folder(
-                folders=[
-                    "Anime",
-                    "Movies",
-                    "TVShows",
-                    "NSFW",
-                    "NC17-Movies",
-                    "Concerts",
-                ]
-            )
+            remove_empty_folder(folders=list(CATEGORY_GDDRIVE_MAPPING.keys()))
 
         # 处理本地资源，可能是手动加入的或者处理失败的
         if HANDLE_LOCAL_MEDIA:
