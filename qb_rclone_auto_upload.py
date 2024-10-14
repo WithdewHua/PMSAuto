@@ -639,9 +639,9 @@ def main(src_dir=""):
                             try:
                                 logger.info(f"Processing {torrent.name} starts")
                                 media_handle(
-                                    f"/{configs.get('mount_point')}/{save_path}/{save_name}",
+                                    f"{configs.get('mount_point')}/{save_path}/{save_name}",
                                     media_type=media_type,
-                                    dst_path=f"/{configs.get('mount_point')}/{dst_base_path}",
+                                    dst_path=f"{configs.get('mount_point')}/{dst_base_path}",
                                     offset=offset,
                                     tmdb_id=tmdb_id,
                                     keep_nfo=False,
@@ -665,9 +665,9 @@ def main(src_dir=""):
                                 to_handle.update(
                                     {
                                         torrent.name: {
-                                            "src": f"/{configs.get('mount_point')}/{save_path}/{save_name}",
+                                            "src": f"{configs.get('mount_point')}/{save_path}/{save_name}",
                                             "media_type": media_type,
-                                            "dst": f"/{configs.get('mount_point')}/{dst_base_path}",
+                                            "dst": f"{configs.get('mount_point')}/{dst_base_path}",
                                             "offset": offset,
                                             "keep_nfo": True,
                                             "tmdb_id": tmdb_id,
