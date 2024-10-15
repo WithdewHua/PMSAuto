@@ -225,10 +225,15 @@ def get_plex_edition_from_version(version: str) -> str:
     return _edition_dict.get(version.lower(), version)
 
 
-def rename_media(old_path, new_path, dryrun=False):
+def rename_media(old_path, new_path, dryrun=False, replace=True):
     if os.path.exists(new_path):
-        logger.warning(f"{os.path.basename(new_path)} exists in {new_path}")
-        return True
+        if not replace:
+            logger.warning(f"{os.path.basename(new_path)} exists in {new_path}")
+            return True
+        else:
+            logger.info(f"Removing existed file {old_path}")
+            if not dryrun:
+                os.remove(old_path)
     if not dryrun:
         os.makedirs(os.path.dirname(new_path), exist_ok=True)
         os.rename(old_path, new_path)
