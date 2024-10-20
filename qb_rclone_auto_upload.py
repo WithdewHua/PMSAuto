@@ -84,6 +84,7 @@ def main(src_dir=""):
                 if torrent.progress == 1 or torrent.state in ["uploading", "forcedUP"]:
                     # workaround：跳过刚完成少于 1min 的种子
                     if time.time() - int(torrent.completion_on) < 60:
+                        logger.info(f"{torrent.name} is completed less than 60s")
                         continue
 
                     # get torrent's tags
