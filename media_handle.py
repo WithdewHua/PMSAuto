@@ -231,7 +231,7 @@ def rename_media(old_path, new_path, dryrun=False, replace=True):
             logger.warning(f"{os.path.basename(new_path)} exists in {new_path}")
             return True
         else:
-            logger.info(f"Removing existed file {old_path}")
+            logger.info(f"Removing existed file {new_path}")
             if not dryrun:
                 os.remove(new_path)
     if not dryrun:
