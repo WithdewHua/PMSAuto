@@ -233,7 +233,7 @@ def rename_media(old_path, new_path, dryrun=False, replace=True):
         else:
             logger.info(f"Removing existed file {old_path}")
             if not dryrun:
-                os.remove(old_path)
+                os.remove(new_path)
     if not dryrun:
         os.makedirs(os.path.dirname(new_path), exist_ok=True)
         os.rename(old_path, new_path)
