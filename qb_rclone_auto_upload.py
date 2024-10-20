@@ -82,6 +82,10 @@ def main(src_dir=""):
 
             for torrent in qbt_client.torrents_info():
                 if torrent.progress == 1 or torrent.state in ["uploading", "forcedUP"]:
+                    # workaround：跳过刚完成少于 1min 的种子
+                    if time.time() - int(torrent.completion_on) < 60:
+                        continue
+
                     # get torrent's tags
                     tags = torrent.tags.split(", ")
                     if "" in tags:
