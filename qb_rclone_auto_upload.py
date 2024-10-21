@@ -449,7 +449,7 @@ def main(src_dir=""):
 
                         if re.search(r"Music", category):
                             save_name = torrent.name
-                            if "-HHWEB" in torrent.name:
+                            if re.search(r"-HHWEB|LeagueCD", torrent.name):
                                 tags.append("format")
                             save_path = "Music"
                             # 对于种子名在 [] 中包含歌手名-专辑名
