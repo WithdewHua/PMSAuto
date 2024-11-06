@@ -552,14 +552,10 @@ def handle_movie(
             if isfile and filename != os.path.basename(media_name):
                 logger.info(f"No need to handle {filename}, skip...")
                 continue
-            # for collections, query for each file
-            _tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
-            if not _tmdb_id:
-                raise Exception(f"Failed to get info. for {media_path} from TMDB")
+
             (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
                 dir, filename
             )
-
             keep_file_suffix = deepcopy(MEDIA_SUFFIX)
             if keep_nfo:
                 keep_file_suffix.append("nfo")
@@ -570,6 +566,10 @@ def handle_movie(
                 logger.info("Removed file: " + filepath)
                 continue
 
+            # for collections, query for each file
+            _tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
+            if not _tmdb_id:
+                raise Exception(f"Failed to get info. for {media_path} from TMDB")
             details = tmdb.get_info_from_tmdb_by_id(tmdb_id=_tmdb_id)
             tmdb_name = details.get("tmdb_name")
             year = details.get("year")
