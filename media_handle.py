@@ -567,9 +567,12 @@ def handle_movie(
                 continue
 
             # for collections, query for each file
+            logger.info(f"Handling {filename} starts")
             _tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
             if not _tmdb_id:
-                raise Exception(f"Failed to get info. for {media_path} from TMDB")
+                raise Exception(
+                    f"Failed to get info. for {os.path.join(dir, filename)} from TMDB"
+                )
             details = tmdb.get_info_from_tmdb_by_id(tmdb_id=_tmdb_id)
             tmdb_name = details.get("tmdb_name")
             year = details.get("year")
