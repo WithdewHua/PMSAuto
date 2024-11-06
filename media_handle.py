@@ -553,8 +553,8 @@ def handle_movie(
                 logger.info(f"No need to handle {filename}, skip...")
                 continue
             # for collections, query for each file
-            tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
-            if not tmdb_id:
+            _tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
+            if not _tmdb_id:
                 raise Exception(f"Failed to get info. for {media_path} from TMDB")
             (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
                 dir, filename
@@ -570,7 +570,7 @@ def handle_movie(
                 logger.info("Removed file: " + filepath)
                 continue
 
-            details = tmdb.get_info_from_tmdb_by_id(tmdb_id=tmdb_id)
+            details = tmdb.get_info_from_tmdb_by_id(tmdb_id=_tmdb_id)
             tmdb_name = details.get("tmdb_name")
             year = details.get("year")
             month = details.get("month")
@@ -629,7 +629,7 @@ def handle_movie(
             if dst_path != media_path and not dryrun:
                 if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
                     add_plexmatch_file(
-                        new_dir, details.get("title"), year=year, tmdb_id=tmdb_id
+                        new_dir, details.get("title"), year=year, tmdb_id=_tmdb_id
                     )
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")

@@ -51,7 +51,7 @@ for src_dir in src_dirs:
 
 _plex = Plex()
 for scan_folder in set(scan_folders):
-    send_scan_request(scan_folder, plex=True, emby=True)
+    send_scan_request(scan_folder, plex=True, emby=False)
     sleep(30)
     # refresh metadata
     _plex.refresh_recently_added("/Media/NSFW", max=5)
