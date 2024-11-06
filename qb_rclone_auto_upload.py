@@ -674,7 +674,7 @@ def main(src_dir=""):
                                             "media_type": media_type,
                                             "dst": f"{configs.get('mount_point')}/{dst_base_path}",
                                             "offset": offset,
-                                            "keep_nfo": True,
+                                            "keep_nfo": False,
                                             "tmdb_id": tmdb_id,
                                         }
                                     }
