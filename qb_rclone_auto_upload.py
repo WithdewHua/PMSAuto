@@ -233,7 +233,7 @@ def main(src_dir=""):
                                 f"\ntmdb_name: {tmdb_name}"
                                 f"\ntmdb_id: {tmdb_id}"
                                 f"\nrecord_tags: {record_tags}"
-                                f"\ntags: {tags if tags else record_tags}"
+                                f"\ntags: {tags}"
                             )
                         else:
                             media_info_rslt = {
@@ -269,8 +269,15 @@ def main(src_dir=""):
                         tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags))
                         tmdb_id = tmdb_id_tag.group(1) if tmdb_id_tag else tmdb_id
 
-                        # tags 中的 tmdb id 始终优先，如果存在 tmdb_id, 直接通过 tmdb id 获取名字
-                        if tmdb_id and (
+                        # tmdb 与记录中 tmdb 一致，直接用之前的 tmdb_name
+                        if (
+                            tmdb_id
+                            and local_record
+                            and str(tmdb_id) == str(media_info_rslt.get("tmdb_id", ""))
+                        ):
+                            save_name = tmdb_name
+                        # 没有记录，或者 tag 的 tmdb_id 发生变化
+                        elif tmdb_id and (
                             not local_record
                             or (
                                 local_record
