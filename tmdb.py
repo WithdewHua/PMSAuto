@@ -5,6 +5,7 @@ import datetime
 from log import logger
 from settings import LOG_LEVEL, TMDB_API_KEY
 from tmdbv3api import TV, Movie, Search, TMDb
+from utils import is_filename_length_gt_255
 
 
 class TMDB:
@@ -108,6 +109,8 @@ class TMDB:
                                         if title and title != original_title
                                         else f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
                                     )
+                                    if is_filename_length_gt_255(name):
+                                        name = f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
                                 self.tmdb_id = str(rslt.id)
 
                                 logger.info(f"Renaming {query_title} to {name}")
@@ -159,6 +162,8 @@ class TMDB:
                 if title and title != original_title
                 else f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
             )
+            if is_filename_length_gt_255(tmdb_name):
+                tmdb_name = f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
 
         return {
             "tmdb_name": tmdb_name.replace("/", "／"),
