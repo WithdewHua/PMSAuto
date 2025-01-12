@@ -11,7 +11,7 @@ from typing import Union
 
 import requests
 from log import logger
-from settings import TG_API_KEY
+from settings import MEDIA_SUFFIX, TG_API_KEY
 
 
 def load_json(path):
@@ -151,6 +151,22 @@ def iterdir_recursive(path: Union[str, Path]) -> list[Path]:
             files.extend(iterdir_recursive(p))
         files.append(p)
     return files
+
+
+def remove_folder_contains_no_media(path):
+    for dir in Path(path).iterdir():
+        if re.search(r"Aired_", dir.name):
+            continue
+        remove_flag = True
+        for file in iterdir_recursive(dir.absolute()):
+            suffix = file.name.split(".")[-1]
+            if suffix in MEDIA_SUFFIX:
+                logger.info(f"file {file.name} is media, skip...")
+                remove_flag = False
+                break
+        if remove_flag:
+            logger.info(f"Removing folder: {dir.absolute()}")
+            shutil.rmtree(dir.absolute())
 
 
 class Singleton(type):

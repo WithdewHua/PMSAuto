@@ -125,10 +125,41 @@ def main(root_folder, media_type="movie", ignore_filter=None):
         sleep(60)
 
 
+def scan_folder():
+    src_path = Path("/Media2/TVShows")
+    scheduler = Scheduler()
+    for dir in src_path.iterdir():
+        if re.search(r"Aired_(19\d{2}|20[01]\d)", dir.name):
+            for _dir in dir.absolute().iterdir():
+                for __dir in _dir.absolute().iterdir():
+                    run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
+                    scheduler.add_job(
+                        send_scan_request,
+                        args=(str(__dir.absolute()),),
+                        trigger="date",
+                        run_date=run_date,
+                        misfire_grace_time=60,
+                        jobstore="default",
+                        replace_existing=True,
+                        id=f"scan_task_at_{run_date}",
+                    )
+                    logger.debug(
+                        f"Added scheduler job: next run at {str(run_date)}, folder: {str(__dir.absolute())}"
+                    )
+
+    while True:
+        if not scheduler.scheduler.get_jobs():
+            break
+        sleep(30)
+    sleep(60)
+
+
 if __name__ == "__main__":
-    args = parse()
-    main(
-        root_folder=args.path,
-        media_type=args.type,
-        ignore_filter=args.ignore_filter,
-    )
+    # args = parse()
+    # main(
+    #     root_folder=args.path,
+    #     media_type=args.type,
+    #     ignore_filter=args.ignore_filter,
+    # )
+
+    scan_folder()
