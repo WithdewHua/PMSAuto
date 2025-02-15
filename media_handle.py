@@ -62,12 +62,14 @@ def media_filename_pre_handle(parent_dir_path, filename):
     # split file name into parts
     file_parts = filename.split(".")
     filename_pre, filename_suffix = ".".join(file_parts[0:-1]), file_parts[-1]
+    filename_pre = filename_pre.removesuffix(".zh")
 
     # deal with subtitles
     if filename_suffix.lower() in ["srt", "ass", "ssa", "sup"]:
         lang_match = re.search(r"[-\.](ch[st]|[st]c)", filename_pre, re.IGNORECASE)
         filename_suffix = "zh." + filename_suffix
         if lang_match:
+            filename_pre = filename_pre.removesuffix(f".{lang_match.group(1)}")
             filename_suffix = lang_match.group(1) + "." + filename_suffix
 
     return (filepath, filename_pre, filename_suffix)
@@ -113,6 +115,7 @@ def get_media_info_from_filename(
         except Exception:
             logger.error("No episode number found in file: " + filename_pre)
             return False
+        logger.debug(f"Got episode {episode}")
 
     # get resolution of video
     try:
@@ -408,12 +411,18 @@ def handle_tvshow(
                         r"S\d{2}", f"S{_season}", new_filename, count=1
                     )
                     # 替换 episode
+                    episode = get_media_info_from_filename(
+                        filename_pre,
+                        media_type=media_type,
+                        regex=regex,
+                        nogroup=nogroup,
+                        group=group,
+                    )[0]
                     if offset:
-                        episode = re.search(r"S\d{2}E(\d+)", new_filename).group(1)
                         episode = str(int(episode) - int(offset)).zfill(len(episode))
-                        new_filename = re.sub(
-                            r"E(\d+)", f"E{episode}", new_filename, count=1
-                        )
+                    new_filename = re.sub(
+                        r"E(\d+)", f"E{episode}", new_filename, count=1
+                    )
                     if new_filename == file and not force:
                         logger.warning(f"{file}'s name does not change, skipping...")
                         continue
