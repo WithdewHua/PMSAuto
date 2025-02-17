@@ -15,9 +15,15 @@ from emby import Emby
 from log import logger
 from plex import Plex
 from scheduler import Scheduler
-from settings import EMBY_AUTO_SCAN, MEDIA_SUFFIX, ORIGIN_NAME, PLEX_AUTO_SCAN
+from settings import (
+    EMBY_AUTO_SCAN,
+    EMBY_STRM_ASSISTANT_MEDIAINFO,
+    MEDIA_SUFFIX,
+    ORIGIN_NAME,
+    PLEX_AUTO_SCAN,
+)
 from tmdb import TMDB
-from utils import is_filename_length_gt_255
+from utils import dump_json, is_filename_length_gt_255, load_json
 
 DEFAULT_EPISODE_REGEX = r"[ep](\d{2,4})(?!\d)"
 
@@ -508,6 +514,27 @@ def handle_tvshow(
 
                 rename_media(os.path.join(dir, file), new_file_path, dryrun=dryrun)
 
+                # mediainfo
+                old_mediainfo_path = os.path.join(
+                    EMBY_STRM_ASSISTANT_MEDIAINFO,
+                    dir.removeprefix("/"),
+                    f"{filename_pre}-mediainfo.json",
+                )
+                logger.debug(f"{old_mediainfo_path=}")
+                if os.path.exists(old_mediainfo_path):
+                    logger.debug(f"Found mediainfo: {old_mediainfo_path}")
+                    new_filename_pre = ".".join(new_filename.split(".")[0:-1])
+                    mediainfo = load_json(old_mediainfo_path)
+                    mediainfo[0]["MediaSourceInfo"]["Name"] = new_filename_pre
+                    dump_json(mediainfo, old_mediainfo_path)
+                    logger.info(f"Updating mediainfo: {old_mediainfo_path}")
+                    new_mediainfo_path = os.path.join(
+                        EMBY_STRM_ASSISTANT_MEDIAINFO,
+                        str(new_dir).removeprefix("/"),
+                        f"{new_filename_pre}-mediainfo.json",
+                    )
+                    rename_media(old_mediainfo_path, new_mediainfo_path, dryrun=dryrun)
+
         if handled_files != 0:
             break
         retry -= 1
@@ -646,6 +673,26 @@ def handle_movie(
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
             rename_media(os.path.join(dir, filename), new_file_path, dryrun=dryrun)
+            # mediainfo
+            old_mediainfo_path = os.path.join(
+                EMBY_STRM_ASSISTANT_MEDIAINFO,
+                dir.removeprefix("/"),
+                f"{filename_pre}-mediainfo.json",
+            )
+            logger.debug(f"{old_mediainfo_path=}")
+            if os.path.exists(old_mediainfo_path):
+                logger.debug(f"Found mediainfo: {old_mediainfo_path}")
+                new_filename_pre = ".".join(new_filename.split(".")[0:-1])
+                mediainfo = load_json(old_mediainfo_path)
+                mediainfo[0]["MediaSourceInfo"]["Name"] = new_filename_pre
+                dump_json(mediainfo, old_mediainfo_path)
+                logger.info(f"Updating mediainfo: {old_mediainfo_path}")
+                new_mediainfo_path = os.path.join(
+                    EMBY_STRM_ASSISTANT_MEDIAINFO,
+                    str(new_dir).removeprefix("/"),
+                    f"{new_filename_pre}-mediainfo.json",
+                )
+                rename_media(old_mediainfo_path, new_mediainfo_path, dryrun=dryrun)
 
     return scan_folders
 

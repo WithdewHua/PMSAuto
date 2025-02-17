@@ -153,3 +153,5 @@ PLEX_AUTO_SCAN = True
 EMBY_BASE_URL = "https://xxxxxxxxxx"
 EMBY_API_TOKEN = "xxxx"
 EMBY_AUTO_SCAN = True
+# 神医插件 mediainfo 持久化
+EMBY_STRM_ASSISTANT_MEDIAINFO = "/opt/PMS/emby/config/StrmAssistant/MediaInfo"
