@@ -82,7 +82,7 @@ def main(src_dir=""):
 
             for torrent in qbt_client.torrents_info():
                 if torrent.progress == 1 or torrent.state in ["uploading", "forcedUP"]:
-                    # workaround：跳过刚完成少于 1min 的种子
+                    # workaround：跳过刚完成少于 3min 的种子,最小限制
                     if time.time() - int(torrent.completion_on) < 180:
                         logger.info(f"{torrent.name} is completed less than 180s")
                         continue
@@ -315,7 +315,11 @@ def main(src_dir=""):
                                     year = parse_rslt.get(
                                         "anime_year", date.today().year
                                     )
-                                    if season and int(season) != 1:
+                                    if (
+                                        season
+                                        and int(season) != 1
+                                        and not re.search(r"HHWEB", torrent.name)
+                                    ):
                                         year = int(year) - int(season) + 1
                                 if not local_record:
                                     tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
@@ -533,6 +537,15 @@ def main(src_dir=""):
                                 send_tg_msg(
                                     chat_id=TG_CHAT_ID,
                                     text=f"Can not find files of {torrent.name}",
+                                )
+                                continue
+                            # 根据文件数量再进行一次检查
+                            if (
+                                time.time() - int(torrent.completion_on)
+                                < len(torrent_files) * 60
+                            ):
+                                logger.info(
+                                    f"{torrent.name} files num: {len(torrent_files)}, need waiting for {len(torrent_files) * 60} at least"
                                 )
                                 continue
                             # rclone file include
