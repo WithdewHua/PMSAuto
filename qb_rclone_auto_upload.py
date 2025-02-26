@@ -315,11 +315,7 @@ def main(src_dir=""):
                                     year = parse_rslt.get(
                                         "anime_year", date.today().year
                                     )
-                                    if (
-                                        season
-                                        and int(season) != 1
-                                        and not re.search(r"HHWEB", torrent.name)
-                                    ):
+                                    if season and int(season) != 1:
                                         year = int(year) - int(season) + 1
                                 if not local_record:
                                     tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
@@ -334,9 +330,16 @@ def main(src_dir=""):
                             else:
                                 # 匹配到年份
                                 if torrent_name_match:
+                                    # 处理年份
                                     if not year_tag:
                                         year = torrent_name_match.group(3)
-
+                                    if (
+                                        not year_tag
+                                        and season
+                                        and int(season) != 1
+                                        and not re.search(r"HHWEB", torrent.name)
+                                    ):
+                                        year = int(year) - int(season) + 1
                                     # rename if there is chinese
                                     cn_match = re.match(
                                         r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
@@ -362,16 +365,6 @@ def main(src_dir=""):
                                                             year_deviation=movie_year_deviation,
                                                         )
                                                     else:
-                                                        if (
-                                                            not year_tag
-                                                            and season
-                                                            and int(season) != 1
-                                                        ):
-                                                            year = (
-                                                                int(year)
-                                                                - int(season)
-                                                                + 1
-                                                            )
                                                         (
                                                             tmdb_name,
                                                             tmdb_id,
@@ -408,14 +401,6 @@ def main(src_dir=""):
                                                         year_deviation=movie_year_deviation,
                                                     )
                                                 else:
-                                                    if (
-                                                        not year_tag
-                                                        and season
-                                                        and int(season) != 1
-                                                    ):
-                                                        year = (
-                                                            int(year) - int(season) + 1
-                                                        )
                                                     (
                                                         tmdb_name,
                                                         tmdb_id,
