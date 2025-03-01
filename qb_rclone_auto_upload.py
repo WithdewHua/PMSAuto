@@ -29,7 +29,14 @@ from settings import (
 )
 from tmdb import TMDB
 from tmdbv3api.exceptions import TMDbException
-from utils import dump_json, load_json, remove_empty_folder, send_tg_msg, sumarize_tags
+from utils import (
+    dump_json,
+    get_file_num,
+    load_json,
+    remove_empty_folder,
+    send_tg_msg,
+    sumarize_tags,
+)
 
 script_path = os.path.split(os.path.realpath(__file__))[0]
 
@@ -82,9 +89,9 @@ def main(src_dir=""):
 
             for torrent in qbt_client.torrents_info():
                 if torrent.progress == 1 or torrent.state in ["uploading", "forcedUP"]:
-                    # workaround：跳过刚完成少于 3min 的种子,最小限制
-                    if time.time() - int(torrent.completion_on) < 180:
-                        logger.info(f"{torrent.name} is completed less than 180s")
+                    # workaround：跳过刚完成少于 1min 的种子,最小限制
+                    if time.time() - int(torrent.completion_on) < 60:
+                        logger.info(f"{torrent.name} is completed less than 60s")
                         continue
 
                     # get torrent's tags
@@ -524,15 +531,25 @@ def main(src_dir=""):
                                     text=f"Can not find files of {torrent.name}",
                                 )
                                 continue
-                            # 根据文件数量再进行一次检查
-                            if (
-                                time.time() - int(torrent.completion_on)
-                                < len(torrent_files) * 60
-                            ):
-                                logger.info(
-                                    f"{torrent.name} files num: {len(torrent_files)}, need waiting for {len(torrent_files) * 60} at least"
+                            # 检查文件夹下的文件数量，确保数量无误才进行传输
+                            num_flag, num = get_file_num(src_path)
+                            if not num_flag:
+                                logger.error(f"Checking files list failed: {num}")
+                                send_tg_msg(
+                                    chat_id=TG_CHAT_ID,
+                                    text=f"Checking files list failed: {num}",
                                 )
                                 continue
+                            if num != len(torrent_files):
+                                logger.error(
+                                    f"{torrent.name} has {len(torrent_files)} files, but {src_path} has {num} files"
+                                )
+                                send_tg_msg(
+                                    chat_id=TG_CHAT_ID,
+                                    text=f"{torrent.name} has {len(torrent_files)} files, but {src_path} has {num} files",
+                                )
+                                continue
+
                             # rclone file include
                             files_from_file = f"/tmp/files_from_{uuid}.txt"
                             with open(files_from_file, "w") as f:

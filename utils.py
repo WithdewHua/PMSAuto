@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import threading
 from copy import deepcopy
 from pathlib import Path
@@ -167,6 +168,21 @@ def remove_folder_contains_no_media(path):
         if remove_flag:
             logger.info(f"Removing folder: {dir.absolute()}")
             shutil.rmtree(dir.absolute())
+
+
+def get_file_num(path):
+    try:
+        rslt = subprocess.run(
+            ["rclone", "ls", f"{path}", "|", "wc", "-l"],
+            encoding="utf-8",
+            capture_output=True,
+        )
+        if rslt.returncode:
+            return False, f"Failed to check {path}"
+        num = int(rslt.stdout)
+        return True, num
+    except Exception as e:
+        return False, f"Failed to check {path} due to: {e}"
 
 
 class Singleton(type):
