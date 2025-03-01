@@ -170,18 +170,19 @@ def remove_folder_contains_no_media(path):
             shutil.rmtree(dir.absolute())
 
 
-def get_file_num(path):
+def get_file_list(path):
     try:
         rslt = subprocess.run(
-            f"rclone ls {path} | wc -l",
+            f"rclone lsjson -R {path}",
             encoding="utf-8",
             shell=True,
             capture_output=True,
         )
         if rslt.returncode:
             return False, f"Failed to check {path}"
-        num = int(rslt.stdout.strip())
-        return True, num
+        files = json.loads(rslt.stdout.strip())
+        files = [file.get("Path") for file in files]
+        return True, files
     except Exception as e:
         return False, f"Failed to check {path} due to: {e}"
 

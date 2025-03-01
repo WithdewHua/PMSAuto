@@ -31,7 +31,7 @@ from tmdb import TMDB
 from tmdbv3api.exceptions import TMDbException
 from utils import (
     dump_json,
-    get_file_num,
+    get_file_list,
     load_json,
     remove_empty_folder,
     send_tg_msg,
@@ -531,22 +531,22 @@ def main(src_dir=""):
                                     text=f"Can not find files of {torrent.name}",
                                 )
                                 continue
-                            # 检查文件夹下的文件数量，确保数量无误才进行传输
-                            num_flag, num = get_file_num(src_path)
-                            if not num_flag:
-                                logger.error(f"Checking files list failed: {num}")
+                            # 检查文件夹下的文件列表，确保文件无误才进行传输
+                            flag, files = get_file_list(src_path)
+                            if not flag:
+                                logger.error(f"Checking files list failed: {files}")
                                 send_tg_msg(
                                     chat_id=TG_CHAT_ID,
-                                    text=f"Checking files list failed: {num}",
+                                    text=f"Checking files list failed: {files}",
                                 )
                                 continue
-                            if num != len(torrent_files):
+                            if not set(torrent_files).issubset(set(files)):
                                 logger.error(
-                                    f"{torrent.name} has {len(torrent_files)} files, but {src_path} has {num} files"
+                                    f"{torrent.name} files not ready yet, ignore"
                                 )
                                 send_tg_msg(
                                     chat_id=TG_CHAT_ID,
-                                    text=f"{torrent.name} has {len(torrent_files)} files, but {src_path} has {num} files",
+                                    text=f"{torrent.name} files not ready yet, ignore",
                                 )
                                 continue
 
