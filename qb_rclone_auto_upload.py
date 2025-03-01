@@ -528,7 +528,7 @@ def main(src_dir=""):
                                 logger.error(f"Can not find files of {torrent.name}")
                                 send_tg_msg(
                                     chat_id=TG_CHAT_ID,
-                                    text=f"Can not find files of {torrent.name}",
+                                    text=f"Can not find files of `{torrent.name}`",
                                 )
                                 continue
                             # 检查文件夹下的文件列表，确保文件无误才进行传输
@@ -537,7 +537,7 @@ def main(src_dir=""):
                                 logger.error(f"Checking files list failed: {files}")
                                 send_tg_msg(
                                     chat_id=TG_CHAT_ID,
-                                    text=f"Checking files list failed: {files}",
+                                    text=f"Checking `{torrent.name}` files list failed, ignore",
                                 )
                                 continue
                             if not set(torrent_files).issubset(set(files)):
@@ -546,7 +546,7 @@ def main(src_dir=""):
                                 )
                                 send_tg_msg(
                                     chat_id=TG_CHAT_ID,
-                                    text=f"{torrent.name} files not ready yet, ignore",
+                                    text=f"`{torrent.name}` files not ready yet, ignore",
                                 )
                                 continue
 
