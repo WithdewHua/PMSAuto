@@ -173,13 +173,13 @@ def remove_folder_contains_no_media(path):
 def get_file_list(path):
     try:
         rslt = subprocess.run(
-            f"rclone lsjson -R {path}",
+            f'rclone lsjson -R "{path}"',
             encoding="utf-8",
             shell=True,
             capture_output=True,
         )
         if rslt.returncode:
-            return False, f"Failed to check {path}"
+            return False, f"Failed to check {path}: {rslt.stdout}"
         files = json.loads(rslt.stdout.strip())
         files = [file.get("Path") for file in files]
         return True, files
