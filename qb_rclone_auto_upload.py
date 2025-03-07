@@ -521,6 +521,7 @@ def main(src_dir=""):
                                 .removeprefix(os.path.basename(src_path))
                                 .lstrip("/")
                                 for file in torrent.files
+                                if file.get("priority") != 0
                             ]
                             logger.debug(torrent.files)
                             logger.debug(torrent_files)
