@@ -57,6 +57,9 @@ def parse():
         help="Keep scheduler jobs persisted",
     )
     parser.add_argument("--force", action="store_true", help="Force to handle")
+    parser.add_argument(
+        "--not-replace", action="store_true", help="Do not replace existed file"
+    )
 
     return parser.parse_args()
 
@@ -342,6 +345,7 @@ def handle_tvshow(
     keep_nfo=False,
     scan_folders=None,
     force=False,
+    replace=True,
 ):
     if not os.path.isdir(media_path):
         raise Exception("Please specify a folder")
@@ -512,7 +516,12 @@ def handle_tvshow(
                     scan_folders.append(new_dir)
                     logger.debug(f"Added scan folder: {new_dir}")
 
-                rename_media(os.path.join(dir, file), new_file_path, dryrun=dryrun)
+                rename_media(
+                    os.path.join(dir, file),
+                    new_file_path,
+                    dryrun=dryrun,
+                    replace=replace,
+                )
 
                 # mediainfo
                 old_mediainfo_path = os.path.join(
@@ -533,7 +542,12 @@ def handle_tvshow(
                         str(new_dir).removeprefix("/"),
                         f"{new_filename_pre}-mediainfo.json",
                     )
-                    rename_media(old_mediainfo_path, new_mediainfo_path, dryrun=dryrun)
+                    rename_media(
+                        old_mediainfo_path,
+                        new_mediainfo_path,
+                        dryrun=dryrun,
+                        replace=replace,
+                    )
 
         if handled_files != 0:
             break
@@ -560,6 +574,7 @@ def handle_movie(
     dryrun=False,
     scan_folders=None,
     force=False,
+    replace=True,
 ):
     isfile = False
     media_name = os.path.basename(media_path)
@@ -672,7 +687,12 @@ def handle_movie(
                     )
                 scan_folders.append(new_dir)
                 logger.debug(f"Added scan folder: {new_dir}")
-            rename_media(os.path.join(dir, filename), new_file_path, dryrun=dryrun)
+            rename_media(
+                os.path.join(dir, filename),
+                new_file_path,
+                dryrun=dryrun,
+                replace=replace,
+            )
             # mediainfo
             old_mediainfo_path = os.path.join(
                 EMBY_STRM_ASSISTANT_MEDIAINFO,
@@ -692,7 +712,12 @@ def handle_movie(
                     str(new_dir).removeprefix("/"),
                     f"{new_filename_pre}-mediainfo.json",
                 )
-                rename_media(old_mediainfo_path, new_mediainfo_path, dryrun=dryrun)
+                rename_media(
+                    old_mediainfo_path,
+                    new_mediainfo_path,
+                    dryrun=dryrun,
+                    replace=replace,
+                )
 
     return scan_folders
 
@@ -817,6 +842,7 @@ def media_handle(
     keep_nfo=False,
     keep_job_persisted=True,
     force=False,
+    replace=True,
 ):
     """Media handler
 
@@ -833,6 +859,8 @@ def media_handle(
         offset (int, optional): offset for the episode number. Defaults to 0, which means no offset.
         keep_nfo (bool, optional): keep nfo or not.
         keep_job_persisted (bool, optional): scheduler jobstore
+        force: handle whether tmdb id exists or not
+        replace: replace existed file if True
 
     Returns:
         bool: True if the media was handled, False otherwise
@@ -856,6 +884,7 @@ def media_handle(
                 dryrun=dryrun,
                 scan_folders=scan_folders,
                 force=force,
+                replace=replace,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
@@ -879,6 +908,7 @@ def media_handle(
                 keep_nfo=keep_nfo,
                 scan_folders=scan_folders,
                 force=force,
+                replace=replace,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
@@ -935,6 +965,7 @@ if __name__ == "__main__":
         keep_nfo=args.keep_nfo,
         keep_job_persisted=args.keep_job_persisted,
         force=args.force,
+        replace=not args.not_replace,
     )
 
     scheduler = Scheduler()

@@ -87,7 +87,7 @@ def main(src_dir=""):
             except Exception:
                 to_handle = {}
 
-            for torrent in qbt_client.torrents_info():
+            for torrent in qbt_client.torrents_info(sort="size"):
                 if torrent.progress == 1 or torrent.state in ["uploading", "forcedUP"]:
                     # workaround：跳过刚完成少于 1min 的种子,最小限制
                     if time.time() - int(torrent.completion_on) < 60:
