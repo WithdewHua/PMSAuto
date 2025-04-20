@@ -242,8 +242,8 @@ def main(src_dir=""):
                                 f"\ntmdb_name: {tmdb_name}"
                                 f"\ntmdb_id: {tmdb_id}"
                                 f"\nrecord_tags: {record_tags}"
-                                f"\ntags: {tags}",
-                                f"\nis_anime: {is_anime}",
+                                f"\ntags: {tags}"
+                                f"\nis_anime: {is_anime}"
                             )
                         else:
                             media_info_rslt = {
