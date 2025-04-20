@@ -29,7 +29,7 @@ class TMDB:
             self.tmdb_media = TV()
         self.tmdb_id = None
 
-    def get_name_from_tmdb(self, query_dict: dict, year_deviation: int = 0) -> tuple:
+    def get_info_from_tmdb(self, query_dict: dict, year_deviation: int = 0) -> tuple:
         """Get TV/Movie name from tmdb"""
 
         search_func = (
@@ -42,9 +42,7 @@ class TMDB:
             if self.is_movie
             else query_dict.get("first_air_date_year", datetime.date.today().year)
         )
-
         retry = 0
-        name = ""
         while retry < 3:
             try:
                 while year_deviation >= 0:
@@ -63,57 +61,19 @@ class TMDB:
                         continue
                     else:
                         for rslt in res:
-                            date = (
-                                rslt.release_date
-                                if self.is_movie
-                                else rslt.first_air_date
-                            )
-                            year = date.split("-")[0] or query_year
                             title = rslt.title if self.is_movie else rslt.name
                             original_title = (
                                 rslt.original_title
                                 if self.is_movie
                                 else rslt.original_name
                             )
-                            logger.debug(rslt)
+                            logger.debug(f"{rslt=}")
                             if query_title in [title, original_title] or len(res) == 1:
-                                if rslt.original_language == "zh":
-                                    name = (
-                                        f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
-                                    )
-                                else:
-                                    # 不存在 zh-CN 翻译的情况下
-                                    if title == original_title:
-                                        # 获取详细信息
-                                        media = self.tmdb_media
-                                        media_details = media.details(rslt.id)
-                                        translations = media_details.get(
-                                            "translations"
-                                        ).get("translations")
-                                        for translation in translations:
-                                            if (
-                                                translation.get("iso_3166_1") == "SG"
-                                                and translation.get("iso_639_1") == "zh"
-                                            ):
-                                                title = (
-                                                    translation.get("data")["name"]
-                                                    if not self.is_movie
-                                                    else translation.get("data")[
-                                                        "title"
-                                                    ]
-                                                )
-                                                break
-
-                                    name = (
-                                        f"[{title}] {original_title} ({year}) {{tmdb-{rslt.id}}}"
-                                        if title and title != original_title
-                                        else f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
-                                    )
-                                    if is_filename_length_gt_255(name):
-                                        name = f"{original_title} ({year}) {{tmdb-{rslt.id}}}"
                                 self.tmdb_id = str(rslt.id)
 
-                                logger.info(f"Renaming {query_title} to {name}")
+                                logger.info(
+                                    f"Got tmdb_id for {query_title}: {self.tmdb_id}"
+                                )
                                 break
                         break
                 break
@@ -121,7 +81,13 @@ class TMDB:
                 logger.exception(e)
                 retry += 1
                 continue
-        return name.replace("/", "／"), self.tmdb_id
+        if self.tmdb_id is None:
+            logger.error(f"Failed to get tmdb_id for {query_title}")
+            return {}
+        tmdb_info = self.get_info_from_tmdb_by_id(self.tmdb_id)
+        tmdb_info.update({"tmdb_id": self.tmdb_id})
+
+        return tmdb_info
 
     def get_info_from_tmdb_by_id(self, tmdb_id: str) -> dict:
         """Get movies/shows' details using tmdb_id"""
@@ -164,6 +130,14 @@ class TMDB:
             )
             if is_filename_length_gt_255(tmdb_name):
                 tmdb_name = f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
+        # 判断电视剧是否为动画
+        is_anime = False
+        if not self.is_movie:
+            genres = details.genres
+            for genre in genres:
+                if int(genre.get("id")) == 16:
+                    is_anime = True
+                    break
 
         return {
             "tmdb_name": tmdb_name.replace("/", "／"),
@@ -171,6 +145,7 @@ class TMDB:
             "year": year,
             "month": month,
             "country": contries,
+            "is_anime": is_anime,
         }
 
     def get_movie_certification(self) -> bool:

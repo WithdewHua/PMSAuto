@@ -188,6 +188,7 @@ def main(src_dir=""):
                     query_flag = (
                         True if not re.search(r"NSFW|Music", category) else False
                     )
+                    is_anime = True if re.search(r"Anime", category) else False
                     if "no_query" in tags:
                         query_flag = False
 
@@ -227,6 +228,7 @@ def main(src_dir=""):
                             tmdb_name = media_info_rslt.get("tmdb_name")
                             tmdb_id = media_info_rslt.get("tmdb_id")
                             record_tags = media_info_rslt.get("tags", [])
+                            is_anime = media_info_rslt.get("is_anime")
                             # 更新 tags
                             if tags:
                                 tags = sumarize_tags(record_tags, tags)
@@ -240,7 +242,8 @@ def main(src_dir=""):
                                 f"\ntmdb_name: {tmdb_name}"
                                 f"\ntmdb_id: {tmdb_id}"
                                 f"\nrecord_tags: {record_tags}"
-                                f"\ntags: {tags}"
+                                f"\ntags: {tags}",
+                                f"\nis_anime: {is_anime}",
                             )
                         else:
                             media_info_rslt = {
@@ -283,6 +286,13 @@ def main(src_dir=""):
                             and str(tmdb_id) == str(media_info_rslt.get("tmdb_id", ""))
                         ):
                             save_name = tmdb_name
+                            # None 代表没有记录，重新获取下
+                            if is_anime is None:
+                                is_anime = tmdb.get_info_from_tmdb_by_id(tmdb_id).get(
+                                    "is_anime"
+                                )
+                                # 需要更新记录
+                                write_record = True
                         # 没有记录，或者 tag 的 tmdb_id 发生变化
                         elif tmdb_id and (
                             not local_record
@@ -292,13 +302,14 @@ def main(src_dir=""):
                             )
                         ):
                             try:
+                                tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
                                 tmdb_name = (
-                                    tmdb.get_info_from_tmdb_by_id(tmdb_id).get(
-                                        "tmdb_name"
-                                    )
+                                    tmdb_info.get("tmdb_name")
                                     if not tmdb_name or write_record
                                     else tmdb_name
                                 )
+                                # 判断是否为 anime
+                                is_anime = tmdb_info.get("is_anime")
                                 save_name = tmdb_name
                             except Exception as e:
                                 logger.error(f"Failed to get tmdb info: {e}")
@@ -325,13 +336,15 @@ def main(src_dir=""):
                                     if season and int(season) != 1:
                                         year = int(year) - int(season) + 1
                                 if not local_record:
-                                    tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
+                                    tmdb_info = tmdb.get_info_from_tmdb(
                                         {
                                             "query": name,
                                             "first_air_date_year": int(year),
                                         },
                                         year_deviation=tv_year_deviation,
                                     )
+                                    tmdb_name = tmdb_info.get("tmdb_name")
+                                    tmdb_id = tmdb_info.get("tmdb_id")
                                 save_name = torrent.name if not tmdb_name else tmdb_name
                             # 一般种子
                             else:
@@ -359,10 +372,7 @@ def main(src_dir=""):
                                                 for i in range(2):
                                                     _g = i + 1
                                                     if is_movie:
-                                                        (
-                                                            tmdb_name,
-                                                            tmdb_id,
-                                                        ) = tmdb.get_name_from_tmdb(
+                                                        tmdb_info = tmdb.get_info_from_tmdb(
                                                             {
                                                                 "query": cn_match.group(
                                                                     _g
@@ -372,10 +382,7 @@ def main(src_dir=""):
                                                             year_deviation=movie_year_deviation,
                                                         )
                                                     else:
-                                                        (
-                                                            tmdb_name,
-                                                            tmdb_id,
-                                                        ) = tmdb.get_name_from_tmdb(
+                                                        tmdb_info = tmdb.get_info_from_tmdb(
                                                             {
                                                                 "query": cn_match.group(
                                                                     _g
@@ -386,6 +393,11 @@ def main(src_dir=""):
                                                             },
                                                             year_deviation=tv_year_deviation,
                                                         )
+                                                    tmdb_name = tmdb_info.get(
+                                                        "tmdb_name"
+                                                    )
+                                                    tmdb_id = tmdb_info.get("tmdb_id")
+                                                    is_anime = tmdb_info.get("is_anime")
                                                     if tmdb_name:
                                                         break
                                         save_name = (
@@ -397,10 +409,7 @@ def main(src_dir=""):
                                         if query_flag:
                                             if not local_record:
                                                 if is_movie:
-                                                    (
-                                                        tmdb_name,
-                                                        tmdb_id,
-                                                    ) = tmdb.get_name_from_tmdb(
+                                                    tmdb_info = tmdb.get_info_from_tmdb(
                                                         {
                                                             "query": name,
                                                             "year": int(year),
@@ -408,10 +417,7 @@ def main(src_dir=""):
                                                         year_deviation=movie_year_deviation,
                                                     )
                                                 else:
-                                                    (
-                                                        tmdb_name,
-                                                        tmdb_id,
-                                                    ) = tmdb.get_name_from_tmdb(
+                                                    tmdb_info = tmdb.get_info_from_tmdb(
                                                         {
                                                             "query": name,
                                                             "first_air_date_year": int(
@@ -420,6 +426,9 @@ def main(src_dir=""):
                                                         },
                                                         year_deviation=tv_year_deviation,
                                                     )
+                                                tmdb_name = tmdb_info.get("tmdb_name")
+                                                tmdb_id = tmdb_info.get("tmdb_id")
+                                                is_anime = tmdb_info.get("is_anime")
                                             save_name = (
                                                 name + " " + f"({year})"
                                                 if not tmdb_name
@@ -471,30 +480,34 @@ def main(src_dir=""):
 
                         # 根据分类/年份来决定 GD/挂载点等
                         configs = {}
+                        library = category if not is_anime else "Anime"
                         if query_flag:
                             if tmdb_name:
                                 year = re.search(r"\s\((\d{4})\)\s", tmdb_name).group(1)
                             for (
                                 start_year,
                                 end_year,
-                            ), settings in CATEGORY_SETTINGS_MAPPING[category]:
+                            ), settings in CATEGORY_SETTINGS_MAPPING[library]:
                                 if (start_year is None or start_year <= int(year)) and (
                                     end_year is None or int(year) <= end_year
                                 ):
                                     configs = settings
                                     break
                         else:
-                            configs = CATEGORY_SETTINGS_MAPPING[category][-1][1]
+                            configs = CATEGORY_SETTINGS_MAPPING[library][-1][1]
                         if not configs:
                             logger.error(
-                                f"Can not find settings for category {category}"
+                                f"Can not find settings for category {category} (library: {library})"
                             )
                             continue
+                        logger.debug(f"{configs=}")
 
                         # full path in GoogleDrive
                         google_drive = configs.get("rclone")
                         if not google_drive:
-                            logger.error(f"Can not find drive for category {category}")
+                            logger.error(
+                                f"Can not find drive for category {category} (library: {library})"
+                            )
                             continue
                         google_drive_save_path = (
                             f"{google_drive}:/{save_path}/" + save_name
@@ -715,7 +728,11 @@ def main(src_dir=""):
                             and not is_movie
                         ):
                             media_info_rslt.update(
-                                {"tmdb_name": tmdb_name, "tmdb_id": tmdb_id}
+                                {
+                                    "tmdb_name": tmdb_name,
+                                    "tmdb_id": tmdb_id,
+                                    "is_anime": is_anime,
+                                }
                             )
                             media_info.update({name: media_info_rslt})
                         # delete

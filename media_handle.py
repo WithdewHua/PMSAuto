@@ -305,16 +305,15 @@ def query_tmdb_id(name, media_type):
         # 分别用中文和英文进行查询
         for i in range(2):
             name = cn_match.group(i + 1)
-            tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
+            tmdb_info = tmdb.get_info_from_tmdb(
                 query_dict={"query": name, "year": year}
             )
+            tmdb_id = tmdb_info.get("tmdb_id")
             if tmdb_id:
                 break
     else:
-        tmdb_name, tmdb_id = tmdb.get_name_from_tmdb(
-            query_dict={"query": name, "year": year}
-        )
-
+        tmdb_info = tmdb.get_info_from_tmdb(query_dict={"query": name, "year": year})
+        tmdb_id = tmdb_info.get("tmdb_id")
     return tmdb_id
 
 
