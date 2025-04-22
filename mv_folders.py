@@ -4,13 +4,16 @@ import json
 import os
 import pickle
 import re
+import shutil
 import traceback
 from pathlib import Path
 from time import sleep
 
+from autorclone import auto_rclone
 from log import logger
 from media_handle import add_plexmatch_file, rename_media, send_scan_request
 from scheduler import Scheduler
+from settings import EMBY_STRM_ASSISTANT_MEDIAINFO
 from tmdb import TMDB
 
 
@@ -37,7 +40,7 @@ def main(root_folder, media_type="movie", ignore_filter=None):
     else:
         cache = {}
     try:
-        for root_path, dirs, files in os.walk(root_folder):
+        for root_path, _, files in os.walk(root_folder):
             if ignore_filter and re.search(rf"{ignore_filter}", root_path):
                 continue
             scan_folders = []
@@ -99,7 +102,11 @@ def main(root_folder, media_type="movie", ignore_filter=None):
                 run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
                 scheduler.add_job(
                     send_scan_request,
-                    args=(scan_folders,),
+                    args=(
+                        scan_folders,
+                        True,
+                        False,
+                    ),
                     trigger="date",
                     run_date=run_date,
                     misfire_grace_time=60,
@@ -154,6 +161,105 @@ def scan_folder():
     sleep(60)
 
 
+def mv_anime(
+    src_path,
+    src_mount_prefix="/Media2/",
+    dst_mount_prefix="/Media/",
+    src_mount="GD-TVShows2",
+    dst_mount="GD-Anime",
+):
+    t = TMDB(movie=False)
+    cache_path = Path("tmdb_info.cache")
+    if cache_path.exists():
+        with open(cache_path, "rb") as f:
+            cache = pickle.load(f)
+    else:
+        cache = {}
+    scheduler = Scheduler()
+    try:
+        for root_path, _, _ in os.walk(src_path):
+            scan_folders = []
+            root_path_name = Path(root_path).name
+            tmdbid_match = re.search(r"tmdb-(\d+)", str(root_path_name))
+            if not tmdbid_match:
+                continue
+            try:
+                logger.debug(f"Processing {root_path} starts")
+                tmdbid = tmdbid_match.group(1)
+                if cache.get(tmdbid):
+                    details = cache.get(tmdbid)
+                else:
+                    details = t.get_info_from_tmdb_by_id(tmdb_id=tmdbid)
+                    cache.update({tmdbid: details})
+                tmdb_name = details.get("tmdb_name")
+                year = details.get("year")
+                month = details.get("month")
+                is_anime = details.get("is_anime")
+                if not is_anime:
+                    logger.info(f"{tmdb_name} is not anime, skipping")
+                    continue
+
+                new_folder = Path("Anime", f"Aired_{year}", f"M{month}", tmdb_name)
+                scan_folders.append(f"{dst_mount_prefix}{new_folder}")
+                auto_rclone(
+                    src_path=f"{src_mount}:{str(root_path).removeprefix(src_mount_prefix)}/",
+                    dest_path=f"{dst_mount}:{str(new_folder)}",
+                    action="move",
+                )
+            except Exception as e:
+                logger.error(e)
+                logger.error(traceback.format_exc())
+                continue
+            else:
+                # 删除空文件夹
+                logger.info(f"Removing handled folder: {root_path}")
+                shutil.rmtree(root_path, ignore_errors=True)
+                # 处理 mediainfo
+                old_mediainfo_folder = Path(
+                    EMBY_STRM_ASSISTANT_MEDIAINFO, root_path.removeprefix("/")
+                )
+                if old_mediainfo_folder.exists():
+                    new_mediainfo_folder = Path(
+                        EMBY_STRM_ASSISTANT_MEDIAINFO,
+                        dst_mount_prefix.removeprefix("/"),
+                        new_folder,
+                    )
+                    rename_media(
+                        str(old_mediainfo_folder),
+                        str(Path(EMBY_STRM_ASSISTANT_MEDIAINFO, new_mediainfo_folder)),
+                    )
+            if scan_folders:
+                run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
+                scheduler.add_job(
+                    send_scan_request,
+                    args=(
+                        scan_folders,
+                        True,
+                        False,
+                    ),
+                    trigger="date",
+                    run_date=run_date,
+                    misfire_grace_time=60,
+                    jobstore="default",
+                    replace_existing=True,
+                    id=f"scan_task_at_{run_date}",
+                )
+                logger.debug(f"Added scheduler job: next run at {str(run_date)}")
+
+    except Exception as e:
+        logger.error(e)
+        logger.error(traceback.format_exc())
+    finally:
+        with open(cache_path, "wb") as f:
+            pickle.dump(cache, f)
+
+        while True:
+            if not scheduler.scheduler.get_jobs():
+                break
+            sleep(30)
+        sleep(60)
+
+
 if __name__ == "__main__":
     # args = parse()
     # main(
@@ -162,4 +268,10 @@ if __name__ == "__main__":
     #     ignore_filter=args.ignore_filter,
     # )
 
-    scan_folder()
+    mv_anime(
+        src_path="/Media/TVShows/",
+        src_mount_prefix="/Media/",
+        dst_mount_prefix="/Media/",
+        src_mount="GD-TVShows-2",
+        dst_mount="GD-Anime",
+    )

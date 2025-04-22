@@ -2,6 +2,7 @@ import glob
 import json
 import logging
 import os
+import random
 import re
 import subprocess
 import time
@@ -20,7 +21,7 @@ sa_json_folder = (
 # Rclone运行命令相关
 # > 更新 rc 地址
 if not RC_ADDR:
-    rc_addr = "localhost:5572"
+    rc_addr = f"localhost:{random.randint(5573, 5582)}"  # 随机端口
 else:
     rc_addr = RC_ADDR if not re.match("^:", RC_ADDR) else f"localhost{RC_ADDR}"
 src_path = "/home/tomove"
@@ -148,7 +149,7 @@ def force_kill_rclone_subproc_by_parent_pid(sh_pid):
                 child_proc.kill()
 
 
-def auto_rclone(src_path, dest_path, files_from=None):
+def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
     # 运行变量
     instance_config = {}
     sa_jsons = []
@@ -184,9 +185,11 @@ def auto_rclone(src_path, dest_path, files_from=None):
             last_sa_index = sa_jsons.index(last_sa)
             sa_jsons = sa_jsons[last_sa_index:] + sa_jsons[:last_sa_index]
 
-        cmd_rclone = f'rclone copy "{src_path}" "{dest_path}" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {rc_addr}'
+        cmd_rclone = f'rclone {action} "{src_path}" "{dest_path}" --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {rc_addr}'
         if files_from:
             cmd_rclone += f" --files-from {files_from}"
+        if action == "move":
+            cmd_rclone += " --delete-empty-src-dirs"
 
         # 帐号切换循环
         while True:

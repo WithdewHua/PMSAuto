@@ -243,12 +243,22 @@ def rename_media(old_path, new_path, dryrun=False, replace=True):
             logger.warning(f"{os.path.basename(new_path)} exists in {new_path}")
             return True
         else:
-            logger.info(f"Removing existed file {new_path}")
             if not dryrun:
-                os.remove(new_path)
+                if os.path.isfile(new_path):
+                    logger.info(f"Removing existed file {new_path}")
+                    os.remove(new_path)
     if not dryrun:
-        os.makedirs(os.path.dirname(new_path), exist_ok=True)
-        os.rename(old_path, new_path)
+        if os.path.isdir(old_path) and os.path.exists(new_path):
+            for path in os.listdir(old_path):
+                rename_media(
+                    os.path.join(old_path, path),
+                    os.path.join(new_path, path),
+                    dryrun,
+                    replace,
+                )
+        else:
+            os.makedirs(os.path.dirname(new_path), exist_ok=True)
+            os.rename(old_path, new_path)
     logger.info(old_path + " --> " + new_path)
 
     return True
@@ -523,30 +533,14 @@ def handle_tvshow(
                 )
 
                 # mediainfo
-                old_mediainfo_path = os.path.join(
-                    EMBY_STRM_ASSISTANT_MEDIAINFO,
-                    dir.removeprefix("/"),
-                    f"{filename_pre}-mediainfo.json",
+                handle_strm_assistant_mediainfo(
+                    dir,
+                    filename_pre,
+                    new_dir,
+                    new_filename,
+                    dryrun=dryrun,
+                    replace=replace,
                 )
-                logger.debug(f"{old_mediainfo_path=}")
-                if os.path.exists(old_mediainfo_path):
-                    logger.debug(f"Found mediainfo: {old_mediainfo_path}")
-                    new_filename_pre = ".".join(new_filename.split(".")[0:-1])
-                    mediainfo = load_json(old_mediainfo_path)
-                    mediainfo[0]["MediaSourceInfo"]["Name"] = new_filename_pre
-                    dump_json(mediainfo, old_mediainfo_path)
-                    logger.info(f"Updating mediainfo: {old_mediainfo_path}")
-                    new_mediainfo_path = os.path.join(
-                        EMBY_STRM_ASSISTANT_MEDIAINFO,
-                        str(new_dir).removeprefix("/"),
-                        f"{new_filename_pre}-mediainfo.json",
-                    )
-                    rename_media(
-                        old_mediainfo_path,
-                        new_mediainfo_path,
-                        dryrun=dryrun,
-                        replace=replace,
-                    )
 
         if handled_files != 0:
             break
@@ -693,32 +687,40 @@ def handle_movie(
                 replace=replace,
             )
             # mediainfo
-            old_mediainfo_path = os.path.join(
-                EMBY_STRM_ASSISTANT_MEDIAINFO,
-                dir.removeprefix("/"),
-                f"{filename_pre}-mediainfo.json",
+            handle_strm_assistant_mediainfo(
+                dir, filename_pre, new_dir, new_filename, dryrun=dryrun, replace=replace
             )
-            logger.debug(f"{old_mediainfo_path=}")
-            if os.path.exists(old_mediainfo_path):
-                logger.debug(f"Found mediainfo: {old_mediainfo_path}")
-                new_filename_pre = ".".join(new_filename.split(".")[0:-1])
-                mediainfo = load_json(old_mediainfo_path)
-                mediainfo[0]["MediaSourceInfo"]["Name"] = new_filename_pre
-                dump_json(mediainfo, old_mediainfo_path)
-                logger.info(f"Updating mediainfo: {old_mediainfo_path}")
-                new_mediainfo_path = os.path.join(
-                    EMBY_STRM_ASSISTANT_MEDIAINFO,
-                    str(new_dir).removeprefix("/"),
-                    f"{new_filename_pre}-mediainfo.json",
-                )
-                rename_media(
-                    old_mediainfo_path,
-                    new_mediainfo_path,
-                    dryrun=dryrun,
-                    replace=replace,
-                )
 
     return scan_folders
+
+
+def handle_strm_assistant_mediainfo(
+    old_dir, filename_pre, new_dir, new_filename, dryrun=False, replace=True
+):
+    old_mediainfo_path = os.path.join(
+        EMBY_STRM_ASSISTANT_MEDIAINFO,
+        old_dir.removeprefix("/"),
+        f"{filename_pre}-mediainfo.json",
+    )
+    logger.debug(f"{old_mediainfo_path=}")
+    if os.path.exists(old_mediainfo_path):
+        logger.debug(f"Found mediainfo: {old_mediainfo_path}")
+        new_filename_pre = ".".join(new_filename.split(".")[0:-1])
+        mediainfo = load_json(old_mediainfo_path)
+        mediainfo[0]["MediaSourceInfo"]["Name"] = new_filename_pre
+        dump_json(mediainfo, old_mediainfo_path)
+        logger.info(f"Updating mediainfo: {old_mediainfo_path}")
+        new_mediainfo_path = os.path.join(
+            EMBY_STRM_ASSISTANT_MEDIAINFO,
+            str(new_dir).removeprefix("/"),
+            f"{new_filename_pre}-mediainfo.json",
+        )
+        rename_media(
+            old_mediainfo_path,
+            new_mediainfo_path,
+            dryrun=dryrun,
+            replace=replace,
+        )
 
 
 def handle_local_media(
