@@ -189,6 +189,7 @@ def main(src_dir=""):
                         True if not re.search(r"NSFW|Music", category) else False
                     )
                     is_anime = True if re.search(r"Anime", category) else False
+                    is_documentary, is_variety = False, False
                     if "no_query" in tags:
                         query_flag = False
 
@@ -229,6 +230,8 @@ def main(src_dir=""):
                             tmdb_id = media_info_rslt.get("tmdb_id")
                             record_tags = media_info_rslt.get("tags", [])
                             is_anime = media_info_rslt.get("is_anime")
+                            is_documentary = media_info_rslt.get("is_documentary")
+                            is_variety = media_info_rslt.get("is_variety")
                             # 更新 tags
                             if tags:
                                 tags = sumarize_tags(record_tags, tags)
@@ -244,6 +247,8 @@ def main(src_dir=""):
                                 f"\nrecord_tags: {record_tags}"
                                 f"\ntags: {tags}"
                                 f"\nis_anime: {is_anime}"
+                                f"\nis_documentary: {is_documentary}"
+                                f"\nis_variety: {is_variety}"
                             )
                         else:
                             media_info_rslt = {
@@ -287,10 +292,15 @@ def main(src_dir=""):
                         ):
                             save_name = tmdb_name
                             # None 代表没有记录，重新获取下
-                            if is_anime is None:
-                                is_anime = tmdb.get_info_from_tmdb_by_id(tmdb_id).get(
-                                    "is_anime"
-                                )
+                            if (
+                                is_anime is None
+                                or is_documentary is None
+                                or is_variety is None
+                            ):
+                                _tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
+                                is_anime = _tmdb_info.get("is_anime")
+                                is_documentary = _tmdb_info.get("is_documentary")
+                                is_variety = _tmdb_info.get("is_variety")
                                 # 需要更新记录
                                 write_record = True
                         # 没有记录，或者 tag 的 tmdb_id 发生变化
@@ -310,6 +320,8 @@ def main(src_dir=""):
                                 )
                                 # 判断是否为 anime
                                 is_anime = tmdb_info.get("is_anime")
+                                is_documentary = tmdb_info.get("is_documentary")
+                                is_variety = tmdb_info.get("is_variety")
                                 save_name = tmdb_name
                             except Exception as e:
                                 logger.error(f"Failed to get tmdb info: {e}")
@@ -398,6 +410,12 @@ def main(src_dir=""):
                                                     )
                                                     tmdb_id = tmdb_info.get("tmdb_id")
                                                     is_anime = tmdb_info.get("is_anime")
+                                                    is_documentary = tmdb_info.get(
+                                                        "is_documentary"
+                                                    )
+                                                    is_variety = tmdb_info.get(
+                                                        "is_variety"
+                                                    )
                                                     if tmdb_name:
                                                         break
                                         save_name = (
@@ -429,6 +447,10 @@ def main(src_dir=""):
                                                 tmdb_name = tmdb_info.get("tmdb_name")
                                                 tmdb_id = tmdb_info.get("tmdb_id")
                                                 is_anime = tmdb_info.get("is_anime")
+                                                is_documentary = tmdb_info.get(
+                                                    "is_documentary"
+                                                )
+                                                is_variety = tmdb_info.get("is_variety")
                                             save_name = (
                                                 name + " " + f"({year})"
                                                 if not tmdb_name
@@ -480,7 +502,14 @@ def main(src_dir=""):
 
                         # 根据分类/年份来决定 GD/挂载点等
                         configs = {}
-                        library = category if not is_anime else "Anime"
+                        if is_anime:
+                            library = "Anime"
+                        elif is_documentary:
+                            library = "Documentary"
+                        elif is_variety:
+                            library = "VarietyShows"
+                        else:
+                            library = category
                         if query_flag:
                             if tmdb_name:
                                 year = re.search(r"\s\((\d{4})\)\s", tmdb_name).group(1)
@@ -732,6 +761,8 @@ def main(src_dir=""):
                                     "tmdb_name": tmdb_name,
                                     "tmdb_id": tmdb_id,
                                     "is_anime": is_anime,
+                                    "is_documentary": is_documentary,
+                                    "is_variety": is_variety,
                                 }
                             )
                             media_info.update({name: media_info_rslt})

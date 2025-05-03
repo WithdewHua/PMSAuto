@@ -9,6 +9,7 @@ import traceback
 from pathlib import Path
 from time import sleep
 
+import filelock
 from autorclone import auto_rclone
 from log import logger
 from media_handle import add_plexmatch_file, rename_media, send_scan_request
@@ -161,20 +162,25 @@ def scan_folder():
     sleep(60)
 
 
-def mv_anime(
+def mv_lib(
     src_path,
     src_mount_prefix="/Media2/",
-    dst_mount_prefix="/Media/",
+    dst_mount_prefix="/Media2/",
     src_mount="GD-TVShows2",
-    dst_mount="GD-Anime",
+    dst_mount="GD-TVShows2",
 ):
     t = TMDB(movie=False)
     cache_path = Path("tmdb_info.cache")
+    cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock", timeout=10)
     if cache_path.exists():
-        with open(cache_path, "rb") as f:
-            cache = pickle.load(f)
+        with cache_lock:
+            with open(cache_path, "rb") as f:
+                cache = pickle.load(f)
     else:
         cache = {}
+        with cache_lock:
+            with open(cache_path, "wb") as f:
+                pickle.dump(cache, f)
     scheduler = Scheduler()
     try:
         for root_path, _, _ in os.walk(src_path):
@@ -190,16 +196,37 @@ def mv_anime(
                     details = cache.get(tmdbid)
                 else:
                     details = t.get_info_from_tmdb_by_id(tmdb_id=tmdbid)
-                    cache.update({tmdbid: details})
+                    # 更新缓存
+                    with cache_lock:
+                        with open(cache_path, "rb+") as f:
+                            cache = pickle.load(f)
+                            if tmdbid not in cache:
+                                f.seek(0)
+                                cache.update({tmdbid: details})
+                                pickle.dump(cache, f)
                 tmdb_name = details.get("tmdb_name")
                 year = details.get("year")
                 month = details.get("month")
                 is_anime = details.get("is_anime")
-                if not is_anime:
-                    logger.info(f"{tmdb_name} is not anime, skipping")
+                is_documentary = details.get("is_documentary")
+                is_variety = details.get("is_variety")
+                if is_anime:
+                    lib = "Anime"
+                    logger.info(f"{tmdb_name} is anime, moving to Anime")
+                    continue
+                if is_documentary:
+                    lib = "Documentary"
+                    logger.info(f"{tmdb_name} is documentary, moving to Documentary")
+                elif is_variety:
+                    lib = "VarietyShows"
+                    logger.info(f"{tmdb_name} is variety, moving to VarietyShows")
+                else:
+                    logger.info(
+                        f"{tmdb_name} is not anime or documentary or variety, skipping"
+                    )
                     continue
 
-                new_folder = Path("Anime", f"Aired_{year}", f"M{month}", tmdb_name)
+                new_folder = Path(lib, f"Aired_{year}", f"M{month}", tmdb_name)
                 scan_folders.append(f"{dst_mount_prefix}{new_folder}")
                 auto_rclone(
                     src_path=f"{src_mount}:{str(root_path).removeprefix(src_mount_prefix)}/",
@@ -234,7 +261,7 @@ def mv_anime(
                     send_scan_request,
                     args=(
                         scan_folders,
-                        True,
+                        False,
                         False,
                     ),
                     trigger="date",
@@ -250,9 +277,6 @@ def mv_anime(
         logger.error(e)
         logger.error(traceback.format_exc())
     finally:
-        with open(cache_path, "wb") as f:
-            pickle.dump(cache, f)
-
         while True:
             if not scheduler.scheduler.get_jobs():
                 break
@@ -268,10 +292,10 @@ if __name__ == "__main__":
     #     ignore_filter=args.ignore_filter,
     # )
 
-    mv_anime(
-        src_path="/Media/TVShows/",
-        src_mount_prefix="/Media/",
-        dst_mount_prefix="/Media/",
-        src_mount="GD-TVShows-2",
-        dst_mount="GD-Anime",
+    mv_lib(
+        src_path="/Media2/TVShows/",
+        src_mount_prefix="/Media2/",
+        dst_mount_prefix="/Media2/",
+        src_mount="GD-TVShows2",
+        dst_mount="GD-TVShows2",
     )

@@ -130,13 +130,28 @@ class TMDB:
             )
             if is_filename_length_gt_255(tmdb_name):
                 tmdb_name = f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
-        # 判断电视剧是否为动画
-        is_anime = False
+        # 判断电视剧分类
+        is_anime, is_documentary, is_variety = False, False, False
         if not self.is_movie:
-            genres = details.genres
-            for genre in genres:
-                if int(genre.get("id")) == 16:
+            # 通过类型判断
+            show_type = details.type
+            if show_type == "Documentary":
+                is_documentary = True
+            if show_type in ["Talk Show", "Reality"]:
+                is_variety = True
+            # 通过 genre 分类判断
+            genres = [int(genre.get("id")) for genre in details.genres]
+            for genre_id in genres:
+                if genre_id == 16:
                     is_anime = True
+                    break
+                # 10764-真人秀，10767-脱口秀
+                if genre_id in [10764, 10767]:
+                    is_variety = True
+                    break
+                # 99-纪录片，18-剧情
+                if genre_id == 99 and 18 not in genres:
+                    is_documentary = True
                     break
 
         return {
@@ -146,6 +161,8 @@ class TMDB:
             "month": month,
             "country": contries,
             "is_anime": is_anime,
+            "is_documentary": is_documentary,
+            "is_variety": is_variety,
         }
 
     def get_movie_certification(self) -> bool:
