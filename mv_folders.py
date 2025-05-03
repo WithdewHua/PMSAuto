@@ -171,7 +171,7 @@ def mv_lib(
 ):
     t = TMDB(movie=False)
     cache_path = Path("tmdb_info.cache")
-    cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock", timeout=10)
+    cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock")  # blocking
     if cache_path.exists():
         with cache_lock:
             with open(cache_path, "rb") as f:
