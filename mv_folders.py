@@ -4,7 +4,6 @@ import json
 import os
 import pickle
 import re
-import shutil
 import traceback
 from pathlib import Path
 from time import sleep
@@ -240,7 +239,9 @@ def mv_lib(
             else:
                 # 删除空文件夹
                 logger.info(f"Removing handled folder: {root_path}")
-                shutil.rmtree(root_path, ignore_errors=True)
+                os.system(
+                    f"rclone rmdirs {src_mount}:{str(root_path).removeprefix(src_mount_prefix)}"
+                )
                 # 处理 mediainfo
                 old_mediainfo_folder = Path(
                     EMBY_STRM_ASSISTANT_MEDIAINFO, root_path.removeprefix("/")
