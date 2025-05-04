@@ -149,18 +149,10 @@ class TMDB:
                 if genre_id in [10764, 10767]:
                     is_variety = True
                     break
-                # 99-纪录片
-                if genre_id == 99:
+                # 99-纪录片, 18-剧情
+                if genre_id == 99 and 18 not in genres:
                     is_documentary = True
                     break
-            # 18-剧情
-            if 18 in genres:
-                logger.info(
-                    f"{tmdb_name} has drama genre, set is_documentary/is_variety to False"
-                )
-                is_documentary = False
-                is_variety = False
-
         return {
             "tmdb_name": tmdb_name.replace("/", "／"),
             "title": title,
