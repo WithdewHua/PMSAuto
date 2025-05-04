@@ -240,7 +240,7 @@ def mv_lib(
                 # 删除空文件夹
                 logger.info(f"Removing handled folder: {root_path}")
                 os.system(
-                    f"rclone rmdirs {src_mount}:{str(root_path).removeprefix(src_mount_prefix)}"
+                    f'rclone rmdirs "{src_mount}:{str(root_path).removeprefix(src_mount_prefix)}"'
                 )
                 # 处理 mediainfo
                 old_mediainfo_folder = Path(
@@ -294,9 +294,9 @@ if __name__ == "__main__":
     # )
 
     mv_lib(
-        src_path="/Media2/TVShows/",
-        src_mount_prefix="/Media2/",
+        src_path="/Media/TVShows/Aired_2022",
+        src_mount_prefix="/Media/",
         dst_mount_prefix="/Media2/",
-        src_mount="GD-TVShows2",
+        src_mount="GD-TVShows-2",
         dst_mount="GD-TVShows2",
     )
