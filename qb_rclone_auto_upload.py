@@ -504,10 +504,11 @@ def main(src_dir=""):
                         configs = {}
                         if is_anime:
                             library = "Anime"
-                        elif is_documentary:
-                            library = "Documentary"
+                        # 优先判断是否为综艺
                         elif is_variety:
                             library = "VarietyShows"
+                        elif is_documentary:
+                            library = "Documentary"
                         else:
                             library = category
                         if query_flag:

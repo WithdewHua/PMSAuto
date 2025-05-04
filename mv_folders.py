@@ -213,12 +213,13 @@ def mv_lib(
                     lib = "Anime"
                     logger.info(f"{tmdb_name} is anime, moving to Anime")
                     continue
-                if is_documentary:
-                    lib = "Documentary"
-                    logger.info(f"{tmdb_name} is documentary, moving to Documentary")
+                # 优先判断是否为综艺
                 elif is_variety:
                     lib = "VarietyShows"
                     logger.info(f"{tmdb_name} is variety, moving to VarietyShows")
+                if is_documentary:
+                    lib = "Documentary"
+                    logger.info(f"{tmdb_name} is documentary, moving to Documentary")
                 else:
                     logger.info(
                         f"{tmdb_name} is not anime or documentary or variety, skipping"
