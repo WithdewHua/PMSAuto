@@ -143,7 +143,7 @@ def main(src_dir=""):
                             )
                         continue
 
-                    # get media info
+                    # get media info cache
                     media_info_file_path = os.path.join(script_path, "media_info.cache")
                     if os.path.exists(media_info_file_path):
                         with open(media_info_file_path, "rb") as f:
@@ -151,17 +151,20 @@ def main(src_dir=""):
                     else:
                         media_info = {}
 
-                    # get media title
+                    # get media info from torrent name
                     if re.search(r"Anime", category):
                         parse_rslt = anitopy.parse(torrent.name)
                         name = parse_rslt.get("anime_title")
-                        media_info_match_key = f"{category}_{name}"
+                        year = parse_rslt.get("anime_year", date.today().year)
+                        season = parse_rslt.get("anime_season")
+                        release_group = parse_rslt.get("release_group")
                     else:
                         torrent_name_match = re.search(
                             r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", torrent.name
                         )
                         # not matched
                         if not torrent_name_match:
+                            year = ""
                             # todo: 未匹配到年份时,也进行一次匹配查询
                             try:
                                 name = re.search(
@@ -180,10 +183,20 @@ def main(src_dir=""):
                                 .strip(".")
                                 .split(".")
                             )
-                        # 分类 + 名字 + 制作组
-                        media_info_match_key = (
-                            f"{category}_{name}_{torrent.name.split('-')[-1]}"
+                            year = torrent_name_match.group(3)
+                        season_match = re.search(
+                            r"[\.\s]S(\d{2})[\s\.Ee]", torrent.name
                         )
+                        season = season_match.group(1) if season_match else ""
+                        release_group = torrent.name.split("-")[-1]
+                    # media info cache key
+                    media_info_match_key = f"{category}_{name}"
+                    if year:
+                        media_info_match_key += f"_{year}"
+                    if season:
+                        media_info_match_key += f"_S{season}"
+                    if release_group:
+                        media_info_match_key += f"_{release_group}"
 
                     # flag
                     is_movie = (
@@ -271,22 +284,13 @@ def main(src_dir=""):
                         season = ""
                         # get year from tag
                         year_tag = re.search(r"Y(\d{4})", ", ".join(tags))
-                        year = int(year_tag.group(1)) if year_tag else None
+                        year = int(year_tag.group(1)) if year_tag else year
                         # get episode offset from tag
                         offset_tag = re.search(r"O(-?\d+)", ", ".join(tags))
                         offset = int(offset_tag.group(1)) if offset_tag else 0
-                        # get season info for tvshows
-                        if re.search(r"TVShows|Anime", category):
-                            # get season info from ", ".join(tags)
-                            rslt = re.search(r"S(\d{2})", ", ".join(tags))
-                            if rslt:
-                                season = rslt.group(1)
-                            else:
-                                # get season info from torrent name
-                                season_match = re.search(
-                                    r"[\.\s]S(\d{2})[\s\.Ee]", torrent.name
-                                )
-                                season = season_match.group(1) if season_match else ""
+                        # get season info from tag
+                        season_flag = re.search(r"S(\d{2})", ", ".join(tags))
+                        season = season_flag.group(1) if season_flag else season
                         # get tmdb_id from tag
                         tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags))
                         tmdb_id = tmdb_id_tag.group(1) if tmdb_id_tag else tmdb_id
@@ -342,16 +346,7 @@ def main(src_dir=""):
                             # anime 种子名比较特殊,进行特殊处理
                             if "Anime" in category:
                                 parse_rslt = anitopy.parse(torrent.name)
-                                # name = parse_rslt.get("anime_title")
-                                season = (
-                                    season
-                                    if season
-                                    else parse_rslt.get("anime_season", "")
-                                )
                                 if not year_tag:
-                                    year = parse_rslt.get(
-                                        "anime_year", date.today().year
-                                    )
                                     if season and int(season) != 1:
                                         year = int(year) - int(season) + 1
                                 if not local_record:
@@ -369,9 +364,6 @@ def main(src_dir=""):
                             else:
                                 # 匹配到年份
                                 if torrent_name_match:
-                                    # 处理年份
-                                    if not year_tag:
-                                        year = torrent_name_match.group(3)
                                     if (
                                         not year_tag
                                         and season
@@ -757,13 +749,7 @@ def main(src_dir=""):
 
                         # media_info handle
                         # add
-                        if (
-                            name
-                            and tmdb_name
-                            and write_record
-                            and "end" not in tags
-                            and not is_movie
-                        ):
+                        if name and tmdb_name and write_record and "end" not in tags:
                             media_info_rslt.update(
                                 {
                                     "tmdb_name": tmdb_name,
