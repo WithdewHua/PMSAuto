@@ -1,7 +1,10 @@
 #!/usr/local/bin/env python
 
 import datetime
+import pickle
+from pathlib import Path
 
+import filelock
 from log import logger
 from settings import LOG_LEVEL, TMDB_API_KEY
 from tmdbv3api import TV, Movie, Search, TMDb
@@ -9,6 +12,9 @@ from utils import is_filename_length_gt_255
 
 
 class TMDB:
+    cache: Path = Path(__file__).parent / "tmdb_info.cache"
+    cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock")
+
     def __init__(
         self,
         api_key: str = TMDB_API_KEY,
@@ -28,6 +34,54 @@ class TMDB:
         else:
             self.tmdb_media = TV()
         self.tmdb_id = None
+
+    @classmethod
+    def _read_cache(cls):
+        """Read cache from file"""
+        with cls.cache_lock:
+            if cls.cache.exists():
+                with open(cls.cache, "rb") as f:
+                    return pickle.load(f)
+            else:
+                return {}
+
+    @classmethod
+    def _write_cache(cls, cache: dict):
+        """Write cache to file"""
+        with cls.cache_lock:
+            with open(cls.cache, "wb") as f:
+                pickle.dump(cache, f)
+
+    @classmethod
+    def get_cache_by_key(cls, key):
+        """Get cache by key"""
+        cache = cls._read_cache()
+        if key in cache:
+            logger.info(f"Cache hit for {key}")
+            return cache[key]
+        logger.info(f"No cache found for {key}")
+
+    @classmethod
+    def write_cache_by_key(cls, key, value):
+        """Write cache by key"""
+        cache = cls._read_cache()
+        if key in cache:
+            logger.info(f"Cache updated for {key}")
+        else:
+            logger.info(f"Cache added for {key}")
+        cache[key] = value
+        cls._write_cache(cache)
+
+    @classmethod
+    def delete_cache_by_key(cls, key):
+        """Delete cache by key"""
+        cache = cls._read_cache()
+        if key in cache:
+            del cache[key]
+            cls._write_cache(cache)
+            logger.info(f"Cache deleted for {key}")
+        else:
+            logger.info(f"No cache found for {key}")
 
     def get_info_from_tmdb(self, query_dict: dict, year_deviation: int = 0) -> tuple:
         """Get TV/Movie name from tmdb"""
@@ -92,7 +146,13 @@ class TMDB:
     def get_info_from_tmdb_by_id(self, tmdb_id: str) -> dict:
         """Get movies/shows' details using tmdb_id"""
         tmdb_name = ""
-        self.tmdb_id = tmdb_id
+        self.tmdb_id = str(tmdb_id)
+        # 先从缓存中读取
+        info = self.get_cache_by_key(self.tmdb_id)
+        if info:
+            logger.info(f"Cache hit for {self.tmdb_id}")
+            return info
+
         details = self.tmdb_media.details(self.tmdb_id)
         date = details.release_date if self.is_movie else details.first_air_date
         date_list = date.split("-")
@@ -153,7 +213,7 @@ class TMDB:
                 if genre_id == 99 and 18 not in genres:
                     is_documentary = True
                     break
-        return {
+        info = {
             "tmdb_name": tmdb_name.replace("/", "／"),
             "title": title,
             "year": year,
@@ -163,6 +223,8 @@ class TMDB:
             "is_documentary": is_documentary,
             "is_variety": is_variety,
         }
+        self.write_cache_by_key(self.tmdb_id, info)
+        return info
 
     def get_movie_certification(self) -> bool:
         """Get movie's certifacation"""
