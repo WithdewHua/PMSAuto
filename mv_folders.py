@@ -8,7 +8,6 @@ import traceback
 from pathlib import Path
 from time import sleep
 
-import filelock
 from autorclone import auto_rclone
 from log import logger
 from media_handle import add_plexmatch_file, rename_media, send_scan_request
@@ -169,17 +168,6 @@ def mv_lib(
     dst_mount="GD-TVShows2",
 ):
     t = TMDB(movie=False)
-    cache_path = Path("tmdb_info.cache")
-    cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock")  # blocking
-    if cache_path.exists():
-        with cache_lock:
-            with open(cache_path, "rb") as f:
-                cache = pickle.load(f)
-    else:
-        cache = {}
-        with cache_lock:
-            with open(cache_path, "wb") as f:
-                pickle.dump(cache, f)
     scheduler = Scheduler()
     try:
         for root_path, _, _ in os.walk(src_path):
@@ -191,18 +179,7 @@ def mv_lib(
             try:
                 logger.debug(f"Processing {root_path} starts")
                 tmdbid = tmdbid_match.group(1)
-                if cache.get(tmdbid):
-                    details = cache.get(tmdbid)
-                else:
-                    details = t.get_info_from_tmdb_by_id(tmdb_id=tmdbid)
-                    # 更新缓存
-                    with cache_lock:
-                        with open(cache_path, "rb+") as f:
-                            cache = pickle.load(f)
-                            if tmdbid not in cache:
-                                f.seek(0)
-                                cache.update({tmdbid: details})
-                                pickle.dump(cache, f)
+                details = t.get_info_from_tmdb_by_id(tmdb_id=tmdbid)
                 tmdb_name = details.get("tmdb_name")
                 year = details.get("year")
                 month = details.get("month")
