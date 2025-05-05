@@ -155,6 +155,7 @@ def main(src_dir=""):
                     if re.search(r"Anime", category):
                         parse_rslt = anitopy.parse(torrent.name)
                         name = parse_rslt.get("anime_title")
+                        media_info_match_key = f"{category}_{name}"
                     else:
                         torrent_name_match = re.search(
                             r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", torrent.name
@@ -179,6 +180,10 @@ def main(src_dir=""):
                                 .strip(".")
                                 .split(".")
                             )
+                        # 分类 + 名字 + 制作组
+                        media_info_match_key = (
+                            f"{category}_{name}_{torrent.name.split('-')[-1]}"
+                        )
 
                     # flag
                     is_movie = (
@@ -204,15 +209,17 @@ def main(src_dir=""):
                             qbt_client.torrents_delete(
                                 delete_files=True, torrent_hashes=torrent.hash
                             )
-                        if "end" in tags and name in media_info:
-                            media_info.pop(name)
+                        if "end" in tags and media_info_match_key in media_info:
+                            media_info.pop(media_info_match_key)
                             with open(media_info_file_path, "wb") as f:
                                 pickle.dump(media_info, f)
                             # add ignore tag
                             qbt_client.torrents_add_tags(
                                 tags="ignore", torrent_hashes=torrent.hash
                             )
-                            logger.info(f"Removing {name}'s record...")
+                            logger.info(
+                                f"Removing {torrent.name}'s record: {media_info_match_key}"
+                            )
                     # torrent is downloaded, and not uploaded to GoogleDrive
                     if "up_done" not in tags:
                         tmdb_name = ""
@@ -222,7 +229,7 @@ def main(src_dir=""):
                         # get media info from file
                         local_record = False
                         write_record = True
-                        media_info_rslt = media_info.get(name, {})
+                        media_info_rslt = media_info.get(media_info_match_key, {})
                         if media_info_rslt:
                             local_record = True
                             write_record = False
@@ -241,7 +248,7 @@ def main(src_dir=""):
                             else:
                                 tags = record_tags
                             logger.debug(
-                                f"Got {name}'s info: "
+                                f"Got {media_info_match_key}'s info: "
                                 f"\ntmdb_name: {tmdb_name}"
                                 f"\ntmdb_id: {tmdb_id}"
                                 f"\nrecord_tags: {record_tags}"
@@ -724,8 +731,8 @@ def main(src_dir=""):
                                     chat_id=TG_CHAT_ID,
                                     text=f"Failed to get TMDB item for `{torrent.name}`, please check……",
                                 )
-                                if name in media_info:
-                                    media_info.pop(name)
+                                if media_info_match_key in media_info:
+                                    media_info.pop(media_info_match_key)
                             except Exception as e:
                                 logger.error(f"Exception happens: {e}")
                                 send_tg_msg(
@@ -766,10 +773,10 @@ def main(src_dir=""):
                                     "is_variety": is_variety,
                                 }
                             )
-                            media_info.update({name: media_info_rslt})
+                            media_info.update({media_info_match_key: media_info_rslt})
                         # delete
                         if local_record and "end" in tags:
-                            media_info.pop(name)
+                            media_info.pop(media_info_match_key)
                             qbt_client.torrents_add_tags(
                                 tags="ignore", torrent_hashes=torrent.hash
                             )
