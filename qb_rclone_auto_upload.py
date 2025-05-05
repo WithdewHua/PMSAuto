@@ -281,7 +281,6 @@ def main(src_dir=""):
                         # default save name
                         save_name = tmdb_name or torrent.name
 
-                        season = ""
                         # get year from tag
                         year_tag = re.search(r"Y(\d{4})", ", ".join(tags))
                         year = int(year_tag.group(1)) if year_tag else year
