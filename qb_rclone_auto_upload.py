@@ -143,6 +143,19 @@ def main(src_dir=""):
                             )
                         continue
 
+                    # init flags
+                    is_movie = (
+                        True if re.search(r"Movies|Concerts", category) else False
+                    )
+                    is_nc17 = True if re.search(r"NC17-Movies", category) else False
+                    query_flag = (
+                        True if not re.search(r"NSFW|Music", category) else False
+                    )
+                    is_anime = True if re.search(r"Anime", category) else False
+                    is_documentary, is_variety = False, False
+                    if "no_query" in tags:
+                        query_flag = False
+
                     # get media info cache
                     media_info_file_path = os.path.join(script_path, "media_info.cache")
                     if os.path.exists(media_info_file_path):
@@ -195,21 +208,9 @@ def main(src_dir=""):
                         media_info_match_key += f"_{year}"
                     if season:
                         media_info_match_key += f"_S{season}"
-                    if release_group:
+                    if not is_movie and release_group:
                         media_info_match_key += f"_{release_group}"
-
-                    # flag
-                    is_movie = (
-                        True if re.search(r"Movies|Concerts", category) else False
-                    )
-                    is_nc17 = True if re.search(r"NC17-Movies", category) else False
-                    query_flag = (
-                        True if not re.search(r"NSFW|Music", category) else False
-                    )
-                    is_anime = True if re.search(r"Anime", category) else False
-                    is_documentary, is_variety = False, False
-                    if "no_query" in tags:
-                        query_flag = False
+                    logger.debug(f"{media_info_match_key=}")
 
                     # torrent is downloaded, and uploaded to GoogleDrive
                     # clean up torrent
