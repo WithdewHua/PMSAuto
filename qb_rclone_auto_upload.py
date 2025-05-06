@@ -153,6 +153,7 @@ def main(src_dir=""):
                     )
                     is_anime = True if re.search(r"Anime", category) else False
                     is_documentary, is_variety = False, False
+                    is_nc17 = None
                     if "no_query" in tags:
                         query_flag = False
 
@@ -253,6 +254,7 @@ def main(src_dir=""):
                             is_anime = media_info_rslt.get("is_anime")
                             is_documentary = media_info_rslt.get("is_documentary")
                             is_variety = media_info_rslt.get("is_variety")
+                            is_nc17 = media_info_rslt.get("is_nc17")
                             # 更新 tags
                             if tags:
                                 tags = sumarize_tags(record_tags, tags)
@@ -307,11 +309,13 @@ def main(src_dir=""):
                                 is_anime is None
                                 or is_documentary is None
                                 or is_variety is None
+                                or (is_nc17 is None and is_movie)
                             ):
                                 _tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
                                 is_anime = _tmdb_info.get("is_anime")
                                 is_documentary = _tmdb_info.get("is_documentary")
                                 is_variety = _tmdb_info.get("is_variety")
+                                is_nc17 = _tmdb_info.get("is_nc17")
                                 # 需要更新记录
                                 write_record = True
                         # 没有记录，或者 tag 的 tmdb_id 发生变化
@@ -333,6 +337,7 @@ def main(src_dir=""):
                                 is_anime = tmdb_info.get("is_anime")
                                 is_documentary = tmdb_info.get("is_documentary")
                                 is_variety = tmdb_info.get("is_variety")
+                                is_nc17 = tmdb_info.get("is_nc17")
                                 save_name = tmdb_name
                             except Exception as e:
                                 logger.error(f"Failed to get tmdb info: {e}")
@@ -415,6 +420,7 @@ def main(src_dir=""):
                                                     is_variety = tmdb_info.get(
                                                         "is_variety"
                                                     )
+                                                    is_nc17 = tmdb_info.get("is_nc17")
                                                     if tmdb_name:
                                                         break
                                         save_name = (
@@ -450,6 +456,7 @@ def main(src_dir=""):
                                                     "is_documentary"
                                                 )
                                                 is_variety = tmdb_info.get("is_variety")
+                                                is_nc17 = tmdb_info.get("is_nc17")
                                             save_name = (
                                                 name + " " + f"({year})"
                                                 if not tmdb_name
@@ -476,7 +483,10 @@ def main(src_dir=""):
 
                         # get certification info for movie
                         if tmdb.is_movie and tmdb_name:
-                            is_nc17 = tmdb.get_movie_certification()
+                            # 记录中没有则进行查询
+                            if is_nc17 is None:
+                                tmdb.tmdb_id = tmdb_id
+                                is_nc17 = tmdb.get_movie_certification()
                             if is_nc17:
                                 save_path = "Inbox/NC17-Movies"
 
@@ -757,6 +767,7 @@ def main(src_dir=""):
                                     "is_anime": is_anime,
                                     "is_documentary": is_documentary,
                                     "is_variety": is_variety,
+                                    "is_nc17": is_nc17,
                                 }
                             )
                             media_info.update({media_info_match_key: media_info_rslt})

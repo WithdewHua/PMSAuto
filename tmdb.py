@@ -190,8 +190,9 @@ class TMDB:
             )
             if is_filename_length_gt_255(tmdb_name):
                 tmdb_name = f"{original_title} ({year}) {{tmdb-{self.tmdb_id}}}"
-        # 判断电视剧分类
         is_anime, is_documentary, is_variety = False, False, False
+        is_nc17 = False
+        # 判断电视剧分类
         if not self.is_movie:
             # 通过类型判断
             show_type = details.type
@@ -213,6 +214,10 @@ class TMDB:
                 if genre_id == 99 and 18 not in genres:
                     is_documentary = True
                     break
+        # 判断是否为 nc17
+        else:
+            is_nc17 = self.get_movie_certification()
+
         info = {
             "tmdb_name": tmdb_name.replace("/", "／"),
             "title": title,
@@ -222,6 +227,7 @@ class TMDB:
             "is_anime": is_anime,
             "is_documentary": is_documentary,
             "is_variety": is_variety,
+            "is_nc17": is_nc17,
         }
         self.write_cache_by_key(self.tmdb_id, info)
         return info
