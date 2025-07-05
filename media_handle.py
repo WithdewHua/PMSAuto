@@ -173,7 +173,7 @@ def get_media_info_from_filename(
     # get version
     try:
         version = re.search(
-            r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut|Uncut|ProRes)[\.\s\]]",
+            r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut|Uncut|ProRes|Remux)[\.\s\]]",
             filename_pre,
             re.IGNORECASE,
         ).group(1)
@@ -233,6 +233,7 @@ def get_plex_edition_from_version(version: str) -> str:
         "fan cut": "{edition-Fan Cut}",
         "uncut": "{edition-Uncut}",
         "prores": "{edition-ProRes}",
+        "remux": "{edition-REMUX}",
     }
     return _edition_dict.get(version.lower(), version)
 
@@ -603,8 +604,9 @@ def handle_movie(
             keep_file_suffix = deepcopy(MEDIA_SUFFIX)
             if keep_nfo:
                 keep_file_suffix.append("nfo")
-            # remove unuseful files
-            if filename_suffix.lower() not in keep_file_suffix:
+            if not re.search(
+                r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
+            ):
                 if not dryrun:
                     os.remove(filepath)
                 logger.info("Removed file: " + filepath)
