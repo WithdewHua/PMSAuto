@@ -173,7 +173,7 @@ def get_media_info_from_filename(
     # get version
     try:
         version = re.search(
-            r"[\.\s\[](v\d|Remastered|REPACK|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut|Uncut|ProRes|Remux)[\.\s\]]",
+            r"[\.\s\[](Remastered|PROPER|Extended( Edition)?(?!(.*Cut))|CC|DC|CEE|Criterion Collection|BFI|Directors\.Cut|Fan Cut|Uncut|ProRes|Remux)[\.\s\]]",
             filename_pre,
             re.IGNORECASE,
         ).group(1)
