@@ -508,22 +508,21 @@ def handle_tvshow(
                 new_dir = os.path.join(new_media_dir, f"Season {_season}")
                 new_file_path = os.path.join(new_dir, new_filename)
                 if dst_path != media_path and not dryrun:
-                    # 电视剧并不支持 .plexmatch 文件，可能导致刮削错误问题，先注释掉
-                    # if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
-                    #     add_plexmatch_file(
-                    #         new_dir,
-                    #         details.get("title"),
-                    #         year=year,
-                    #         tmdb_id=tmdb_id,
-                    #         season=int(_season),
-                    #     )
-                    # if not os.path.exists(os.path.join(new_media_dir, ".plexmatch")):
-                    #     add_plexmatch_file(
-                    #         new_media_dir,
-                    #         details.get("title"),
-                    #         year=year,
-                    #         tmdb_id=tmdb_id,
-                    #     )
+                    if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
+                        add_plexmatch_file(
+                            new_dir,
+                            details.get("title"),
+                            year=year,
+                            tmdb_id=tmdb_id,
+                            season=int(_season),
+                        )
+                    if not os.path.exists(os.path.join(new_media_dir, ".plexmatch")):
+                        add_plexmatch_file(
+                            new_media_dir,
+                            details.get("title"),
+                            year=year,
+                            tmdb_id=tmdb_id,
+                        )
                     scan_folders.append(new_dir)
                     logger.debug(f"Added scan folder: {new_dir}")
 
