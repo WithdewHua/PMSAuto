@@ -837,6 +837,7 @@ def main(src_dir=""):
                     logger.error(
                         f"Exception happens while handling torrent {torrent.name}: {e}"
                     )
+                    logger.exception(traceback.format_exc())
                     continue
 
             # 处理遗留的
