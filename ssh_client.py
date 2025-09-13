@@ -181,7 +181,7 @@ class SSHClient:
                 return False
 
             # 写入文件
-            with sftp.open(file_path, "w", encoding="utf-8") as remote_file:
+            with sftp.open(file_path, "w") as remote_file:
                 remote_file.write(content)
 
             logger.debug(f"远程文件写入成功: {file_path}")
