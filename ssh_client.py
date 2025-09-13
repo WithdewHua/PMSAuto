@@ -184,6 +184,9 @@ class SSHClient:
             with sftp.open(file_path, "w") as remote_file:
                 remote_file.write(content)
 
+            # 设置文件权限
+            self.set_ownership(file_path, UID, GID)
+
             logger.debug(f"远程文件写入成功: {file_path}")
             return True
 
