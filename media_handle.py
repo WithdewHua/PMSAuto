@@ -25,9 +25,10 @@ from settings import (
     PLEX_AUTO_SCAN,
     STRM_FILE_PATH,
     STRM_RSYNC_DEST_SERVER,
+    TG_CHAT_ID,
 )
 from tmdb import TMDB
-from utils import dump_json, is_filename_length_gt_255, load_json
+from utils import dump_json, is_filename_length_gt_255, load_json, send_tg_msg
 
 DEFAULT_EPISODE_REGEX = r"[ep](\d{2,4})(?!\d)"
 
@@ -568,6 +569,10 @@ def handle_tvshow(
                             logger.error(
                                 f"远程 strm 文件创建失败，第 {retry_count} 次重试..."
                             )
+                            send_tg_msg(
+                                chat_id=TG_CHAT_ID,
+                                text=f"远程 strm 文件 {strm_dst_file_path} 创建失败，第 {retry_count} 次重试...",
+                            )
                             sleep(30)
                 # mediainfo
                 handle_strm_assistant_mediainfo(
@@ -753,6 +758,10 @@ def handle_movie(
                         retry_count += 1
                         logger.error(
                             f"远程 strm 文件创建失败，第 {retry_count} 次重试..."
+                        )
+                        send_tg_msg(
+                            chat_id=TG_CHAT_ID,
+                            text=f"远程 strm 文件 {strm_dst_file_path} 创建失败，第 {retry_count} 次重试...",
                         )
                         sleep(30)
 
