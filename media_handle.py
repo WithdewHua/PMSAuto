@@ -3,7 +3,6 @@ import datetime
 import os
 import re
 import shutil
-import subprocess
 import textwrap
 import traceback
 from copy import deepcopy
@@ -27,7 +26,6 @@ from settings import (
     STRM_FILE_PATH,
     STRM_RSYNC_DEST_SERVER,
 )
-from strm import create_strm_file
 from tmdb import TMDB
 from utils import dump_json, is_filename_length_gt_255, load_json
 
@@ -542,7 +540,6 @@ def handle_tvshow(
                 # 创建 strm 文件
                 if CREATE_STRM_FILE and not dryrun:
                     file_path = Path(new_file_path.replace("/Media2", "/Media"))
-                    strm_file_path = Path("/tmp") / (file_path.name + ".strm")
                     strm_dst_file_path = (
                         Path(STRM_FILE_PATH)
                         / Path(dst_path).name
@@ -552,33 +549,25 @@ def handle_tvshow(
                         / (new_filename + ".strm")
                     )
                     logger.debug(f"{strm_dst_file_path=}")
+
+                    # 使用远程 SSH 创建 STRM 文件
+                    from ssh_client import create_remote_strm_file
+
+                    retry_count = 0
+
                     while True:
-                        if not create_strm_file(
-                            file_path, strm_file_path=strm_file_path
-                        ):
-                            continue
                         logger.info(
-                            f"传输 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
+                            f"正在远程创建 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
                         )
-                        rslt = subprocess.run(
-                            [
-                                "rsync",
-                                "-a",
-                                str(strm_file_path),
-                                f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
-                            ],
-                            encoding="utf-8",
-                            capture_output=True,
-                        )
-                        if not rslt.returncode:
-                            logger.info(
-                                f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
-                            )
-                            os.remove(str(strm_file_path))
+
+                        if create_remote_strm_file(file_path, strm_dst_file_path):
+                            logger.info(f"成功创建远程 strm 文件：{strm_dst_file_path}")
                             break
                         else:
-                            logger.error("传输文件失败，稍后再次尝试")
-
+                            retry_count += 1
+                            logger.error(
+                                f"远程 strm 文件创建失败，第 {retry_count} 次重试..."
+                            )
                             sleep(30)
                 # mediainfo
                 handle_strm_assistant_mediainfo(
@@ -738,7 +727,6 @@ def handle_movie(
             # 创建 strm 文件
             if CREATE_STRM_FILE and not dryrun:
                 file_path = Path(new_file_path.replace("/Media2", "/Media"))
-                strm_file_path = Path("/tmp") / (file_path.name + ".strm")
                 strm_dst_file_path = (
                     Path(STRM_FILE_PATH)
                     / Path(dst_path).name
@@ -747,31 +735,25 @@ def handle_movie(
                     / (new_filename + ".strm")
                 )
                 logger.debug(f"{strm_dst_file_path=}")
+
+                # 使用远程 SSH 创建 STRM 文件
+                from ssh_client import create_remote_strm_file
+
+                retry_count = 0
+
                 while True:
-                    if not create_strm_file(file_path, strm_file_path=strm_file_path):
-                        continue
                     logger.info(
-                        f"传输 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
+                        f"正在远程创建 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
                     )
-                    rslt = subprocess.run(
-                        [
-                            "rsync",
-                            "-a",
-                            str(strm_file_path),
-                            f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
-                        ],
-                        encoding="utf-8",
-                        capture_output=True,
-                    )
-                    if not rslt.returncode:
-                        logger.info(
-                            f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
-                        )
-                        os.remove(str(strm_file_path))
+
+                    if create_remote_strm_file(file_path, strm_dst_file_path):
+                        logger.info(f"成功创建远程 strm 文件：{strm_dst_file_path}")
                         break
                     else:
-                        logger.error("传输文件失败，稍后再次尝试")
-
+                        retry_count += 1
+                        logger.error(
+                            f"远程 strm 文件创建失败，第 {retry_count} 次重试..."
+                        )
                         sleep(30)
 
             # mediainfo
