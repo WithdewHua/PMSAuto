@@ -377,6 +377,7 @@ def handle_tvshow(
     details = tmdb.get_info_from_tmdb_by_id(tmdb_id=tmdb_id)
     tmdb_name = details.get("tmdb_name")
     year = details.get("year")
+    month = details.get("month")
 
     # 用于记录处理的文件数量,如果为 0,则认为为空文件夹
     handled_files = 0
@@ -507,10 +508,12 @@ def handle_tvshow(
                             + file
                         )
                 # 由于 plex 对多层目录支持不好，直接使用一级目录
-                # new_media_dir = os.path.join(
-                #     dst_path, f"Aired_{year}", f"M{month}", tmdb_name
-                # )
-                new_media_dir = os.path.join(dst_path, tmdb_name)
+                # 已有的保持之前的多层目录
+                new_media_dir = os.path.join(
+                    dst_path, f"Aired_{year}", f"M{month}", tmdb_name
+                )
+                if not os.path.exists(new_media_dir):
+                    new_media_dir = os.path.join(dst_path, tmdb_name)
                 new_dir = os.path.join(new_media_dir, f"Season {_season}")
                 new_file_path = os.path.join(new_dir, new_filename)
                 if dst_path != media_path and not dryrun:
@@ -540,7 +543,7 @@ def handle_tvshow(
                 )
                 # 创建 strm 文件
                 if CREATE_STRM_FILE and not dryrun:
-                    file_path = Path(new_file_path.replace("/Media2", "/Media"))
+                    file_path = Path(re.sub(r"^/.+?/", "/Media/", new_file_path))
                     strm_dst_file_path = (
                         Path(STRM_FILE_PATH)
                         / Path(dst_path).name
@@ -663,6 +666,7 @@ def handle_movie(
             details = tmdb.get_info_from_tmdb_by_id(tmdb_id=_tmdb_id)
             tmdb_name = details.get("tmdb_name")
             year = details.get("year")
+            month = details.get("month")
 
             if re.search(r"tmdb-\d+", filename):
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, filename)
@@ -714,7 +718,10 @@ def handle_movie(
                 if is_filename_length_gt_255(new_filename):
                     new_filename = filename
             # 由于 plex 对多层目录支持不好，直接使用一级目录
-            new_dir = os.path.join(dst_path, tmdb_name)
+            # 已有的保持之前的多层目录
+            new_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", tmdb_name)
+            if not os.path.exists(new_dir):
+                new_dir = os.path.join(dst_path, tmdb_name)
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
                 if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
@@ -731,7 +738,7 @@ def handle_movie(
             )
             # 创建 strm 文件
             if CREATE_STRM_FILE and not dryrun:
-                file_path = Path(new_file_path.replace("/Media2", "/Media"))
+                file_path = Path(re.sub(r"^/.+?/", "/Media/", new_file_path))
                 strm_dst_file_path = (
                     Path(STRM_FILE_PATH)
                     / Path(dst_path).name
