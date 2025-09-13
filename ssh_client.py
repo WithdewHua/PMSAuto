@@ -20,7 +20,7 @@ class SSHClient:
         """建立 SSH 连接"""
         try:
             self.client = paramiko.SSHClient()
-            self.client.set_missing_host_key_policy(paramiko.AutoAddHostKeyPolicy())
+            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
             # 尝试使用 SSH 密钥认证
             self.client.connect(
