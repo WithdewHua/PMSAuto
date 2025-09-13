@@ -541,8 +541,8 @@ def handle_tvshow(
                 )
                 # 创建 strm 文件
                 if CREATE_STRM_FILE and not dryrun:
-                    file_path = new_file_path.replace("/Media2", "/Media")
-                    strm_file_path = Path("/tmp") / (Path(file_path).name + ".strm")
+                    file_path = Path(new_file_path.replace("/Media2", "/Media"))
+                    strm_file_path = Path("/tmp") / (file_path.name + ".strm")
                     strm_dst_file_path = (
                         Path(STRM_FILE_PATH)
                         / Path(dst_path).name
@@ -725,8 +725,8 @@ def handle_movie(
             )
             # 创建 strm 文件
             if CREATE_STRM_FILE and not dryrun:
-                file_path = new_file_path.replace("/Media2", "/Media")
-                strm_file_path = Path("/tmp") / (Path(file_path).name + ".strm")
+                file_path = Path(new_file_path.replace("/Media2", "/Media"))
+                strm_file_path = Path("/tmp") / (file_path.name + ".strm")
                 strm_dst_file_path = (
                     Path(STRM_FILE_PATH)
                     / Path(dst_path).name
