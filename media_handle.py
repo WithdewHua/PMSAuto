@@ -565,9 +565,12 @@ def handle_tvshow(
                                 capture_output=True,
                             )
                             if not rslt.returncode:
+                                logger.info(
+                                    f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
+                                )
                                 os.remove(str(strm_file_path))
                                 break
-
+                        sleep(30)
                 # mediainfo
                 handle_strm_assistant_mediainfo(
                     dir,
@@ -748,8 +751,12 @@ def handle_movie(
                             capture_output=True,
                         )
                         if not rslt.returncode:
+                            logger.info(
+                                f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
+                            )
                             os.remove(str(strm_file_path))
                             break
+                    sleep(30)
 
             # mediainfo
             handle_strm_assistant_mediainfo(
