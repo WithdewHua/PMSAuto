@@ -553,24 +553,33 @@ def handle_tvshow(
                     )
                     logger.debug(f"{strm_dst_file_path=}")
                     while True:
-                        if create_strm_file(file_path, strm_file_path=strm_file_path):
-                            rslt = subprocess.run(
-                                [
-                                    "rsync",
-                                    "-a",
-                                    str(strm_file_path),
-                                    f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
-                                ],
-                                encoding="utf-8",
-                                capture_output=True,
+                        if not create_strm_file(
+                            file_path, strm_file_path=strm_file_path
+                        ):
+                            continue
+                        logger.info(
+                            f"传输 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
+                        )
+                        rslt = subprocess.run(
+                            [
+                                "rsync",
+                                "-a",
+                                str(strm_file_path),
+                                f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
+                            ],
+                            encoding="utf-8",
+                            capture_output=True,
+                        )
+                        if not rslt.returncode:
+                            logger.info(
+                                f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
                             )
-                            if not rslt.returncode:
-                                logger.info(
-                                    f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
-                                )
-                                os.remove(str(strm_file_path))
-                                break
-                        sleep(30)
+                            os.remove(str(strm_file_path))
+                            break
+                        else:
+                            logger.error("传输文件失败，稍后再次尝试")
+
+                            sleep(30)
                 # mediainfo
                 handle_strm_assistant_mediainfo(
                     dir,
@@ -739,24 +748,31 @@ def handle_movie(
                 )
                 logger.debug(f"{strm_dst_file_path=}")
                 while True:
-                    if create_strm_file(file_path, strm_file_path=strm_file_path):
-                        rslt = subprocess.run(
-                            [
-                                "rsync",
-                                "-a",
-                                str(strm_file_path),
-                                f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
-                            ],
-                            encoding="utf-8",
-                            capture_output=True,
+                    if not create_strm_file(file_path, strm_file_path=strm_file_path):
+                        continue
+                    logger.info(
+                        f"传输 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
+                    )
+                    rslt = subprocess.run(
+                        [
+                            "rsync",
+                            "-a",
+                            str(strm_file_path),
+                            f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
+                        ],
+                        encoding="utf-8",
+                        capture_output=True,
+                    )
+                    if not rslt.returncode:
+                        logger.info(
+                            f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
                         )
-                        if not rslt.returncode:
-                            logger.info(
-                                f"成功处理 strm 文件：{strm_file_path}, 删除本地文件"
-                            )
-                            os.remove(str(strm_file_path))
-                            break
-                    sleep(30)
+                        os.remove(str(strm_file_path))
+                        break
+                    else:
+                        logger.error("传输文件失败，稍后再次尝试")
+
+                        sleep(30)
 
             # mediainfo
             handle_strm_assistant_mediainfo(

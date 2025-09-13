@@ -46,7 +46,7 @@ def create_strm_file(
             shutil.chown(str(item), user=UID, group=GID)
         shutil.chown(str(strm_path), user=UID, group=GID)
 
-        logger.info(f"为 {file_path} 创建 strm 文件: {strm_file_full_path}")
+        logger.info(f"为 {file_path} 创建 strm 文件成功: {strm_file_full_path}")
         return True
     except Exception as e:
         logger.error(f"为 {file_path} 创建 strm 文件失败: {e}")
