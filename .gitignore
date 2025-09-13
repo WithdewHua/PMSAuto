@@ -305,3 +305,4 @@ cython_debug/
 
 # custom
 settings.py
+data/

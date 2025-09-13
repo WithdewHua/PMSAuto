@@ -3,9 +3,11 @@ import datetime
 import os
 import re
 import shutil
+import subprocess
 import textwrap
 import traceback
 from copy import deepcopy
+from pathlib import Path
 from time import sleep
 from typing import Union
 
@@ -16,12 +18,16 @@ from log import logger
 from plex import Plex
 from scheduler import Scheduler
 from settings import (
+    CREATE_STRM_FILE,
     EMBY_AUTO_SCAN,
     EMBY_STRM_ASSISTANT_MEDIAINFO,
     MEDIA_SUFFIX,
     ORIGIN_NAME,
     PLEX_AUTO_SCAN,
+    STRM_FILE_PATH,
+    STRM_RSYNC_DEST_SERVER,
 )
+from strm import create_strm_file
 from tmdb import TMDB
 from utils import dump_json, is_filename_length_gt_255, load_json
 
@@ -372,7 +378,6 @@ def handle_tvshow(
     details = tmdb.get_info_from_tmdb_by_id(tmdb_id=tmdb_id)
     tmdb_name = details.get("tmdb_name")
     year = details.get("year")
-    month = details.get("month")
 
     # 用于记录处理的文件数量,如果为 0,则认为为空文件夹
     handled_files = 0
@@ -502,9 +507,11 @@ def handle_tvshow(
                             + " - "
                             + file
                         )
-                new_media_dir = os.path.join(
-                    dst_path, f"Aired_{year}", f"M{month}", tmdb_name
-                )
+                # 由于 plex 对多层目录支持不好，直接使用一级目录
+                # new_media_dir = os.path.join(
+                #     dst_path, f"Aired_{year}", f"M{month}", tmdb_name
+                # )
+                new_media_dir = os.path.join(dst_path, tmdb_name)
                 new_dir = os.path.join(new_media_dir, f"Season {_season}")
                 new_file_path = os.path.join(new_dir, new_filename)
                 if dst_path != media_path and not dryrun:
@@ -532,6 +539,34 @@ def handle_tvshow(
                     dryrun=dryrun,
                     replace=replace,
                 )
+                # 创建 strm 文件
+                if CREATE_STRM_FILE and not dryrun:
+                    file_path = new_file_path.replace("/Media2", "/Media")
+                    strm_file_path = Path("/tmp") / (Path(file_path).name + ".strm")
+                    strm_dst_file_path = (
+                        Path(STRM_FILE_PATH)
+                        / Path(dst_path).name
+                        / f"Aired_{year}"
+                        / tmdb_name
+                        / f"Season {_season}"
+                        / (new_filename + ".strm")
+                    )
+                    logger.debug(f"{strm_dst_file_path=}")
+                    while True:
+                        if create_strm_file(file_path, strm_file_path=strm_file_path):
+                            rslt = subprocess.run(
+                                [
+                                    "rsync",
+                                    "-a",
+                                    str(strm_file_path),
+                                    f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
+                                ],
+                                encoding="utf-8",
+                                capture_output=True,
+                            )
+                            if not rslt.returncode:
+                                os.remove(str(strm_file_path))
+                                break
 
                 # mediainfo
                 handle_strm_assistant_mediainfo(
@@ -622,7 +657,6 @@ def handle_movie(
             details = tmdb.get_info_from_tmdb_by_id(tmdb_id=_tmdb_id)
             tmdb_name = details.get("tmdb_name")
             year = details.get("year")
-            month = details.get("month")
 
             if re.search(r"tmdb-\d+", filename):
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, filename)
@@ -673,7 +707,8 @@ def handle_movie(
 
                 if is_filename_length_gt_255(new_filename):
                     new_filename = filename
-            new_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", tmdb_name)
+            # 由于 plex 对多层目录支持不好，直接使用一级目录
+            new_dir = os.path.join(dst_path, tmdb_name)
             new_file_path = os.path.join(new_dir, new_filename)
             if dst_path != media_path and not dryrun:
                 if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
@@ -688,6 +723,34 @@ def handle_movie(
                 dryrun=dryrun,
                 replace=replace,
             )
+            # 创建 strm 文件
+            if CREATE_STRM_FILE and not dryrun:
+                file_path = new_file_path.replace("/Media2", "/Media")
+                strm_file_path = Path("/tmp") / (Path(file_path).name + ".strm")
+                strm_dst_file_path = (
+                    Path(STRM_FILE_PATH)
+                    / Path(dst_path).name
+                    / f"Released_{year}"
+                    / tmdb_name
+                    / (new_filename + ".strm")
+                )
+                logger.debug(f"{strm_dst_file_path=}")
+                while True:
+                    if create_strm_file(file_path, strm_file_path=strm_file_path):
+                        rslt = subprocess.run(
+                            [
+                                "rsync",
+                                "-a",
+                                str(strm_file_path),
+                                f"root@{STRM_RSYNC_DEST_SERVER}:{strm_dst_file_path}",
+                            ],
+                            encoding="utf-8",
+                            capture_output=True,
+                        )
+                        if not rslt.returncode:
+                            os.remove(str(strm_file_path))
+                            break
+
             # mediainfo
             handle_strm_assistant_mediainfo(
                 dir, filename_pre, new_dir, new_filename, dryrun=dryrun, replace=replace
