@@ -206,7 +206,7 @@ class SSHClient:
         Returns:
             bool: 设置是否成功
         """
-        command = f"chown -R {user}:{group} '{path}'"
+        command = f'chown -R {user}:{group} "{path}"'
         success, stdout, stderr = self.execute_command(command)
 
         if success:
