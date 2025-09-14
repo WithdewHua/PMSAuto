@@ -25,7 +25,9 @@ from settings import (
     PLEX_AUTO_SCAN,
     STRM_FILE_PATH,
     STRM_RSYNC_DEST_SERVER,
+    SUBTITLE_SUFFIX,
     TG_CHAT_ID,
+    VIDEO_SUFFIX,
 )
 from tmdb import TMDB
 from utils import dump_json, is_filename_length_gt_255, load_json, send_tg_msg
@@ -345,6 +347,88 @@ def add_plexmatch_file(dir, title, year, tmdb_id, season=None):
         f.write(plexmatch_format)
 
 
+def handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun=False):
+    """
+    处理 STRM 文件创建和字幕文件复制的通用函数
+
+    Args:
+        new_file_path (str): 新的文件路径
+        new_filename (str): 新的文件名
+        strm_base_path (Path): STRM 文件的基础路径
+        dryrun (bool): 是否为 dryrun 模式
+    """
+    if not CREATE_STRM_FILE:
+        return
+    if dryrun:
+        logger.info("Dryrun mode: Skipping STRM file creation and subtitle copying.")
+        return
+    file_path = Path(re.sub(r"^/.+?/", "/Media/", new_file_path))
+    file_extension = new_file_path.split(".")[-1].lower()
+
+    # 为视频文件创建 strm 文件
+    if file_extension in VIDEO_SUFFIX:
+        strm_dst_file_path = strm_base_path / (new_filename + ".strm")
+        logger.debug(f"{strm_dst_file_path=}")
+
+        # 使用远程 SSH 创建 STRM 文件
+        from ssh_client import create_remote_strm_file
+
+        retry_count = 0
+
+        while True:
+            logger.info(
+                f"正在远程创建 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
+            )
+
+            if create_remote_strm_file(file_path, strm_dst_file_path):
+                logger.info(f"成功创建远程 strm 文件：{strm_dst_file_path}")
+                break
+            else:
+                retry_count += 1
+                logger.error(f"远程 strm 文件创建失败，第 {retry_count} 次重试...")
+                send_tg_msg(
+                    chat_id=TG_CHAT_ID,
+                    text=f"远程 strm 文件 {strm_dst_file_path} 创建失败，第 {retry_count} 次重试...",
+                )
+                sleep(30)
+
+    # 如果是字幕文件，则复制一份到 strm 文件同目录下
+    elif file_extension in SUBTITLE_SUFFIX:
+        subtitle_dst_file_path = strm_base_path / new_filename
+        logger.debug(f"{subtitle_dst_file_path=}")
+
+        # 使用远程 SSH 复制字幕文件
+        from ssh_client import copy_file_to_remote
+
+        retry_count = 0
+
+        while True:
+            logger.info(
+                f"正在远程复制字幕文件到 {STRM_RSYNC_DEST_SERVER}: {str(subtitle_dst_file_path)}"
+            )
+
+            if copy_file_to_remote(Path(new_file_path), subtitle_dst_file_path):
+                logger.info(f"成功复制远程字幕文件：{subtitle_dst_file_path}")
+                break
+            else:
+                retry_count += 1
+                if retry_count > 3:  # 最多重试3次
+                    logger.error(
+                        f"远程字幕文件复制失败，已达最大重试次数，跳过：{subtitle_dst_file_path}"
+                    )
+                    send_tg_msg(
+                        chat_id=TG_CHAT_ID,
+                        text=f"远程字幕文件 {subtitle_dst_file_path} 复制失败，已达最大重试次数",
+                    )
+                    break
+                logger.error(f"远程字幕文件复制失败，第 {retry_count} 次重试...")
+                send_tg_msg(
+                    chat_id=TG_CHAT_ID,
+                    text=f"远程字幕文件 {subtitle_dst_file_path} 复制失败，第 {retry_count} 次重试...",
+                )
+                sleep(30)
+
+
 def handle_tvshow(
     media_path,
     tmdb_id,
@@ -542,41 +626,14 @@ def handle_tvshow(
                     replace=replace,
                 )
                 # 创建 strm 文件
-                if CREATE_STRM_FILE and not dryrun:
-                    file_path = Path(re.sub(r"^/.+?/", "/Media/", new_file_path))
-                    strm_dst_file_path = (
-                        Path(STRM_FILE_PATH)
-                        / Path(dst_path).name
-                        / f"Aired_{year}"
-                        / tmdb_name
-                        / f"Season {_season}"
-                        / (new_filename + ".strm")
-                    )
-                    logger.debug(f"{strm_dst_file_path=}")
-
-                    # 使用远程 SSH 创建 STRM 文件
-                    from ssh_client import create_remote_strm_file
-
-                    retry_count = 0
-
-                    while True:
-                        logger.info(
-                            f"正在远程创建 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
-                        )
-
-                        if create_remote_strm_file(file_path, strm_dst_file_path):
-                            logger.info(f"成功创建远程 strm 文件：{strm_dst_file_path}")
-                            break
-                        else:
-                            retry_count += 1
-                            logger.error(
-                                f"远程 strm 文件创建失败，第 {retry_count} 次重试..."
-                            )
-                            send_tg_msg(
-                                chat_id=TG_CHAT_ID,
-                                text=f"远程 strm 文件 {strm_dst_file_path} 创建失败，第 {retry_count} 次重试...",
-                            )
-                            sleep(30)
+                strm_base_path = (
+                    Path(STRM_FILE_PATH)
+                    / Path(dst_path).name
+                    / f"Aired_{year}"
+                    / tmdb_name
+                    / f"Season {_season}"
+                )
+                handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun)
                 # mediainfo
                 handle_strm_assistant_mediainfo(
                     dir,
@@ -737,40 +794,13 @@ def handle_movie(
                 replace=replace,
             )
             # 创建 strm 文件
-            if CREATE_STRM_FILE and not dryrun:
-                file_path = Path(re.sub(r"^/.+?/", "/Media/", new_file_path))
-                strm_dst_file_path = (
-                    Path(STRM_FILE_PATH)
-                    / Path(dst_path).name
-                    / f"Released_{year}"
-                    / tmdb_name
-                    / (new_filename + ".strm")
-                )
-                logger.debug(f"{strm_dst_file_path=}")
-
-                # 使用远程 SSH 创建 STRM 文件
-                from ssh_client import create_remote_strm_file
-
-                retry_count = 0
-
-                while True:
-                    logger.info(
-                        f"正在远程创建 strm 文件到 {STRM_RSYNC_DEST_SERVER}: {str(strm_dst_file_path)}"
-                    )
-
-                    if create_remote_strm_file(file_path, strm_dst_file_path):
-                        logger.info(f"成功创建远程 strm 文件：{strm_dst_file_path}")
-                        break
-                    else:
-                        retry_count += 1
-                        logger.error(
-                            f"远程 strm 文件创建失败，第 {retry_count} 次重试..."
-                        )
-                        send_tg_msg(
-                            chat_id=TG_CHAT_ID,
-                            text=f"远程 strm 文件 {strm_dst_file_path} 创建失败，第 {retry_count} 次重试...",
-                        )
-                        sleep(30)
+            strm_base_path = (
+                Path(STRM_FILE_PATH)
+                / Path(dst_path).name
+                / f"Released_{year}"
+                / tmdb_name
+            )
+            handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun)
 
             # mediainfo
             handle_strm_assistant_mediainfo(

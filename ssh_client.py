@@ -290,6 +290,58 @@ def create_remote_strm_file(
     return strm_manager.create_strm_file(media_file_path, strm_dst_file_path)
 
 
+def copy_file_to_remote(
+    local_file_path: Path,
+    remote_file_path: Path,
+    hostname: str = STRM_RSYNC_DEST_SERVER,
+    username: str = "root",
+) -> bool:
+    """
+    将本地文件复制到远程服务器
+
+    Args:
+        local_file_path: 本地文件路径
+        remote_file_path: 远程文件路径
+        hostname: 远程服务器主机名
+        username: SSH 用户名
+
+    Returns:
+        bool: 复制是否成功
+    """
+    try:
+        with SSHClient(hostname, username) as ssh_client:
+            sftp = ssh_client.get_sftp()
+            if not sftp:
+                logger.error("无法创建 SFTP 连接")
+                return False
+
+            # 确保远程目录存在
+            remote_dir = str(Path(remote_file_path).parent)
+            if not ssh_client.create_directory(remote_dir):
+                logger.error(f"无法创建远程目录: {remote_dir}")
+                return False
+
+            # 复制文件
+            local_file_str = str(local_file_path)
+            remote_file_str = str(remote_file_path)
+
+            logger.debug(f"开始复制文件: {local_file_str} -> {remote_file_str}")
+            sftp.put(local_file_str, remote_file_str)
+
+            # 设置文件权限
+            if not ssh_client.set_ownership(remote_file_str, UID, GID):
+                logger.warning(f"设置文件权限失败，但文件复制成功: {remote_file_str}")
+
+            logger.info(f"文件复制成功: {remote_file_str}")
+            return True
+
+    except Exception as e:
+        logger.error(
+            f"文件复制失败: {local_file_path} -> {remote_file_path}, 错误: {e}"
+        )
+        return False
+
+
 if __name__ == "__main__":
     # 测试用例
     test_media_path = Path("/Media/TVShows/Test/Season 01/test.mkv")
