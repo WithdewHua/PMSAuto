@@ -635,14 +635,16 @@ def handle_tvshow(
                 )
                 handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun)
                 # mediainfo
-                handle_strm_assistant_mediainfo(
-                    dir,
-                    filename_pre,
-                    new_dir,
-                    new_filename,
-                    dryrun=dryrun,
-                    replace=replace,
-                )
+                # 目前只对非 strm 进行处理
+                if not CREATE_STRM_FILE and EMBY_STRM_ASSISTANT_MEDIAINFO:
+                    handle_strm_assistant_mediainfo(
+                        dir,
+                        filename_pre,
+                        new_dir,
+                        new_filename,
+                        dryrun=dryrun,
+                        replace=replace,
+                    )
 
         if handled_files != 0:
             break
@@ -803,17 +805,18 @@ def handle_movie(
             handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun)
 
             # mediainfo
-            # 目前仅支持在 mediainfo 所在机器上执行
-            handle_strm_assistant_mediainfo(
-                dir,
-                filename_pre
-                if not CREATE_STRM_FILE
-                else filename_pre + f".{filename_suffix}",
-                new_dir,
-                new_filename,
-                dryrun=dryrun,
-                replace=replace,
-            )
+            # 目前只对非 strm 进行处理
+            if not CREATE_STRM_FILE and EMBY_STRM_ASSISTANT_MEDIAINFO:
+                handle_strm_assistant_mediainfo(
+                    dir,
+                    filename_pre
+                    if not CREATE_STRM_FILE
+                    else filename_pre + f".{filename_suffix}",
+                    new_dir,
+                    new_filename,
+                    dryrun=dryrun,
+                    replace=replace,
+                )
 
     return scan_folders
 
