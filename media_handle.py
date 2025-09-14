@@ -803,13 +803,22 @@ def handle_movie(
             handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun)
 
             # mediainfo
+            # 目前仅支持在 mediainfo 所在机器上执行
             handle_strm_assistant_mediainfo(
-                dir, filename_pre, new_dir, new_filename, dryrun=dryrun, replace=replace
+                dir,
+                filename_pre
+                if not CREATE_STRM_FILE
+                else filename_pre + f".{filename_suffix}",
+                new_dir,
+                new_filename,
+                dryrun=dryrun,
+                replace=replace,
             )
 
     return scan_folders
 
 
+# 需要在 mediainfo 所在机器上执行
 def handle_strm_assistant_mediainfo(
     old_dir, filename_pre, new_dir, new_filename, dryrun=False, replace=True
 ):
@@ -818,10 +827,14 @@ def handle_strm_assistant_mediainfo(
         old_dir.removeprefix("/"),
         f"{filename_pre}-mediainfo.json",
     )
-    logger.debug(f"{old_mediainfo_path=}")
     if os.path.exists(old_mediainfo_path):
         logger.debug(f"Found mediainfo: {old_mediainfo_path}")
-        new_filename_pre = ".".join(new_filename.split(".")[0:-1])
+        # 对于 strm 文件，会增加后缀 .strm，所以去掉后仍为原文件名
+        new_filename_pre = (
+            ".".join(new_filename.split(".")[0:-1])
+            if not CREATE_STRM_FILE
+            else new_filename
+        )
         mediainfo = load_json(old_mediainfo_path)
         mediainfo[0]["MediaSourceInfo"]["Name"] = new_filename_pre
         dump_json(mediainfo, old_mediainfo_path)
