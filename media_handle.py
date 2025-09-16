@@ -782,7 +782,9 @@ def handle_movie(
                 if is_filename_length_gt_255(
                     new_filename, extra_len=4 if CREATE_STRM_FILE else 0
                 ):
-                    new_filename = filename
+                    new_filename = (
+                        f"{version} - {filename}" if "edition-" in version else filename
+                    )
             # 由于 plex 对多层目录支持不好，直接使用一级目录
             # 已有的保持之前的多层目录
             new_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", tmdb_name)
