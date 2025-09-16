@@ -33,32 +33,26 @@ TG_BOT_MSG = f"https://api.telegram.org/bot{TG_API_KEY}/sendMessage"
 def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
     """Send telegram message"""
     if isinstance(chat_id, str):
-        payload = dict(chat_id=chat_id, text=text, parse_mode=parse_mode)
+        chat_id = [chat_id]
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    for _chat_id in chat_id:
         try_send = 1
         while try_send <= 3:
             try:
-                requests.post(TG_BOT_MSG, data=payload)
+                res = requests.post(
+                    TG_BOT_MSG,
+                    data=json.dumps(
+                        {"chat_id": _chat_id, "text": text, "parse_mode": parse_mode}
+                    ),
+                    headers=headers,
+                )
+                res.raise_for_status()
             except Exception as e:
                 try_send += 1
                 logger.error(f"Send notification failed due to {e}")
                 continue
             else:
                 break
-    elif isinstance(chat_id, list):
-        for _chat_id in chat_id:
-            payload = dict(chat_id=_chat_id, text=text, parse_mode=parse_mode)
-            try_send = 1
-            while try_send <= 3:
-                try:
-                    requests.post(TG_BOT_MSG, data=payload)
-                except Exception as e:
-                    try_send += 1
-                    logger.error(f"Send notification failed due to {e}")
-                    continue
-                else:
-                    break
-    else:
-        raise AttributeError
 
 
 def remove_empty_folder(
@@ -105,8 +99,8 @@ def remove_empty_folder(
                     logger.info(f"Removing foler: {rootdir}, which contains {files}")
 
 
-def is_filename_length_gt_255(filename):
-    if len(filename.encode("utf-8")) > 255:
+def is_filename_length_gt_255(filename, extra_len=0):
+    if len(filename.encode("utf-8")) + extra_len > 255:
         return True
     return False
 

@@ -367,7 +367,8 @@ def handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun=False)
 
     # 为视频文件创建 strm 文件
     if file_extension in VIDEO_SUFFIX:
-        strm_dst_file_path = strm_base_path / (new_filename + ".strm")
+        strm_file_name = new_filename + ".strm"
+        strm_dst_file_path = strm_base_path / strm_file_name
         logger.debug(f"{strm_dst_file_path=}")
 
         # 使用远程 SSH 创建 STRM 文件
@@ -388,9 +389,9 @@ def handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun=False)
                 logger.error(f"远程 strm 文件创建失败，第 {retry_count} 次重试...")
                 send_tg_msg(
                     chat_id=TG_CHAT_ID,
-                    text=f"远程 strm 文件 {strm_dst_file_path} 创建失败，第 {retry_count} 次重试...",
+                    text=f"远程 strm 文件 `{strm_dst_file_path}` 创建失败，第 {retry_count} 次重试...",
                 )
-                sleep(30)
+                sleep(60)
 
     # 如果是字幕文件，则复制一份到 strm 文件同目录下
     elif file_extension in SUBTITLE_SUFFIX:
@@ -585,12 +586,16 @@ def handle_tvshow(
                         new_filename += f" - {filename_pre}"
 
                     new_filename += f".{filename_suffix}"
-                    if is_filename_length_gt_255(new_filename):
+                    # 如果需要创建 strm 文件，因为需要增加 .strm 后缀，文件名长度需要更短一些
+                    if is_filename_length_gt_255(
+                        new_filename, extra_len=4 if CREATE_STRM_FILE else 0
+                    ):
                         new_filename = (
                             f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
                             + " - "
                             + file
                         )
+
                 # 由于 plex 对多层目录支持不好，直接使用一级目录
                 # 已有的保持之前的多层目录
                 new_media_dir = os.path.join(
@@ -774,7 +779,9 @@ def handle_movie(
 
                 new_filename += f".{filename_suffix}"
 
-                if is_filename_length_gt_255(new_filename):
+                if is_filename_length_gt_255(
+                    new_filename, extra_len=4 if CREATE_STRM_FILE else 0
+                ):
                     new_filename = filename
             # 由于 plex 对多层目录支持不好，直接使用一级目录
             # 已有的保持之前的多层目录

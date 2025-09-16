@@ -1,3 +1,4 @@
+import traceback
 from pathlib import Path
 from urllib.parse import quote
 
@@ -191,7 +192,10 @@ class SSHClient:
             return True
 
         except Exception as e:
-            logger.error(f"远程文件写入失败: {file_path}, 错误: {e}")
+            logger.error(
+                f"远程文件写入失败: {file_path}, 写入内容：{content}, 错误: {e}"
+            )
+            logger.exception(traceback.format_exc())
             return False
 
     def set_ownership(self, path: str, user: str, group: str) -> bool:
