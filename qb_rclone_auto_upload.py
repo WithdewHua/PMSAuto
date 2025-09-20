@@ -157,7 +157,6 @@ def main(src_dir=""):
                         )
                         is_anime = True if re.search(r"Anime", category) else False
                         is_documentary, is_variety = False, False
-                        is_nc17 = None
                         if "no_query" in tags:
                             query_flag = False
 
