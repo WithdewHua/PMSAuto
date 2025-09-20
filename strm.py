@@ -186,7 +186,7 @@ def process_single_file(
             )
             if year:
                 year = year.group("year") or year.group("year2")
-                year_prefix = "Aired_" if is_movie else "Released_"
+                year_prefix = "Aired_" if not is_movie else "Released_"
                 tmdb_name = (
                     file.parent.parent.name if not is_movie else file.parent.name
                 )
