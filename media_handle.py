@@ -276,6 +276,25 @@ def rename_media(old_path, new_path, dryrun=False, replace=True):
     return True
 
 
+def check_and_handle_long_filename(folder: Union[str, Path]):
+    """处理文件名过长的问题"""
+    if isinstance(folder, str):
+        folder = Path(folder)
+    for file in folder.rglob("*"):
+        if not file.is_file():
+            continue
+        if is_filename_length_gt_255(file.name):
+            logger.warning(f"文件名过长，尝试重命名: {file}")
+            new_name = file.name.split(" - ", 1)[-1]
+            new_path = file.with_name(new_name)
+            try:
+                file.rename(new_path)
+                logger.info(f"重命名成功: {file} --> {new_path}")
+            except Exception as e:
+                logger.error(f"重命名失败: {file}, 错误: {e}")
+                continue
+
+
 def remove_hidden_files(root_dir_path, dryrun=False):
     removed_files = []
     for file in os.listdir(root_dir_path):
