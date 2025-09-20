@@ -276,14 +276,14 @@ def rename_media(old_path, new_path, dryrun=False, replace=True):
     return True
 
 
-def check_and_handle_long_filename(folder: Union[str, Path]):
+def check_and_handle_long_filename(folder: Union[str, Path], offset: int = 0):
     """处理文件名过长的问题"""
     if isinstance(folder, str):
         folder = Path(folder)
     for file in folder.rglob("*"):
         if not file.is_file():
             continue
-        if is_filename_length_gt_255(file.name):
+        if is_filename_length_gt_255(file.name, extra_len=offset):
             logger.warning(f"文件名过长，尝试重命名: {file}")
             new_name = file.name.split(" - ", 1)[-1]
             new_path = file.with_name(new_name)
