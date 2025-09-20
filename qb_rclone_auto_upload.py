@@ -258,10 +258,16 @@ def main(src_dir=""):
                                 tmdb_name = media_info_rslt.get("tmdb_name")
                                 tmdb_id = media_info_rslt.get("tmdb_id")
                                 record_tags = media_info_rslt.get("tags", [])
-                                is_anime = media_info_rslt.get("is_anime")
-                                is_documentary = media_info_rslt.get("is_documentary")
-                                is_variety = media_info_rslt.get("is_variety")
-                                is_nc17 = media_info_rslt.get("is_nc17")
+                                # 除了 tmdb_name 和 tmdb_id 其他都需要重新获取
+                                tmdb_info = (
+                                    {}
+                                    if not tmdb_id
+                                    else tmdb.get_info_from_tmdb_by_id(tmdb_id)
+                                )
+                                is_anime = tmdb_info.get("is_anime")
+                                is_documentary = tmdb_info.get("is_documentary")
+                                is_variety = tmdb_info.get("is_variety")
+                                is_nc17 = tmdb_info.get("is_nc17")
                                 # 更新 tags
                                 if tags:
                                     tags = sumarize_tags(record_tags, tags)
@@ -798,10 +804,11 @@ def main(src_dir=""):
                                     {
                                         "tmdb_name": tmdb_name,
                                         "tmdb_id": tmdb_id,
-                                        "is_anime": is_anime,
-                                        "is_documentary": is_documentary,
-                                        "is_variety": is_variety,
-                                        "is_nc17": is_nc17,
+                                        # 不存这些标志，直接从 tmdb 获取（有缓存），方便清缓存重新获取
+                                        # "is_anime": is_anime,
+                                        # "is_documentary": is_documentary,
+                                        # "is_variety": is_variety,
+                                        # "is_nc17": is_nc17,
                                     }
                                 )
                                 media_info.update(
