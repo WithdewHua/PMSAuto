@@ -40,6 +40,7 @@ def parse():
         action="store_true",
         help="如果缓存文件不存在，是否继续处理，默认 False",
     )
+    parser.add_argument("--dry-run", action="store_true", help="Dry Run 模式")
 
     return parser.parse_args()
 
@@ -323,6 +324,7 @@ def auto_strm(
     max_workers: int = 4,
     read_from_file: bool = False,
     continue_if_file_not_exist: bool = False,
+    dry_run: bool = False,
 ):
     """
     自动为远程文件夹中的媒体文件创建 .strm 文件
@@ -342,6 +344,16 @@ def auto_strm(
 
     for remote_folder in remote_folders:
         logger.info(f"开始处理远程文件夹：{remote_folder}")
+        handled_persisted_file = (
+            f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl"
+        )
+        last_handled = {}
+        if Path(handled_persisted_file).exists():
+            with open(handled_persisted_file, "rb") as f:
+                _handled = pickle.load(f)
+                for file_path, strm_file_path in _handled:
+                    last_handled[file_path] = strm_file_path
+
         start_time = time.time()
         # 收集所有符合条件的文件
         video_files = []
@@ -376,72 +388,92 @@ def auto_strm(
                     video_files.append(file)
                 else:
                     logger.info(f"跳过 {file}")
-
+        if not video_files:
+            logger.info(
+                f"{remote_folder} 找到 {len(video_files)} 个视频文件，退出处理..."
+            )
+            continue
         logger.info(
             f"{remote_folder} 找到 {len(video_files)} 个视频文件，耗时 {round(time.time() - start_time, 2)}s, 开始多线程处理..."
         )
 
         # 使用多线程处理文件
-        processed_count = 0
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # 提交所有任务
-            future_to_file = {
-                executor.submit(
-                    process_single_file,
-                    file,
-                    strm_base_path,
-                    replace_prefix,
-                    prefix,
-                    category_index,
-                    VIDEO_SUFFIX,
-                    SUBTITLE_SUFFIX,
-                ): file
-                for file in video_files
-            }
+        to_handle_files = set(video_files) - set(last_handled.keys())
+        to_delete_strm_files = set(last_handled.keys()) - set(video_files)
+        deleted_strm_files = 0
+        if not dry_run:
+            processed_count = 0
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # 提交所有任务
+                future_to_file = {
+                    executor.submit(
+                        process_single_file,
+                        file,
+                        strm_base_path,
+                        replace_prefix,
+                        prefix,
+                        category_index,
+                        VIDEO_SUFFIX,
+                        SUBTITLE_SUFFIX,
+                    ): file
+                    for file in to_handle_files
+                }
 
-            # 处理结果
-            for future in as_completed(future_to_file):
-                processed_count += 1
-                file = future_to_file[future]
-                try:
-                    success, file_path, result_info, is_handled = future.result()
-                    if is_handled:
-                        if success:
-                            handled[remote_folder].add((file_path, result_info))
-                            logger.info(
-                                f"[{processed_count}/{len(video_files)}] 成功处理: {file_path}"
-                            )
+                # 处理结果
+                for future in as_completed(future_to_file):
+                    processed_count += 1
+                    file = future_to_file[future]
+                    try:
+                        success, file_path, result_info, is_handled = future.result()
+                        if is_handled:
+                            if success:
+                                handled[remote_folder].add((file_path, result_info))
+                                logger.info(
+                                    f"[{processed_count}/{len(to_handle_files)}] 成功处理: {file_path}"
+                                )
+                            else:
+                                not_handled[remote_folder].add((file_path, result_info))
+                                logger.warning(
+                                    f"[{processed_count}/{len(to_handle_files)}] 处理失败: {file_path} - {result_info}"
+                                )
                         else:
                             not_handled[remote_folder].add((file_path, result_info))
                             logger.warning(
-                                f"[{processed_count}/{len(video_files)}] 处理失败: {file_path} - {result_info}"
+                                f"[{processed_count}/{len(to_handle_files)}] 跳过处理: {file_path} - {result_info}"
                             )
-                    else:
-                        not_handled[remote_folder].add((file_path, result_info))
-                        logger.warning(
-                            f"[{processed_count}/{len(video_files)}] 跳过处理: {file_path} - {result_info}"
+                    except Exception as exc:
+                        logger.error(
+                            f"[{processed_count}/{len(to_handle_files)}] 文件 {file} 处理异常: {exc}"
                         )
-                except Exception as exc:
-                    logger.error(
-                        f"[{processed_count}/{len(video_files)}] 文件 {file} 处理异常: {exc}"
-                    )
-                    not_handled[remote_folder].add((str(file), f"处理异常: {exc}"))
+                        not_handled[remote_folder].add((str(file), f"处理异常: {exc}"))
 
-        # 保存处理结果
-        with open(
-            Path(__file__).parent
-            / f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl",
-            "wb",
-        ) as f:
-            pickle.dump(handled[remote_folder], f)
-        with open(
-            Path(__file__).parent
-            / f"{remote_folder.strip('/').replace('/', '_')}_not_handled.pkl",
-            "wb",
-        ) as f:
-            pickle.dump(not_handled[remote_folder], f)
+        # 删除多余的 strm 文件
+        for file in to_delete_strm_files:
+            if not dry_run:
+                rslt = subprocess.run(["rm", "-f", file], capture_output=True)
+                if not rslt.returncode:
+                    last_handled.pop(file)
+                    deleted_strm_files += 1
+            else:
+                deleted_strm_files += 1
+        for file, strm_file in last_handled:
+            handled[remote_folder].add((file, strm_file))
+
+        if not dry_run:
+            # 保存处理结果
+            with open(
+                Path(__file__).parent / handled_persisted_file,
+                "wb",
+            ) as f:
+                pickle.dump(handled[remote_folder], f)
+            with open(
+                Path(__file__).parent
+                / f"{remote_folder.strip('/').replace('/', '_')}_not_handled.pkl",
+                "wb",
+            ) as f:
+                pickle.dump(not_handled[remote_folder], f)
         logger.info(
-            f"处理完成，已处理 {len(handled[remote_folder])} 个文件，未处理 {len(not_handled[remote_folder])} 个文件"
+            f"{remote_folder} 处理完成，共处理 {len(handled[remote_folder])} 个文件（增量处理 {len(handled[remote_folder]) - len(last_handled.keys())}），未处理 {len(not_handled[remote_folder])} 个文件，删除 {deleted_strm_files} 个文件，共计耗时 {round(time.time() - start_time)}s"
         )
 
 
@@ -453,4 +485,5 @@ if __name__ == "__main__":
         max_workers=args.workers,
         read_from_file=args.read_from_file,
         continue_if_file_not_exist=args.continue_if_file_not_exist,
+        dry_run=args.dry_run,
     )
