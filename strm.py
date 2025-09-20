@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Optional, Union
 from urllib.parse import quote, unquote
 
+from fs_operation import check_and_handle_long_filename
 from log import logger
+from plex import Plex
 from settings import GID, STRM_FILE_PATH, STRM_MEDIA_SOURCE, UID
 from tmdb import TMDB
 from utils import is_filename_length_gt_255
@@ -525,6 +527,37 @@ def generate_strm_cache(
     logger.info(
         f"已生成 strm 文件缓存，共 {len(handled)} 个文件，保存到 {handled_persisted_file}"
     )
+
+
+def print_not_handled_summary(repair=False):
+    """打印未处理文件的汇总"""
+    not_handled_files = defaultdict(list)
+    for pkl_file in Path(__file__).parent.glob("*_not_handled.pkl"):
+        remote_folder = pkl_file.stem.removeprefix("").removesuffix("_not_handled")
+        with open(pkl_file, "rb") as f:
+            not_handled = pickle.load(f)
+            not_handled_files[remote_folder].extend(not_handled)
+
+    to_repair_long_filename = set()
+    for remote_folder, files in not_handled_files.items():
+        if len(files) == 0:
+            continue
+        logger.info(
+            f"远程文件夹 {remote_folder} 未处理文件汇总，共 {len(files)} 个文件："
+        )
+        for file_path, reason in files:
+            logger.info(f"- {file_path}: {reason}")
+            if "文件名过长" in reason:
+                to_repair_long_filename.add(str(Path(file_path).parent))
+
+    if repair:
+        for folder in to_repair_long_filename:
+            check_and_handle_long_filename(folder, offset=5)
+        time.sleep(60)  # 等待 rclone 刷新
+        # 重新扫描 Plex
+        _plex = Plex()
+        for folder in to_repair_long_filename:
+            _plex.scan(folder)
 
 
 if __name__ == "__main__":
