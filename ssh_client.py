@@ -220,6 +220,87 @@ class SSHClient:
 
         return success
 
+    def remote_path_exists(self, path: str) -> bool:
+        """
+        检查远程服务器上的文件或目录是否存在
+
+        Args:
+            path: 要检查的文件或目录路径
+
+        Returns:
+            bool: 文件或目录是否存在
+        """
+        if not self.client:
+            logger.error("SSH 连接未建立")
+            return False
+
+        try:
+            # 使用 test 命令检查路径是否存在
+            success, stdout, stderr = self.execute_command(f'test -e "{path}"')
+
+            if success:
+                logger.debug(f"远程路径存在: {path}")
+            else:
+                logger.debug(f"远程路径不存在: {path}")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"检查远程路径失败: {path}, 错误: {e}")
+            return False
+
+    def move_remote_file(
+        self, source_path: str, destination_path: str, create_dest_dir: bool = True
+    ) -> bool:
+        """
+        在远程服务器上移动文件或目录到另一个位置
+
+        Args:
+            source_path: 源文件或目录路径
+            destination_path: 目标文件或目录路径
+            create_dest_dir: 是否自动创建目标目录
+
+        Returns:
+            bool: 移动是否成功
+        """
+        try:
+            # 检查源文件是否存在
+            success, stdout, stderr = self.execute_command(f'test -e "{source_path}"')
+            if not success:
+                logger.error(f"源文件/目录不存在: {source_path}")
+                return False
+
+            # 如果需要创建目标目录
+            if create_dest_dir:
+                dest_dir = str(Path(destination_path).parent)
+                if not self.create_directory(dest_dir, set_permissions=True):
+                    logger.error(f"无法创建目标目录: {dest_dir}")
+                    return False
+
+            # 执行移动命令
+            command = f'mv "{source_path}" "{destination_path}"'
+            success, stdout, stderr = self.execute_command(command)
+
+            if success:
+                logger.info(f"远程文件移动成功: {source_path} -> {destination_path}")
+
+                # 设置目标文件/目录的权限
+                if not self.set_ownership(destination_path, UID, GID):
+                    logger.warning(f"移动成功但设置权限失败: {destination_path}")
+
+                return True
+            else:
+                logger.error(
+                    f"远程文件移动失败: {source_path} -> {destination_path}, 错误: {stderr}"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(
+                f"远程文件移动异常: {source_path} -> {destination_path}, 错误: {e}"
+            )
+            return False
+
 
 class RemoteStrmManager:
     """远程 STRM 文件管理器，基于 paramiko 实现"""
@@ -271,6 +352,137 @@ class RemoteStrmManager:
             logger.error(f"创建远程 STRM 文件失败: {e}")
             return False
 
+    def delete_strm_file(self, strm_file_path: Path) -> bool:
+        """
+        删除远程服务器上的 STRM 文件
+
+        Args:
+            strm_file_path: 要删除的 STRM 文件路径
+
+        Returns:
+            bool: 删除是否成功
+        """
+        try:
+            with SSHClient(self.hostname, self.username) as ssh_client:
+                remote_file_path = str(strm_file_path)
+
+                # 检查文件是否存在
+                success, stdout, stderr = ssh_client.execute_command(
+                    f'test -f "{remote_file_path}"'
+                )
+                if not success:
+                    logger.info(f"远程 STRM 文件不存在: {remote_file_path}")
+                    return True  # 文件不存在也算删除成功
+
+                # 删除文件
+                success, stdout, stderr = ssh_client.execute_command(
+                    f'rm -f "{remote_file_path}"'
+                )
+                if not success:
+                    logger.error(
+                        f"删除远程 STRM 文件失败: {remote_file_path}, 错误: {stderr}"
+                    )
+                    return False
+
+                logger.info(f"远程 STRM 文件删除成功: {remote_file_path}")
+                return True
+
+        except Exception as e:
+            logger.error(f"删除远程 STRM 文件失败: {e}")
+            return False
+
+    def delete_strm_directory(
+        self, strm_dir_path: Path, remove_empty_parents: bool = True
+    ) -> bool:
+        """
+        删除远程服务器上的 STRM 目录
+
+        Args:
+            strm_dir_path: 要删除的 STRM 目录路径
+            remove_empty_parents: 是否删除空的父目录
+
+        Returns:
+            bool: 删除是否成功
+        """
+        try:
+            with SSHClient(self.hostname, self.username) as ssh_client:
+                remote_dir_path = str(strm_dir_path)
+
+                # 检查目录是否存在
+                success, stdout, stderr = ssh_client.execute_command(
+                    f'test -d "{remote_dir_path}"'
+                )
+                if not success:
+                    logger.info(f"远程 STRM 目录不存在: {remote_dir_path}")
+                    return True  # 目录不存在也算删除成功
+
+                # 删除目录及其内容
+                success, stdout, stderr = ssh_client.execute_command(
+                    f'rm -rf "{remote_dir_path}"'
+                )
+                if not success:
+                    logger.error(
+                        f"删除远程 STRM 目录失败: {remote_dir_path}, 错误: {stderr}"
+                    )
+                    return False
+
+                logger.info(f"远程 STRM 目录删除成功: {remote_dir_path}")
+
+                # 如果需要，删除空的父目录
+                if remove_empty_parents:
+                    self._remove_empty_parent_directories(
+                        ssh_client, strm_dir_path.parent
+                    )
+
+                return True
+
+        except Exception as e:
+            logger.error(f"删除远程 STRM 目录失败: {e}")
+            return False
+
+    def _remove_empty_parent_directories(
+        self, ssh_client: SSHClient, parent_path: Path
+    ) -> None:
+        """
+        递归删除空的父目录
+
+        Args:
+            ssh_client: SSH 客户端实例
+            parent_path: 父目录路径
+        """
+        try:
+            parent_str = str(parent_path)
+
+            # 不要删除基础路径
+            if (
+                parent_str == self.base_path
+                or parent_str == "/"
+                or parent_path == parent_path.parent
+            ):
+                return
+
+            # 检查目录是否为空
+            success, stdout, stderr = ssh_client.execute_command(
+                f'find "{parent_str}" -mindepth 1 -maxdepth 1 | head -1'
+            )
+
+            # 如果没有输出，说明目录为空
+            if success and not stdout.strip():
+                success, stdout, stderr = ssh_client.execute_command(
+                    f'rmdir "{parent_str}"'
+                )
+                if success:
+                    logger.debug(f"删除空目录: {parent_str}")
+                    # 递归检查上级目录
+                    self._remove_empty_parent_directories(
+                        ssh_client, parent_path.parent
+                    )
+                else:
+                    logger.debug(f"无法删除目录 {parent_str}: {stderr}")
+
+        except Exception as e:
+            logger.debug(f"删除空父目录时出错: {e}")
+
 
 def create_remote_strm_file(
     media_file_path: Path,
@@ -292,6 +504,48 @@ def create_remote_strm_file(
     """
     strm_manager = RemoteStrmManager(hostname, username)
     return strm_manager.create_strm_file(media_file_path, strm_dst_file_path)
+
+
+def delete_remote_strm_file(
+    strm_file_path: Path,
+    hostname: str = STRM_RSYNC_DEST_SERVER,
+    username: str = "root",
+) -> bool:
+    """
+    便捷函数：删除远程服务器上的 STRM 文件
+
+    Args:
+        strm_file_path: 要删除的 STRM 文件路径
+        hostname: 远程服务器主机名
+        username: SSH 用户名
+
+    Returns:
+        bool: 删除是否成功
+    """
+    strm_manager = RemoteStrmManager(hostname, username)
+    return strm_manager.delete_strm_file(strm_file_path)
+
+
+def delete_remote_strm_directory(
+    strm_dir_path: Path,
+    hostname: str = STRM_RSYNC_DEST_SERVER,
+    username: str = "root",
+    remove_empty_parents: bool = True,
+) -> bool:
+    """
+    便捷函数：删除远程服务器上的 STRM 目录
+
+    Args:
+        strm_dir_path: 要删除的 STRM 目录路径
+        hostname: 远程服务器主机名
+        username: SSH 用户名
+        remove_empty_parents: 是否删除空的父目录
+
+    Returns:
+        bool: 删除是否成功
+    """
+    strm_manager = RemoteStrmManager(hostname, username)
+    return strm_manager.delete_strm_directory(strm_dir_path, remove_empty_parents)
 
 
 def copy_file_to_remote(
@@ -346,10 +600,57 @@ def copy_file_to_remote(
         return False
 
 
-if __name__ == "__main__":
-    # 测试用例
-    test_media_path = Path("/Media/TVShows/Test/Season 01/test.mkv")
-    test_strm_path = Path("/opt/PMS/emby/config/strm/Test/Season 01/test.mkv.strm")
+def check_remote_path_exists(
+    path: str,
+    hostname: str = STRM_RSYNC_DEST_SERVER,
+    username: str = "root",
+) -> bool:
+    """
+    便捷函数：检查远程服务器上的文件或目录是否存在
 
-    success = create_remote_strm_file(test_media_path, test_strm_path)
-    print(f"测试结果: {'成功' if success else '失败'}")
+    Args:
+        path: 要检查的文件或目录路径
+        hostname: 远程服务器主机名
+        username: SSH 用户名
+
+    Returns:
+        bool: 文件或目录是否存在
+    """
+    try:
+        with SSHClient(hostname, username) as ssh_client:
+            return ssh_client.remote_path_exists(path)
+    except Exception as e:
+        logger.error(f"检查远程路径失败: {path}, 错误: {e}")
+        return False
+
+
+def move_remote_file(
+    source_path: str,
+    destination_path: str,
+    hostname: str = STRM_RSYNC_DEST_SERVER,
+    username: str = "root",
+    create_dest_dir: bool = True,
+) -> bool:
+    """
+    便捷函数：在远程服务器上移动文件或目录到另一个位置
+
+    Args:
+        source_path: 源文件或目录路径
+        destination_path: 目标文件或目录路径
+        hostname: 远程服务器主机名
+        username: SSH 用户名
+        create_dest_dir: 是否自动创建目标目录
+
+    Returns:
+        bool: 移动是否成功
+    """
+    try:
+        with SSHClient(hostname, username) as ssh_client:
+            return ssh_client.move_remote_file(
+                source_path, destination_path, create_dest_dir
+            )
+    except Exception as e:
+        logger.error(
+            f"远程文件移动失败: {source_path} -> {destination_path}, 错误: {e}"
+        )
+        return False

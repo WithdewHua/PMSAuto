@@ -306,3 +306,4 @@ cython_debug/
 # custom
 settings.py
 data/
+sync.sh

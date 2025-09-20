@@ -14,6 +14,7 @@ from urllib.parse import quote, unquote
 
 from log import logger
 from settings import GID, STRM_FILE_PATH, STRM_MEDIA_SOURCE, UID
+from tmdb import TMDB
 from utils import is_filename_length_gt_255
 
 
@@ -193,9 +194,22 @@ def process_single_file(
                     logger.warning(f"跳过处理文件 {file}: 无 TMDB 名字")
                     return False, str(file), "无 TMDB 名字", False
 
+                # 旧格式
                 target_strm_folder = (
                     strm_base_path / category / f"{year_prefix}{year}" / tmdb_name
                 )
+                # 没有则采用新格式
+                if not target_strm_folder.exists():
+                    tmdb_id = re.search(r"tmdb-(\d+)", tmdb_name).group(1)
+                    tmdb = TMDB()
+                    tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
+                    target_strm_folder = (
+                        strm_base_path
+                        / category
+                        / f"{year_prefix}{year}"
+                        / f"M{tmdb_info.get('month')}"
+                        / tmdb_name
+                    )
                 if not is_movie:
                     # 季度信息
                     season = file.parent.name

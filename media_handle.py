@@ -29,6 +29,7 @@ from settings import (
     TG_CHAT_ID,
     VIDEO_SUFFIX,
 )
+from ssh_client import check_remote_path_exists
 from tmdb import TMDB
 from utils import dump_json, is_filename_length_gt_255, load_json, send_tg_msg
 
@@ -66,6 +67,9 @@ def parse():
     parser.add_argument("--force", action="store_true", help="Force to handle")
     parser.add_argument(
         "--not-replace", action="store_true", help="Do not replace existed file"
+    )
+    parser.add_argument(
+        "--strm-check", action="store_true", help="handle original strm file"
     )
 
     return parser.parse_args()
@@ -347,7 +351,7 @@ def add_plexmatch_file(dir, title, year, tmdb_id, season=None):
         f.write(plexmatch_format)
 
 
-def handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun=False):
+def handle_remote_strm_files(new_file_path, new_filename, strm_base_path, dryrun=False):
     """
     处理 STRM 文件创建和字幕文件复制的通用函数
 
@@ -446,6 +450,7 @@ def handle_tvshow(
     scan_folders=None,
     force=False,
     replace=True,
+    strm_check=False,
 ):
     if not os.path.isdir(media_path):
         raise Exception("Please specify a folder")
@@ -631,6 +636,7 @@ def handle_tvshow(
                     replace=replace,
                 )
                 # 创建 strm 文件
+                # 旧格式，新格式仍采用年月的多层格式
                 strm_base_path = (
                     Path(STRM_FILE_PATH)
                     / Path(dst_path).name
@@ -638,7 +644,44 @@ def handle_tvshow(
                     / tmdb_name
                     / f"Season {_season}"
                 )
-                handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun)
+                if not check_remote_path_exists(strm_base_path):
+                    strm_base_path = (
+                        Path(STRM_FILE_PATH)
+                        / Path(dst_path).name
+                        / f"Aired_{year}"
+                        / f"M{month}"
+                        / tmdb_name
+                        / f"Season {_season}"
+                    )
+                handle_remote_strm_files(
+                    new_file_path, new_filename, strm_base_path, dryrun
+                )
+                # 处理原 strm 文件
+                if strm_check:
+                    old_file_path = Path(dir) / file
+                    old_year = re.search(r"\s\((\d{4})\)\s", str(old_file_path))
+                    if old_year:
+                        old_year = old_year.group(1)
+                        old_tmdb_name = old_file_path.parent.parent.name
+                        old_strm_base_path = (
+                            Path(STRM_FILE_PATH)
+                            / str(Path(media_path)).split("/")[2]
+                            / f"Aired_{old_year}"
+                            / old_tmdb_name
+                            / old_file_path.parent.name
+                        )
+                        # 删除原 strm 文件
+                        from ssh_client import delete_remote_strm_file
+
+                        delete_remote_strm_file(
+                            old_strm_base_path / (old_file_path.name + ".strm")
+                        )
+                        # 删除 mediainfo 文件
+                        delete_remote_strm_file(
+                            old_strm_base_path
+                            / (old_file_path.name + "-mediainfo.json")
+                        )
+
                 # mediainfo
                 # 目前只对非 strm 进行处理
                 if not CREATE_STRM_FILE and EMBY_STRM_ASSISTANT_MEDIAINFO:
@@ -677,6 +720,7 @@ def handle_movie(
     scan_folders=None,
     force=False,
     replace=True,
+    strm_check=False,
 ):
     isfile = False
     media_name = os.path.basename(media_path)
@@ -805,13 +849,47 @@ def handle_movie(
                 replace=replace,
             )
             # 创建 strm 文件
+            # 旧格式，新格式仍采用年月方式
             strm_base_path = (
                 Path(STRM_FILE_PATH)
                 / Path(dst_path).name
                 / f"Released_{year}"
                 / tmdb_name
             )
-            handle_strm_files(new_file_path, new_filename, strm_base_path, dryrun)
+            if not check_remote_path_exists(strm_base_path):
+                strm_base_path = (
+                    Path(STRM_FILE_PATH)
+                    / Path(dst_path).name
+                    / f"Released_{year}"
+                    / f"M{month}"
+                    / tmdb_name
+                )
+            handle_remote_strm_files(
+                new_file_path, new_filename, strm_base_path, dryrun
+            )
+            # 处理原 strm 文件
+            if strm_check:
+                old_file_path = Path(dir) / filename
+                old_year = re.search(r"\s\((\d{4})\)\s", str(old_file_path))
+                if old_year:
+                    old_year = old_year.group(1)
+                    old_tmdb_name = old_file_path.parent.name
+                    old_strm_base_path = (
+                        Path(STRM_FILE_PATH)
+                        / str(Path(media_path)).split("/")[2]
+                        / f"Released_{old_year}"
+                        / old_tmdb_name
+                    )
+                    # 删除原 strm 文件
+                    from ssh_client import delete_remote_strm_file
+
+                    delete_remote_strm_file(
+                        old_strm_base_path / (old_file_path.name + ".strm")
+                    )
+                    # 删除 mediainfo 文件
+                    delete_remote_strm_file(
+                        old_strm_base_path / (old_file_path.name + "-mediainfo.json")
+                    )
 
             # mediainfo
             # 目前只对非 strm 进行处理
@@ -985,6 +1063,7 @@ def media_handle(
     keep_job_persisted=True,
     force=False,
     replace=True,
+    strm_check=False,
 ):
     """Media handler
 
@@ -1003,6 +1082,7 @@ def media_handle(
         keep_job_persisted (bool, optional): scheduler jobstore
         force: handle whether tmdb id exists or not
         replace: replace existed file if True
+        strm_check: check whether original strm file exists or not
 
     Returns:
         bool: True if the media was handled, False otherwise
@@ -1027,6 +1107,7 @@ def media_handle(
                 scan_folders=scan_folders,
                 force=force,
                 replace=replace,
+                strm_check=strm_check,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
@@ -1051,6 +1132,7 @@ def media_handle(
                 scan_folders=scan_folders,
                 force=force,
                 replace=replace,
+                strm_check=strm_check,
             )
         except Exception as e:
             logger.error(f"Process {root} failed dut to {e}")
@@ -1108,6 +1190,7 @@ if __name__ == "__main__":
         keep_job_persisted=args.keep_job_persisted,
         force=args.force,
         replace=not args.not_replace,
+        strm_check=args.strm_check,
     )
 
     scheduler = Scheduler()
