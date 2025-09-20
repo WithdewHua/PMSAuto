@@ -456,7 +456,7 @@ def auto_strm(
                     deleted_strm_files += 1
             else:
                 deleted_strm_files += 1
-        for file, strm_file in last_handled:
+        for file, strm_file in last_handled.items():
             handled[remote_folder].add((file, strm_file))
 
         if not dry_run:
