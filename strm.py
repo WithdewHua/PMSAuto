@@ -1,10 +1,13 @@
 import argparse
+import json
 import os
 import pickle
 import re
 import shutil
 import subprocess
+import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional, Union
 from urllib.parse import quote
@@ -19,6 +22,23 @@ def parse():
     parser.add_argument("-f", "--folder", nargs="+", help="指定要处理的远程文件夹")
     parser.add_argument(
         "-d", "--dest", default=STRM_FILE_PATH, help="存放 strm 文件的文件夹"
+    )
+    parser.add_argument(
+        "-w",
+        "--workers",
+        type=int,
+        default=os.cpu_count(),
+        help=f"最大线程数，默认为 {os.cpu_count()}",
+    )
+    parser.add_argument(
+        "--read-from-file",
+        action="store_true",
+        help="是否从缓存文件读取文件列表，默认 False",
+    )
+    parser.add_argument(
+        "--continue-if-file-not-exist",
+        action="store_true",
+        help="如果缓存文件不存在，是否继续处理，默认 False",
     )
 
     return parser.parse_args()
@@ -93,68 +113,44 @@ def create_strm_file(
         return False
 
 
-def auto_strm(
-    remote_folders: list[str],
-    strm_base_path: Union[str, Path] = Path(STRM_FILE_PATH),
-    replace_prefix: bool = True,
-    prefix: str = "/Media/",
-    category_index: int = 2,
+def process_single_file(
+    file: Path,
+    strm_base_path: Path,
+    replace_prefix: bool,
+    prefix: str,
+    category_index: int,
+    video_suffix: set,
+    subtitle_suffix: set,
 ):
     """
-    自动为远程文件夹中的媒体文件创建 .strm 文件
+    处理单个媒体文件创建 strm
 
-    Args:
-        remote_folders: 远程文件夹列表
-        strm_base_path: .strm 文件存放目录
+    Returns:
+        tuple: (success, file_path, result_info, is_handled)
     """
-    from settings import SUBTITLE_SUFFIX, VIDEO_SUFFIX
+    try:
+        category = file.parts[category_index]
+        is_movie = True if category in ["Movies", "Concerts", "NC17-Movies"] else False
 
-    if isinstance(strm_base_path, str):
-        strm_base_path = Path(strm_base_path)
+        # 对于 nsfw，直接同路径映射
+        if category == "NSFW":
+            if replace_prefix:
+                file_name = re.sub(r"^/.*?/", prefix, str(file))
+            else:
+                file_name = str(file)
+            target_strm_file = Path(strm_base_path) / (
+                str(file).removeprefix(prefix).rsplit(".", 1)[0] + ".strm"
+            )
+            if not target_strm_file.exists():
+                if create_strm_file(Path(file_name), strm_file_path=target_strm_file):
+                    set_ownership(target_strm_file, start_prefix=str(strm_base_path))
+                    result_info = str(target_strm_file)
 
-    not_handled = defaultdict(set)
-    handled = defaultdict(set)
-    for remote_folder in remote_folders:
-        logger.info(f"开始处理远程文件夹：{remote_folder}")
-        remote_folder_path = Path(remote_folder)
-        if not remote_folder_path.exists():
-            logger.warning(f"远程文件夹 {remote_folder} 不存在，跳过")
-            continue
-        for file in remote_folder_path.rglob("*"):
-            if file.is_file() and file.suffix.lstrip(".").lower() in VIDEO_SUFFIX:
-                logger.info(f"开始处理文件 {file}")
-                category = file.parts[category_index]
-                is_movie = (
-                    True if category in ["Movies", "Concerts", "NC17-Movies"] else False
-                )
-                # 对于 nsfw，直接同路径映射
-                if category == "NSFW":
-                    if replace_prefix:
-                        file_name = re.sub(r"^/.*?/", prefix, str(file))
-                    else:
-                        file_name = str(file)
-                    target_strm_file = Path(strm_base_path) / (
-                        str(file).removeprefix(prefix).rsplit(".", 1)[0] + ".strm"
-                    )
-                    if not target_strm_file.exists():
-                        if create_strm_file(
-                            Path(file_name), strm_file_path=target_strm_file
-                        ):
-                            set_ownership(
-                                target_strm_file, start_prefix=str(strm_base_path)
-                            )
-                            handled[remote_folder].add((str(file), target_strm_file))
-                        else:
-                            handled[remote_folder].add(
-                                (str(file), "创建 strm 文件失败")
-                            )
-                    else:
-                        logger.info(f"Strm 文件已存在：{target_strm_file}")
                     # 处理图片/nfo 等刮削元数据
                     for _file in file.parent.iterdir():
                         if _file.name == file.name:
                             continue
-                        if _file.name.rsplit(".", 1)[-1] in VIDEO_SUFFIX:
+                        if _file.name.rsplit(".", 1)[-1] in video_suffix:
                             continue
                         target_file = target_strm_file.parent / _file.name
                         if target_file.exists():
@@ -170,70 +166,63 @@ def auto_strm(
                         else:
                             logger.error(f"复制文件失败：{_file} -> {target_file}")
 
+                    return True, str(file), result_info, True
                 else:
-                    year = re.search(
-                        r"(Aired|Released)_(?P<year>\d{4})|\s\((?P<year2>\d{4})\)\s",
-                        file.as_posix(),
-                    )
-                    if year:
-                        year = year.group("year") or year.group("year2")
-                        year_prefix = "Aired_" if is_movie else "Released_"
-                        tmdb_name = (
-                            file.parent.parent.name
-                            if not is_movie
-                            else file.parent.name
-                        )
-                        if "tmdb-" not in tmdb_name:
-                            logger.warning(f"跳过处理文件 {file}: 无 TMDB 名字")
-                            not_handled[remote_folder].add((str(file), "无 TMDB 名字"))
-                            continue
-                        target_strm_folder = (
-                            strm_base_path
-                            / category
-                            / f"{year_prefix}{year}"
-                            / tmdb_name
-                        )
-                        if not is_movie:
-                            # 季度信息
-                            season = file.parent.name
-                            if "Season" not in season:
-                                logger.warning(f"跳过处理文件 {file}: 无季度信息")
-                                not_handled[remote_folder].add(
-                                    (str(file), "无季度信息")
-                                )
-                                continue
-                            target_strm_folder = target_strm_folder / file.parent.name
-                        target_strm_file = target_strm_folder / (file.name + ".strm")
-                        if is_filename_length_gt_255(target_strm_file.name):
-                            logger.warning(f"跳过处理文件 {file}: 文件名过长")
-                            not_handled[remote_folder].add((str(file), "文件名过长"))
-                            continue
+                    return False, str(file), "创建 strm 文件失败", False
+            else:
+                logger.info(f"Strm 文件已存在：{target_strm_file}")
+                return True, str(file), f"文件已存在: {target_strm_file}", True
 
-                        if replace_prefix:
-                            file_name = re.sub(r"^/.*?/", prefix, str(file))
-                        else:
-                            file_name = str(file)
-                        if not target_strm_file.exists():
-                            if create_strm_file(
-                                Path(file_name), strm_file_path=target_strm_file
-                            ):
-                                handled[remote_folder].add(
-                                    (str(file), target_strm_file)
-                                )
-                                set_ownership(
-                                    target_strm_file, start_prefix=str(strm_base_path)
-                                )
-                            else:
-                                not_handled[remote_folder].add(
-                                    (str(file), "创建 strm 文件失败")
-                                )
-                        else:
-                            logger.info(f"Strm 文件已存在：{target_strm_file}")
+        else:
+            year = re.search(
+                r"(Aired|Released)_(?P<year>\d{4})|\s\((?P<year2>\d{4})\)\s",
+                file.as_posix(),
+            )
+            if year:
+                year = year.group("year") or year.group("year2")
+                year_prefix = "Aired_" if is_movie else "Released_"
+                tmdb_name = (
+                    file.parent.parent.name if not is_movie else file.parent.name
+                )
+                if "tmdb-" not in tmdb_name:
+                    logger.warning(f"跳过处理文件 {file}: 无 TMDB 名字")
+                    return False, str(file), "无 TMDB 名字", False
+
+                target_strm_folder = (
+                    strm_base_path / category / f"{year_prefix}{year}" / tmdb_name
+                )
+                if not is_movie:
+                    # 季度信息
+                    season = file.parent.name
+                    if "Season" not in season:
+                        logger.warning(f"跳过处理文件 {file}: 无季度信息")
+                        return False, str(file), "无季度信息", False
+                    target_strm_folder = target_strm_folder / file.parent.name
+
+                target_strm_file = target_strm_folder / (file.name + ".strm")
+                if is_filename_length_gt_255(target_strm_file.name):
+                    logger.warning(f"跳过处理文件 {file}: 文件名过长")
+                    return False, str(file), "文件名过长", False
+
+                if replace_prefix:
+                    file_name = re.sub(r"^/.*?/", prefix, str(file))
+                else:
+                    file_name = str(file)
+
+                if not target_strm_file.exists():
+                    if create_strm_file(
+                        Path(file_name), strm_file_path=target_strm_file
+                    ):
+                        set_ownership(
+                            target_strm_file, start_prefix=str(strm_base_path)
+                        )
+                        result_info = str(target_strm_file)
+
                         # 检查是否存在字幕
                         file_pre = file_name.rsplit(".", 1)[0]
-                        for subtitle_suffix in SUBTITLE_SUFFIX:
+                        for subtitle_suffix_item in subtitle_suffix:
                             subtitle_file = (
-                                file.parent / f"{file_pre}.{subtitle_suffix}"
+                                file.parent / f"{file_pre}.{subtitle_suffix_item}"
                             )
                             target_file = (
                                 target_strm_file.parent / f"{subtitle_file.name}"
@@ -259,11 +248,186 @@ def auto_strm(
                                     logger.info(
                                         f"复制文件失败：{subtitle_file} -> {target_file}"
                                     )
+
+                        return True, str(file), result_info, True
                     else:
-                        not_handled[remote_folder].add((str(file), "未获取到年份信息"))
+                        return False, str(file), "创建 strm 文件失败", False
+                else:
+                    logger.info(f"Strm 文件已存在：{target_strm_file}")
+                    return True, str(file), f"文件已存在: {target_strm_file}", True
             else:
-                logger.info(f"{file} 无需处理，跳过")
+                return False, str(file), "未获取到年份信息", False
+    except Exception as e:
+        logger.error(f"处理文件 {file} 时发生错误: {e}")
+        return False, str(file), f"处理异常: {e}", False
+
+
+# 遍历 rclone remote
+def traverse_rclone_remote(
+    remote: str,
+    path: str = "",
+    mount_point: str = "",
+    suffix: Optional[list[str]] = None,
+) -> list[Path]:
+    """
+    遍历 rclone remote，返回所有文件的路径列表
+
+    Args:
+        remote: rclone remote 名称
+        path: 远程路径
+        mount_point: 挂载点
+        suffix: 文件后缀列表
+
+    Returns:
+        文件路径列表
+    """
+    logger.info(f"开始遍历 rclone remote: {remote}:{path}")
+    if suffix is None:
+        suffix = []
+    cmd = [
+        "rclone",
+        "lsjson",
+        f"{remote}:{path}",
+        "--files-only",
+        "--no-mimetype",
+        "--no-modtime",
+        "--recursive",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.error(f"遍历 rclone remote 失败: {result.stderr}")
+        return []
+    files = json.loads(result.stdout)
+    file_paths = []
+    for file in files:
+        file_path = file["Path"]
+        if file["IsDir"]:
+            continue
+        if file_path.rsplit(".", 1)[-1].lower() not in suffix:
+            continue
+        file_paths.append(Path(mount_point) / path / file_path)
+    # 保存到文件中
+    with open(
+        Path(__file__).parent / f"{remote}_{path}.json", mode="w", encoding="utf-8"
+    ) as f:
+        json.dump([str(p) for p in file_paths], f, ensure_ascii=False, indent=4)
+    return file_paths
+
+
+def auto_strm(
+    remote_folders: list[str],
+    strm_base_path: Union[str, Path] = Path(STRM_FILE_PATH),
+    replace_prefix: bool = True,
+    prefix: str = "/Media/",
+    category_index: int = 2,
+    max_workers: int = 4,
+    read_from_file: bool = False,
+    continue_if_file_not_exist: bool = False,
+):
+    """
+    自动为远程文件夹中的媒体文件创建 .strm 文件
+
+    Args:
+        remote_folders: 远程文件夹列表
+        strm_base_path: .strm 文件存放目录
+        max_workers: 最大线程数
+    """
+    from settings import SUBTITLE_SUFFIX, VIDEO_SUFFIX
+
+    if isinstance(strm_base_path, str):
+        strm_base_path = Path(strm_base_path)
+
+    not_handled = defaultdict(set)
+    handled = defaultdict(set)
+
+    for remote_folder in remote_folders:
+        logger.info(f"开始处理远程文件夹：{remote_folder}")
+        start_time = time.time()
+        # 收集所有符合条件的文件
+        video_files = []
+        if ":" in remote_folder:
+            remote, remote_path, mount_point = remote_folder.split(":", 2)
+            if read_from_file:
+                json_file = Path(__file__).parent / f"{remote}_{remote_path}.json"
+                if json_file.exists():
+                    with open(json_file, mode="r", encoding="utf-8") as f:
+                        video_files = [Path(p) for p in json.load(f)]
+                elif continue_if_file_not_exist:
+                    logger.warning(
+                        f"未找到缓存文件 {json_file}，将重新遍历 {remote}:{remote_path}"
+                    )
+                    video_files = traverse_rclone_remote(
+                        remote, remote_path, mount_point, VIDEO_SUFFIX
+                    )
+            else:
+                video_files = traverse_rclone_remote(
+                    remote, remote_path, mount_point, VIDEO_SUFFIX
+                )
+        else:
+            remote_folder_path = Path(remote_folder)
+            if not remote_folder_path.exists():
+                logger.warning(f"远程文件夹 {remote_folder} 不存在，跳过")
                 continue
+
+            logger.info(f"开始遍历文件夹：{remote_folder}")
+
+            for file in remote_folder_path.rglob("*"):
+                if file.is_file() and file.suffix.lstrip(".").lower() in VIDEO_SUFFIX:
+                    video_files.append(file)
+                else:
+                    logger.info(f"跳过 {file}")
+
+        logger.info(
+            f"{remote_folder} 找到 {len(video_files)} 个视频文件，耗时 {round(time.time() - start_time, 2)}s, 开始多线程处理..."
+        )
+
+        # 使用多线程处理文件
+        processed_count = 0
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_file = {
+                executor.submit(
+                    process_single_file,
+                    file,
+                    strm_base_path,
+                    replace_prefix,
+                    prefix,
+                    category_index,
+                    VIDEO_SUFFIX,
+                    SUBTITLE_SUFFIX,
+                ): file
+                for file in video_files
+            }
+
+            # 处理结果
+            for future in as_completed(future_to_file):
+                processed_count += 1
+                file = future_to_file[future]
+                try:
+                    success, file_path, result_info, is_handled = future.result()
+                    if is_handled:
+                        if success:
+                            handled[remote_folder].add((file_path, result_info))
+                            logger.info(
+                                f"[{processed_count}/{len(video_files)}] 成功处理: {file_path}"
+                            )
+                        else:
+                            not_handled[remote_folder].add((file_path, result_info))
+                            logger.warning(
+                                f"[{processed_count}/{len(video_files)}] 处理失败: {file_path} - {result_info}"
+                            )
+                    else:
+                        not_handled[remote_folder].add((file_path, result_info))
+                        logger.warning(
+                            f"[{processed_count}/{len(video_files)}] 跳过处理: {file_path} - {result_info}"
+                        )
+                except Exception as exc:
+                    logger.error(
+                        f"[{processed_count}/{len(video_files)}] 文件 {file} 处理异常: {exc}"
+                    )
+                    not_handled[remote_folder].add((str(file), f"处理异常: {exc}"))
+
+        # 保存处理结果
         with open(
             Path(__file__).parent
             / f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl",
@@ -286,4 +450,7 @@ if __name__ == "__main__":
     auto_strm(
         remote_folders=args.folder,
         strm_base_path=args.dest,
+        max_workers=args.workers,
+        read_from_file=args.read_from_file,
+        continue_if_file_not_exist=args.continue_if_file_not_exist,
     )
