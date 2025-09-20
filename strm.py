@@ -10,7 +10,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional, Union
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from log import logger
 from settings import GID, STRM_FILE_PATH, STRM_MEDIA_SOURCE, UID
@@ -483,6 +483,34 @@ def auto_strm(
         logger.info(
             f"{remote_folder} 处理完成，共处理 {len(handled[remote_folder])} 个文件（增量处理 {len(handled[remote_folder]) - len(last_handled.keys())}），未处理 {len(not_handled[remote_folder])} 个文件，删除 {deleted_strm_files} 个文件，共计耗时 {round(time.time() - start_time, 2)}s"
         )
+
+
+def generate_strm_cache(
+    strm_folder: str, remote_folder: str, strm_media_source: str = STRM_MEDIA_SOURCE
+):
+    """生成已处理的 strm 文件缓存"""
+    strm_folder_path = Path(strm_folder)
+    if not strm_folder_path.exists() or not strm_folder_path.is_dir():
+        logger.error(f"指定的 strm 文件夹 {strm_folder} 不存在或不是目录")
+        return
+
+    handled = set()
+    for file in strm_folder_path.rglob("*.strm"):
+        if file.is_file():
+            content = file.read_text(encoding="utf-8")
+            content = unquote(content.strip())
+            media_path = content.removeprefix(strm_media_source)
+            if not media_path.startswith("/"):
+                media_path = f"/{media_path}"
+
+            handled.add((media_path, str(file)))
+
+    handled_persisted_file = f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl"
+    with open(Path(__file__).parent / handled_persisted_file, "wb") as f:
+        pickle.dump(handled, f)
+    logger.info(
+        f"已生成 strm 文件缓存，共 {len(handled)} 个文件，保存到 {handled_persisted_file}"
+    )
 
 
 if __name__ == "__main__":
