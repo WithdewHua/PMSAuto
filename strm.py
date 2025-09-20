@@ -115,8 +115,8 @@ def create_strm_file(
 
 
 def process_single_file(
-    file: Path,
-    strm_base_path: Path,
+    file: Union[Path, str],
+    strm_base_path: Union[str, Path],
     replace_prefix: bool,
     prefix: str,
     category_index: int,
@@ -129,6 +129,10 @@ def process_single_file(
     Returns:
         tuple: (success, file_path, result_info, is_handled)
     """
+    if isinstance(file, str):
+        file = Path(file)
+    if isinstance(strm_base_path, str):
+        strm_base_path = Path(strm_base_path)
     try:
         category = file.parts[category_index]
         is_movie = True if category in ["Movies", "Concerts", "NC17-Movies"] else False
@@ -388,6 +392,7 @@ def auto_strm(
                     video_files.append(file)
                 else:
                     logger.info(f"跳过 {file}")
+        video_files = [str(p) for p in video_files]
         if not video_files:
             logger.info(
                 f"{remote_folder} 找到 {len(video_files)} 个视频文件，退出处理..."
@@ -400,6 +405,9 @@ def auto_strm(
         # 使用多线程处理文件
         to_handle_files = set(video_files) - set(last_handled.keys())
         to_delete_strm_files = set(last_handled.keys()) - set(video_files)
+        logger.info(
+            f"{remote_folder} 需要处理 {len(to_handle_files)} 个文件，删除 {len(to_delete_strm_files)} 个多余的 strm 文件"
+        )
         deleted_strm_files = 0
         if not dry_run:
             processed_count = 0
@@ -473,7 +481,7 @@ def auto_strm(
             ) as f:
                 pickle.dump(not_handled[remote_folder], f)
         logger.info(
-            f"{remote_folder} 处理完成，共处理 {len(handled[remote_folder])} 个文件（增量处理 {len(handled[remote_folder]) - len(last_handled.keys())}），未处理 {len(not_handled[remote_folder])} 个文件，删除 {deleted_strm_files} 个文件，共计耗时 {round(time.time() - start_time)}s"
+            f"{remote_folder} 处理完成，共处理 {len(handled[remote_folder])} 个文件（增量处理 {len(handled[remote_folder]) - len(last_handled.keys())}），未处理 {len(not_handled[remote_folder])} 个文件，删除 {deleted_strm_files} 个文件，共计耗时 {round(time.time() - start_time, 2)}s"
         )
 
 
