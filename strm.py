@@ -25,7 +25,11 @@ def parse():
 
 
 def set_ownership(
-    path: Path, uid: Union[str, int] = UID, gid: Union[str, int] = GID, recursive=True
+    path: Path,
+    uid: Union[str, int] = UID,
+    gid: Union[str, int] = GID,
+    recursive=True,
+    start_prefix=None,
 ):
     if recursive:
         current_path = ""
@@ -34,6 +38,8 @@ def set_ownership(
             if not part:
                 continue
             current_path = f"{current_path}/{part}" if current_path else f"/{part}"
+            if start_prefix and start_prefix not in current_path:
+                continue
             os.chown(current_path, uid=uid, gid=gid)
             logger.info(f"修改文件(夹)权限：{current_path} ({uid}:{gid})")
     else:
@@ -109,6 +115,7 @@ def auto_strm(
     not_handled = defaultdict(set)
     handled = defaultdict(set)
     for remote_folder in remote_folders:
+        logger.info(f"开始处理远程文件夹：{remote_folder}")
         remote_folder_path = Path(remote_folder)
         if not remote_folder_path.exists():
             logger.warning(f"远程文件夹 {remote_folder} 不存在，跳过")
@@ -133,12 +140,16 @@ def auto_strm(
                         if create_strm_file(
                             Path(file_name), strm_file_path=target_strm_file
                         ):
-                            set_ownership(target_strm_file)
+                            set_ownership(
+                                target_strm_file, start_prefix=str(strm_base_path)
+                            )
                             handled[remote_folder].add((str(file), target_strm_file))
                         else:
                             handled[remote_folder].add(
                                 (str(file), "创建 strm 文件失败")
                             )
+                    else:
+                        logger.info(f"Strm 文件已存在：{target_strm_file}")
                     # 处理图片/nfo 等刮削元数据
                     for _file in file.parent.iterdir():
                         if _file.name == file.name:
@@ -155,7 +166,7 @@ def auto_strm(
                             capture_output=True,
                         )
                         if not rslt.returncode:
-                            set_ownership(target_file)
+                            set_ownership(target_file, start_prefix=str(strm_base_path))
                         else:
                             logger.error(f"复制文件失败：{_file} -> {target_file}")
 
@@ -209,11 +220,15 @@ def auto_strm(
                                 handled[remote_folder].add(
                                     (str(file), target_strm_file)
                                 )
-                                set_ownership(target_strm_file)
+                                set_ownership(
+                                    target_strm_file, start_prefix=str(strm_base_path)
+                                )
                             else:
                                 not_handled[remote_folder].add(
                                     (str(file), "创建 strm 文件失败")
                                 )
+                        else:
+                            logger.info(f"Strm 文件已存在：{target_strm_file}")
                         # 检查是否存在字幕
                         file_pre = file_name.rsplit(".", 1)[0]
                         for subtitle_suffix in SUBTITLE_SUFFIX:
@@ -237,14 +252,18 @@ def auto_strm(
                                     capture_output=True,
                                 )
                                 if not rslt.returncode:
-                                    set_ownership(target_file)
+                                    set_ownership(
+                                        target_file, start_prefix=str(strm_base_path)
+                                    )
                                 else:
                                     logger.info(
                                         f"复制文件失败：{subtitle_file} -> {target_file}"
                                     )
                     else:
                         not_handled[remote_folder].add((str(file), "未获取到年份信息"))
-
+            else:
+                logger.info(f"{file} 无需处理，跳过")
+                continue
         with open(
             Path(__file__).parent
             / f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl",
