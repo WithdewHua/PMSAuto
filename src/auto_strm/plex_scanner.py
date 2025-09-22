@@ -17,6 +17,7 @@ from src.auto_strm.file_collector import get_remote_folder_video_files
 from src.log import logger
 from src.mediaserver import send_scan_request
 from src.mediaserver.plex import Plex
+from src.settings import VIDEO_SUFFIX
 from src.ssh_client import SSHClient
 
 
@@ -209,7 +210,11 @@ def get_plex_file_list_from_server(
 
         files = set()
         for row in results:
-            if row[0]:  # 确保文件路径不为空
+            if (
+                row[0]
+                and row[0].startswith(media_folder)
+                and row[0].rsplit(".", 1)[1].lower() in VIDEO_SUFFIX
+            ):  # 确保文件路径匹配文件夹
                 files.add(row[0])
 
         conn.close()
@@ -287,11 +292,14 @@ def get_plex_diff_files(
 
     logger.info(f"远程文件夹共有 {len(remote_files)} 个文件")
     logger.info(f"Plex 库中已有 {len(plex_files)} 个文件")
-    logger.info(f"远程有但Plex缺失 {len(missing_in_plex)} 个文件")
-    logger.info(f"Plex有但远程缺失 {len(missing_in_remote)} 个文件")
+    logger.info(f"远程有但 Plex 缺失 {len(missing_in_plex)} 个文件: ")
+    for file in missing_in_plex:
+        logger.info(f"  - {file}")
+    logger.info(f"Plex 有但远程缺失 {len(missing_in_remote)} 个文件")
     logger.info(f"对称差集共 {len(symmetric_diff)} 个文件")
 
-    return symmetric_diff
+    # 由于刷新不存在的路径，无法删除元数据，暂时返回 missing_in_plex
+    return missing_in_plex
 
 
 def plex_scan_diff_and_update(
@@ -382,7 +390,6 @@ def batch_plex_scan_diff_and_update(
                 all_diff_files.update(diff_files)
             except Exception as e:
                 logger.error(f"处理文件夹 {remote_folder} 时出现异常: {e}")
-
         if all_diff_files:
             logger.info(
                 f"所有文件夹共发现 {len(all_diff_files)} 个差异文件，将触发 Plex 扫描"

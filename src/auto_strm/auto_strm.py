@@ -471,8 +471,21 @@ if __name__ == "__main__":
     if not Path(DATA_DIR).exists():
         Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
     args = parse()
+    folders = args.folder
+    if not folders:
+        folders = [
+            "GD-TVShows2:TVShows:/Media2",
+            "GD-TVShows2:VarietyShows:/Media2",
+            "GD-TVShows2:Documentary:/Media2",
+            "GD-Anime:Anime:/Media",
+            "GD-Movies-2:Movies:/Media",
+            "GD-Movies-2:NC17-Movies:/Media",
+            "GD-Movies-2:Concerts:/Media",
+            "GD-NSFW-2:NSFW:/Media",
+        ]
+
     auto_strm(
-        remote_folders=args.folder,
+        remote_folders=folders,
         strm_base_path=args.dest,
         max_workers=args.workers,
         scan_threads=args.scan_threads,
