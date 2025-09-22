@@ -17,6 +17,7 @@ from src.mediaserver import send_scan_request
 from src.scheduler import Scheduler
 from src.settings import (
     CREATE_STRM_FILE,
+    DATA_DIR,
     EMBY_AUTO_SCAN,
     EMBY_STRM_ASSISTANT_MEDIAINFO,
     MEDIA_SUFFIX,
@@ -1085,7 +1086,7 @@ def media_handle(
         scheduler = Scheduler()
         if keep_job_persisted and not scheduler.jobstores.get("sqlite"):
             scheduler.add_jobstore(
-                SQLAlchemyJobStore(url="sqlite:///jobs.sql"), alias="sqlite"
+                SQLAlchemyJobStore(url=f"sqlite:///{DATA_DIR}/jobs.sql"), alias="sqlite"
             )
         scheduler.add_job(
             send_scan_request,
