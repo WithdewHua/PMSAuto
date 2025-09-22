@@ -55,7 +55,7 @@ def parse():
         "--scan-threads",
         type=int,
         default=None,
-        help="扫描远程文件夹的最大线程数（最大为4），默认为顺序扫描",
+        help="扫描远程文件夹的最大线程数",
     )
     parser.add_argument(
         "--read-from-file",
@@ -133,7 +133,7 @@ def auto_strm(
         increment: 是否增量处理，默认 True
         repair: 尝试修复错误，默认 True
         dry_run: 是否为试运行模式
-        scan_threads: 扫描远程文件夹的最大线程数（限制最大为4），如果为 None，则顺序扫描
+        scan_threads: 扫描远程文件夹的最大线程数
         interactive: 是否交互式运行，默认 False
         enable_plex_scan: 是否启用 Plex 差集扫描功能
         plex_server_host: Plex 服务器主机地址（SSH 连接用）
@@ -143,11 +143,6 @@ def auto_strm(
 
     if isinstance(strm_base_path, str):
         strm_base_path = Path(strm_base_path)
-
-    # 限制 scan_threads 最大为 4
-    if scan_threads is not None and scan_threads > 4:
-        logger.warning(f"scan_threads 限制最大为 4，当前设置 {scan_threads} 已调整为 4")
-        scan_threads = 4
 
     all_handled = defaultdict(set)
     all_not_handled = defaultdict(set)
@@ -166,7 +161,7 @@ def auto_strm(
 
     folder_collections = {}  # {remote_folder: (video_files, last_handled, to_delete_files)}
 
-    if scan_threads is None or len(remote_folders) == 1:
+    if len(remote_folders) == 1:
         logger.info("顺序收集远程文件夹信息")
         for remote_folder in remote_folders:
             remote_folder, video_files, last_handled, to_delete_files = (
@@ -181,8 +176,12 @@ def auto_strm(
                     to_delete_files,
                 )
     else:
-        logger.info(f"使用 {scan_threads} 个线程并行收集远程文件夹信息")
-        with ThreadPoolExecutor(max_workers=scan_threads) as executor:
+        logger.info(
+            f"使用 {scan_threads if scan_threads is not None else min(os.cpu_count(), len(remote_folders))} 个线程并行收集远程文件夹信息"
+        )
+        with ThreadPoolExecutor(
+            max_workers=min(os.cpu_count(), len(remote_folders))
+        ) as executor:
             # 提交所有收集任务
             future_to_folder = {
                 executor.submit(
