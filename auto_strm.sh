@@ -12,6 +12,7 @@ readonly STRM_SCRIPT="${SCRIPT_DIR}/src/auto_strm/auto_strm.py"
 # 默认参数值
 DEFAULT_SCAN_THREADS="4"  # 空表示使用默认值（顺序扫描）
 DEFAULT_WORKERS=""       # 空表示使用默认值（CPU核心数）
+DEFAULT_INTERACTIVE=""   # 默认非交互式
 
 # 颜色定义
 readonly RED='\033[0;31m'
@@ -28,6 +29,7 @@ show_help() {
 选项:
   -s, --scan-threads NUM    扫描远程文件夹的最大线程数（最大为4），默认为顺序扫描
   -w, --workers NUM         文件处理的最大线程数，默认为CPU核心数
+  -i, --interactive         启用交互式模式，在关键阶段询问是否继续
   -h, --help               显示此帮助信息
 
 示例:
@@ -35,6 +37,8 @@ show_help() {
   $0 -s 2                  # 使用2个线程扫描文件夹
   $0 -w 8                  # 使用8个线程处理文件
   $0 -s 3 -w 16            # 使用3个线程扫描，16个线程处理文件
+  $0 -i                    # 启用交互式模式
+  $0 -s 2 -i               # 使用2个线程扫描，并启用交互式模式
 
 EOF
 }
@@ -43,6 +47,7 @@ EOF
 parse_args() {
     SCAN_THREADS="$DEFAULT_SCAN_THREADS"
     WORKERS="$DEFAULT_WORKERS"
+    INTERACTIVE="$DEFAULT_INTERACTIVE"
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -63,6 +68,10 @@ parse_args() {
                     log_error "选项 $1 需要一个数字参数"
                     exit 1
                 fi
+                ;;
+            -i|--interactive)
+                INTERACTIVE="1"
+                shift
                 ;;
             -h|--help)
                 show_help
@@ -135,6 +144,12 @@ run_strm_batch() {
         log_info "使用文件处理线程数: $WORKERS"
     else
         log_info "使用默认文件处理线程数: CPU核心数"
+    fi
+    
+    # 添加交互式参数
+    if [[ -n "$INTERACTIVE" ]]; then
+        cmd_args+=("--interactive")
+        log_info "启用交互式模式"
     fi
     
     log_info "开始批量处理 ${#configs[@]} 个配置..."

@@ -67,6 +67,13 @@ def parse():
     )
     parser.add_argument("--dry-run", action="store_true", help="Dry Run 模式")
 
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        default=False,
+        help="是否交互式运行，默认不交互。若开启则在关键阶段询问是否继续。",
+    )
     return parser.parse_args()
 
 
@@ -383,6 +390,7 @@ def auto_strm(
     repair=True,
     dry_run: bool = False,
     scan_threads: int = None,
+    interactive: bool = False,
 ):
     """
     自动为远程文件夹中的媒体文件创建 .strm 文件
@@ -394,6 +402,7 @@ def auto_strm(
         scan_threads: 扫描远程文件夹的最大线程数（限制最大为4），如果为 None，则顺序扫描
         increment: 是否增量处理，默认 True
         repair: 尝试修复错误，默认 True
+        interactive: 是否交互式运行，默认 False
     """
     from settings import SUBTITLE_SUFFIX, VIDEO_SUFFIX
 
@@ -407,6 +416,13 @@ def auto_strm(
 
     all_handled = defaultdict(set)
     all_not_handled = defaultdict(set)
+
+    # 第一阶段开始前交互
+    if interactive:
+        ans = input("即将开始第一阶段：收集文件信息。是否继续？(y/n): ")
+        if ans.strip().lower() not in ("y", "yes"):
+            print("用户取消操作。")
+            return
 
     # 第一阶段：收集所有远程文件夹的文件信息
     logger.info("=" * 50)
@@ -460,6 +476,13 @@ def auto_strm(
                     logger.info(f"文件夹 {remote_folder} 信息收集完成")
                 except Exception as exc:
                     logger.error(f"收集文件夹 {original_folder} 信息异常: {exc}")
+
+    # 第一阶段结束后交互
+    if interactive:
+        ans = input("第一阶段已结束，是否继续进入第二阶段？(y/n): ")
+        if ans.strip().lower() not in ("y", "yes"):
+            print("用户取消操作。")
+            return
 
     # 统计总文件数
     total_files = 0
@@ -616,6 +639,13 @@ def auto_strm(
         not_handled_count = len(all_not_handled[remote_folder])
         logger.info(f"{remote_folder}: 成功 {handled_count}, 失败 {not_handled_count}")
 
+    # 第二阶段结束后交互
+    if interactive:
+        ans = input("第二阶段已结束，是否继续？(y/n): ")
+        if ans.strip().lower() not in ("y", "yes"):
+            print("用户取消操作。")
+            return
+
     print_not_handled_summary(repair=repair)
 
 
@@ -695,4 +725,5 @@ if __name__ == "__main__":
         continue_if_file_not_exist=args.continue_if_file_not_exist,
         increment=not args.not_increment,
         dry_run=args.dry_run,
+        interactive=args.interactive,
     )
