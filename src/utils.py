@@ -32,7 +32,7 @@ TG_BOT_MSG = f"https://api.telegram.org/bot{TG_API_KEY}/sendMessage"
 
 def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
     """Send telegram message"""
-    if isinstance(chat_id, str):
+    if isinstance(chat_id, (str, int)):
         chat_id = [chat_id]
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     for _chat_id in chat_id:

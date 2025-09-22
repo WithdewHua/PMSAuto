@@ -343,7 +343,8 @@ def handle_remote_strm_files(new_file_path, new_filename, strm_base_path, dryrun
                 logger.error(f"远程 strm 文件创建失败，第 {retry_count} 次重试...")
                 send_tg_msg(
                     chat_id=TG_CHAT_ID,
-                    text=f"远程 strm 文件 `{strm_dst_file_path}` 创建失败，第 {retry_count} 次重试...",
+                    text=f"远程 strm 文件 <code>{strm_dst_file_path}</code> 创建失败，第 {retry_count} 次重试...",
+                    parse_mode="html",
                 )
                 sleep(60)
 
@@ -373,13 +374,15 @@ def handle_remote_strm_files(new_file_path, new_filename, strm_base_path, dryrun
                     )
                     send_tg_msg(
                         chat_id=TG_CHAT_ID,
-                        text=f"远程字幕文件 {subtitle_dst_file_path} 复制失败，已达最大重试次数",
+                        text=f"远程字幕文件 <code>{subtitle_dst_file_path}</code> 复制失败，已达最大重试次数",
+                        parse_mode="html",
                     )
                     break
                 logger.error(f"远程字幕文件复制失败，第 {retry_count} 次重试...")
                 send_tg_msg(
                     chat_id=TG_CHAT_ID,
-                    text=f"远程字幕文件 {subtitle_dst_file_path} 复制失败，第 {retry_count} 次重试...",
+                    text=f"远程字幕文件 <code>{subtitle_dst_file_path}</code> 复制失败，第 {retry_count} 次重试...",
+                    parse_mode="html",
                 )
                 sleep(30)
 
