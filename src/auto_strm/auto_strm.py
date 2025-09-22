@@ -165,7 +165,8 @@ def process_single_file(
                     target_strm_folder = target_strm_folder / file.parent.name
 
                 target_strm_file = target_strm_folder / (file.name + ".strm")
-                if is_filename_length_gt_255(target_strm_file.name):
+                # 考虑神医插件，最大占用 15 字节
+                if is_filename_length_gt_255(file.name, offset=15):
                     logger.warning(f"跳过处理文件 {file}: 文件名过长")
                     return False, str(file), "文件名过长", False
 
@@ -480,7 +481,7 @@ def generate_strm_cache(
     )
 
 
-def print_not_handled_summary(repair=False):
+def print_not_handled_summary(repair=True):
     """打印未处理文件的汇总"""
     not_handled_files = defaultdict(list)
     for pkl_file in Path(DATA_DIR).glob("*_not_handled.pkl"):
@@ -503,7 +504,8 @@ def print_not_handled_summary(repair=False):
 
     if repair:
         for folder in to_repair_long_filename:
-            check_and_handle_long_filename(folder, offset=5)
+            # 考虑神医插件，最大占用 15 字节
+            check_and_handle_long_filename(folder, offset=15)
         time.sleep(60)  # 等待 rclone 刷新
         # 扫库
         send_scan_request(

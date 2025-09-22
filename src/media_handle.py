@@ -545,8 +545,9 @@ def handle_tvshow(
 
                     new_filename += f".{filename_suffix}"
                     # 如果需要创建 strm 文件，因为需要增加 .strm 后缀，文件名长度需要更短一些
+                    # 考虑到神医插件，最大占用 15 字节，offset 取最大 15
                     if is_filename_length_gt_255(
-                        new_filename, extra_len=5 if CREATE_STRM_FILE else 0
+                        new_filename, extra_len=15 if CREATE_STRM_FILE else 0
                     ):
                         new_filename = (
                             f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
@@ -777,7 +778,7 @@ def handle_movie(
                 new_filename += f".{filename_suffix}"
 
                 if is_filename_length_gt_255(
-                    new_filename, extra_len=5 if CREATE_STRM_FILE else 0
+                    new_filename, extra_len=15 if CREATE_STRM_FILE else 0
                 ):
                     new_filename = (
                         f"{version} - {filename}" if "edition-" in version else filename
