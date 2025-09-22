@@ -218,7 +218,7 @@ def get_plex_file_list_from_server(
         conn.close()
 
         logger.info(
-            f"从 Plex 数据库获取到 {len(files)} 个 Plex 文件 (section_id: {section_id})"
+            f"从 Plex 数据库获取到 {len(files)} 个 Plex 文件 (section_id: {section_id}, folder: {media_folder})"
         )
 
         if len(files) == 0:
@@ -233,7 +233,7 @@ def get_plex_file_list_from_server(
         return False, f"查询数据库失败: {e}"
 
 
-def get_plex_missing_files(
+def get_plex_diff_files(
     remote_folder: str,
     plex_server_host: str,
     plex_db_path: str,
@@ -242,7 +242,7 @@ def get_plex_missing_files(
     continue_if_file_not_exist: bool = False,
 ) -> Set[str]:
     """
-    获取 Plex 中缺失的文件集合
+    获取 Plex 与远程文件夹的对称差集
 
     Args:
         remote_folder: 远程文件夹路径
@@ -253,7 +253,7 @@ def get_plex_missing_files(
         continue_if_file_not_exist: 缓存文件不存在时是否继续处理（当 remote_files 为 None 时使用）
 
     Returns:
-        Plex 中缺失的文件路径集合
+        Plex 与远程文件夹的对称差集文件路径集合
     """
     # 如果没有提供 remote_files，则重新获取（向后兼容）
     if remote_files is None:
@@ -280,14 +280,21 @@ def get_plex_missing_files(
         logger.error(plex_files)
         return set()
 
-    # 计算差集
-    missing_files = remote_files - plex_files
+    # 计算对称差集
+    # 远程有但Plex没有的文件
+    missing_in_plex = remote_files - plex_files
+    # Plex有但远程没有的文件
+    missing_in_remote = plex_files - remote_files
+    # 对称差集：两者的并集
+    symmetric_diff = missing_in_plex | missing_in_remote
 
     logger.info(f"远程文件夹共有 {len(remote_files)} 个文件")
     logger.info(f"Plex 库中已有 {len(plex_files)} 个文件")
-    logger.info(f"Plex 缺失 {len(missing_files)} 个文件")
+    logger.info(f"远程有但Plex缺失 {len(missing_in_plex)} 个文件")
+    logger.info(f"Plex有但远程缺失 {len(missing_in_remote)} 个文件")
+    logger.info(f"对称差集共 {len(symmetric_diff)} 个文件")
 
-    return missing_files
+    return symmetric_diff
 
 
 def plex_scan_diff_and_update(
@@ -312,8 +319,8 @@ def plex_scan_diff_and_update(
     """
     logger.info(f"开始对 {remote_folder} 进行 Plex 差集扫描")
 
-    # 获取缺失文件
-    missing_files = get_plex_missing_files(
+    # 获取差异文件（对称差集）
+    diff_files = get_plex_diff_files(
         remote_folder,
         plex_server_host,
         plex_db_path,
@@ -322,14 +329,14 @@ def plex_scan_diff_and_update(
         continue_if_file_not_exist,
     )
 
-    if missing_files:
-        logger.info(f"发现 {len(missing_files)} 个缺失文件，将触发 Plex 扫描")
+    if diff_files:
+        logger.info(f"发现 {len(diff_files)} 个差异文件，将触发 Plex 扫描")
         # 从文件路径中提取父目录进行扫描
-        scan_folders = {str(Path(file_path).parent) for file_path in missing_files}
+        scan_folders = {str(Path(file_path).parent) for file_path in diff_files}
         send_scan_request(scan_folders=scan_folders, plex=True, emby=False)
         logger.info(f"已向 Plex 发起扫描请求，扫描 {len(scan_folders)} 个文件夹")
     else:
-        logger.info("Plex 无需更新，无缺失文件")
+        logger.info("Plex 无需更新，无差异文件")
 
 
 def batch_plex_scan_diff_and_update(
@@ -353,7 +360,7 @@ def batch_plex_scan_diff_and_update(
     """
     logger.info(f"开始批量 Plex 差集扫描，共 {len(remote_folders)} 个文件夹")
 
-    all_missing_files = set()
+    all_diff_files = set()
 
     try:
         for remote_folder in remote_folders:
@@ -367,7 +374,7 @@ def batch_plex_scan_diff_and_update(
                         f"使用已收集的文件列表，{remote_folder} 共 {len(video_files)} 个文件"
                     )
 
-                missing_files = get_plex_missing_files(
+                diff_files = get_plex_diff_files(
                     remote_folder,
                     plex_server_host,
                     plex_db_path,
@@ -375,17 +382,17 @@ def batch_plex_scan_diff_and_update(
                     read_from_file,
                     continue_if_file_not_exist,
                 )
-                all_missing_files.update(missing_files)
+                all_diff_files.update(diff_files)
             except Exception as e:
                 logger.error(f"处理文件夹 {remote_folder} 时出现异常: {e}")
 
-        if all_missing_files:
+        if all_diff_files:
             logger.info(
-                f"所有文件夹共发现 {len(all_missing_files)} 个缺失文件，将触发 Plex 扫描"
+                f"所有文件夹共发现 {len(all_diff_files)} 个差异文件，将触发 Plex 扫描"
             )
             # 从文件路径中提取父目录进行扫描
             scan_folders = set(
-                str(Path(file_path).parent) for file_path in all_missing_files
+                str(Path(file_path).parent) for file_path in all_diff_files
             )
             scheduler = Scheduler()
             for folder in scan_folders:
@@ -409,7 +416,7 @@ def batch_plex_scan_diff_and_update(
                 f"已向 Plex 发起批量扫描请求，扫描 {len(scan_folders)} 个文件夹"
             )
         else:
-            logger.info("所有文件夹均无缺失文件，Plex 无需更新")
+            logger.info("所有文件夹均无差异文件，Plex 无需更新")
 
     finally:
         # 批量处理完成后清理数据库缓存
