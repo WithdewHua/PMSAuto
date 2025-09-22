@@ -52,6 +52,12 @@ def parse():
         action="store_true",
         help="如果缓存文件不存在，是否继续处理，默认 False",
     )
+    parser.add_argument(
+        "--not-increment",
+        action="store_true",
+        default=False,
+        help="是否增量处理，默认增量",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Dry Run 模式")
 
     return parser.parse_args()
@@ -296,6 +302,7 @@ def auto_strm(
     max_workers: int = 4,
     read_from_file: bool = False,
     continue_if_file_not_exist: bool = False,
+    increment=True,
     dry_run: bool = False,
 ):
     """
@@ -305,6 +312,7 @@ def auto_strm(
         remote_folders: 远程文件夹列表
         strm_base_path: .strm 文件存放目录
         max_workers: 最大线程数
+        increment: 是否增量处理，默认 True
     """
     from settings import SUBTITLE_SUFFIX, VIDEO_SUFFIX
 
@@ -320,7 +328,7 @@ def auto_strm(
             f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl"
         )
         last_handled = {}
-        if Path(DATA_DIR, handled_persisted_file).exists():
+        if increment and Path(DATA_DIR, handled_persisted_file).exists():
             with open(Path(DATA_DIR, handled_persisted_file), "rb") as f:
                 _handled = pickle.load(f)
                 for file_path, strm_file_path in _handled:
@@ -525,5 +533,6 @@ if __name__ == "__main__":
         max_workers=args.workers,
         read_from_file=args.read_from_file,
         continue_if_file_not_exist=args.continue_if_file_not_exist,
+        increment=not args.not_increment,
         dry_run=args.dry_run,
     )
