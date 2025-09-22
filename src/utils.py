@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Union
 
 import requests
-from log import logger
-from settings import MEDIA_SUFFIX, TG_API_KEY
+from src.log import logger
+from src.settings import MEDIA_SUFFIX, TG_API_KEY
 
 
 def load_json(path):

@@ -8,16 +8,14 @@ import traceback
 from copy import deepcopy
 from pathlib import Path
 from time import sleep
-from typing import Union
 
 import anitopy
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from emby import Emby
-from fs_operation import remove_hidden_files, remove_small_files, rename_media
-from log import logger
-from plex import Plex
-from scheduler import Scheduler
-from settings import (
+from src.fs_operation import remove_hidden_files, remove_small_files, rename_media
+from src.log import logger
+from src.mediaserver import send_scan_request
+from src.scheduler import Scheduler
+from src.settings import (
     CREATE_STRM_FILE,
     EMBY_AUTO_SCAN,
     EMBY_STRM_ASSISTANT_MEDIAINFO,
@@ -30,9 +28,9 @@ from settings import (
     TG_CHAT_ID,
     VIDEO_SUFFIX,
 )
-from ssh_client import check_remote_path_exists
-from tmdb import TMDB
-from utils import dump_json, is_filename_length_gt_255, load_json, send_tg_msg
+from src.ssh_client import check_remote_path_exists
+from src.tmdb import TMDB
+from src.utils import dump_json, is_filename_length_gt_255, load_json, send_tg_msg
 
 DEFAULT_EPISODE_REGEX = r"[ep](\d{2,4})(?!\d)"
 
@@ -545,7 +543,7 @@ def handle_tvshow(
                     new_filename += f".{filename_suffix}"
                     # 如果需要创建 strm 文件，因为需要增加 .strm 后缀，文件名长度需要更短一些
                     if is_filename_length_gt_255(
-                        new_filename, extra_len=4 if CREATE_STRM_FILE else 0
+                        new_filename, extra_len=5 if CREATE_STRM_FILE else 0
                     ):
                         new_filename = (
                             f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
@@ -776,7 +774,7 @@ def handle_movie(
                 new_filename += f".{filename_suffix}"
 
                 if is_filename_length_gt_255(
-                    new_filename, extra_len=4 if CREATE_STRM_FILE else 0
+                    new_filename, extra_len=5 if CREATE_STRM_FILE else 0
                 ):
                     new_filename = (
                         f"{version} - {filename}" if "edition-" in version else filename
@@ -973,32 +971,6 @@ def handle_local_media(
                 logger.info(f"Processed {media_folder}")
 
 
-def send_scan_request(
-    scan_folders: Union[str, list, tuple], plex=PLEX_AUTO_SCAN, emby=EMBY_AUTO_SCAN
-):
-    # handle scan request
-    if not isinstance(scan_folders, (list, tuple)):
-        scan_folders = [scan_folders]
-    media_servers = []
-    if plex:
-        _plex = Plex()
-        media_servers.append(_plex)
-    if emby:
-        _emby = Emby()
-        media_servers.append(_emby)
-    for server in media_servers:
-        while True:
-            try:
-                server.scan(path=set(scan_folders))
-            except Exception as e:
-                logger.error(f"Send scan request failed due to: {e}")
-                logger.error(traceback.format_exc())
-                sleep(60)
-                continue
-            else:
-                break
-
-
 def media_handle(
     path,
     media_type,
@@ -1113,7 +1085,7 @@ def media_handle(
             )
         scheduler.add_job(
             send_scan_request,
-            args=(scan_folders,),
+            args=(scan_folders, PLEX_AUTO_SCAN, EMBY_AUTO_SCAN),
             trigger="date",
             run_date=run_date,
             misfire_grace_time=60,

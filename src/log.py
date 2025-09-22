@@ -3,7 +3,7 @@
 
 import logging
 
-from settings import LOG_LEVEL
+from src.settings import LOG_LEVEL
 
 # 日志格式
 logging_datefmt = "%m/%d/%Y %H:%M:%S"

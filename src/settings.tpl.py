@@ -7,6 +7,9 @@ LOG_LEVEL = "INFO"
 # TMDB API Key
 TMDB_API_KEY = "xxxxxxxxxxxxxx"
 
+# 数据存储目录
+DATA_DIR = "/opt/PMSAuto/data"
+
 # rclone 相关设置
 # 如果重命名失败, 是否需要上传至 GD
 # 主要失败原因有:

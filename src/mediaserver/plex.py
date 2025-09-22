@@ -4,10 +4,10 @@ import re
 from time import sleep
 from typing import Optional, Sequence, Union
 
-from log import logger
 from plexapi.myplex import Section
 from plexapi.server import PlexServer
-from settings import PLEX_API_TOKEN, PLEX_BASE_URL
+from src.log import logger
+from src.settings import PLEX_API_TOKEN, PLEX_BASE_URL
 
 
 class Plex:

@@ -3,21 +3,30 @@ import json
 import os
 import pickle
 import re
-import shutil
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional, Union
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
-from fs_operation import check_and_handle_long_filename
-from log import logger
-from plex import Plex
-from settings import GID, STRM_FILE_PATH, STRM_MEDIA_SOURCE, UID
-from tmdb import TMDB
-from utils import is_filename_length_gt_255
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from src.fs_operation import check_and_handle_long_filename, set_ownership
+from src.log import logger
+from src.mediaserver import send_scan_request
+from src.settings import (
+    DATA_DIR,
+    EMBY_AUTO_SCAN,
+    GID,
+    PLEX_AUTO_SCAN,
+    STRM_FILE_PATH,
+    STRM_MEDIA_SOURCE,
+    UID,
+)
+from src.strm import create_strm_file
+from src.tmdb import TMDB, is_filename_length_gt_255
 
 
 def parse():
@@ -46,75 +55,6 @@ def parse():
     parser.add_argument("--dry-run", action="store_true", help="Dry Run 模式")
 
     return parser.parse_args()
-
-
-def set_ownership(
-    path: Path,
-    uid: Union[str, int] = UID,
-    gid: Union[str, int] = GID,
-    recursive=True,
-    start_prefix=None,
-):
-    if recursive:
-        current_path = ""
-        file_parts = str(path).strip("/").split("/")
-        for part in file_parts:
-            if not part:
-                continue
-            current_path = f"{current_path}/{part}" if current_path else f"/{part}"
-            if start_prefix and start_prefix not in current_path:
-                continue
-            os.chown(current_path, uid=uid, gid=gid)
-            logger.info(f"修改文件(夹)权限：{current_path} ({uid}:{gid})")
-    else:
-        os.chown(Path, uid, gid)
-        logger.info(f"修改文件(夹)权限：{current_path} ({uid}:{gid})")
-
-
-def create_strm_file(
-    file_path: Path,
-    strm_path: Path = Path(STRM_FILE_PATH),
-    strm_file_path: Optional[Path] = None,
-    media_source: str = STRM_MEDIA_SOURCE,
-):
-    """
-    创建 .strm 文件
-
-    Args:
-        file_path: 媒体文件的完整路径
-        strm_path: .strm 文件存放目录
-        strm_file_path: 指定 .strm 文件的完整路径（包含文件名），优先级高于 strm_path
-        media_source: 媒体源 URL 前缀
-    """
-    try:
-        # 优先使用 strm_file_path 参数
-        if strm_file_path:
-            strm_path = strm_file_path.parent
-        # 确保 strm 目录存在
-        strm_path.mkdir(parents=True, exist_ok=True)
-
-        # 构造 .strm 文件的内容
-        strm_content = f"{media_source.rstrip('/')}/{quote(str(file_path).lstrip('/'))}"
-
-        # 构造 .strm 文件的完整路径
-        strm_file_name = file_path.name + ".strm"
-        strm_file_full_path = (
-            (strm_path / strm_file_name) if not strm_file_path else strm_file_path
-        )
-
-        # 写入 .strm 文件
-        strm_file_full_path.write_text(strm_content, encoding="utf-8")
-
-        # 设置权限
-        for item in strm_path.rglob("*"):
-            shutil.chown(str(item), user=UID, group=GID)
-        shutil.chown(str(strm_path), user=UID, group=GID)
-
-        logger.info(f"为 {file_path} 创建 strm 文件成功: {strm_file_full_path}")
-        return True
-    except Exception as e:
-        logger.error(f"为 {file_path} 创建 strm 文件失败: {e}")
-        return False
 
 
 def process_single_file(
@@ -151,7 +91,9 @@ def process_single_file(
             )
             if not target_strm_file.exists():
                 if create_strm_file(Path(file_name), strm_file_path=target_strm_file):
-                    set_ownership(target_strm_file, start_prefix=str(strm_base_path))
+                    set_ownership(
+                        target_strm_file, UID, GID, start_prefix=str(strm_base_path)
+                    )
                     result_info = str(target_strm_file)
 
                     # 处理图片/nfo 等刮削元数据
@@ -170,7 +112,9 @@ def process_single_file(
                             capture_output=True,
                         )
                         if not rslt.returncode:
-                            set_ownership(target_file, start_prefix=str(strm_base_path))
+                            set_ownership(
+                                target_file, UID, GID, start_prefix=str(strm_base_path)
+                            )
                         else:
                             logger.error(f"复制文件失败：{_file} -> {target_file}")
 
@@ -235,7 +179,10 @@ def process_single_file(
                         Path(file_name), strm_file_path=target_strm_file
                     ):
                         set_ownership(
-                            target_strm_file, start_prefix=str(strm_base_path)
+                            target_strm_file,
+                            uid=UID,
+                            gid=GID,
+                            start_prefix=str(strm_base_path),
                         )
                         result_info = str(target_strm_file)
 
@@ -263,7 +210,10 @@ def process_single_file(
                                 )
                                 if not rslt.returncode:
                                     set_ownership(
-                                        target_file, start_prefix=str(strm_base_path)
+                                        target_file,
+                                        uid=UID,
+                                        gid=GID,
+                                        start_prefix=str(strm_base_path),
                                     )
                                 else:
                                     logger.info(
@@ -330,7 +280,7 @@ def traverse_rclone_remote(
         file_paths.append(Path(mount_point) / path / file_path)
     # 保存到文件中
     with open(
-        Path(__file__).parent / f"{remote}_{path}.json", mode="w", encoding="utf-8"
+        Path(DATA_DIR) / f"{remote}_{path}.json", mode="w", encoding="utf-8"
     ) as f:
         json.dump([str(p) for p in file_paths], f, ensure_ascii=False, indent=4)
     return file_paths
@@ -369,8 +319,8 @@ def auto_strm(
             f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl"
         )
         last_handled = {}
-        if Path(handled_persisted_file).exists():
-            with open(handled_persisted_file, "rb") as f:
+        if Path(DATA_DIR, handled_persisted_file).exists():
+            with open(Path(DATA_DIR, handled_persisted_file), "rb") as f:
                 _handled = pickle.load(f)
                 for file_path, strm_file_path in _handled:
                     last_handled[file_path] = strm_file_path
@@ -381,7 +331,7 @@ def auto_strm(
         if ":" in remote_folder:
             remote, remote_path, mount_point = remote_folder.split(":", 2)
             if read_from_file:
-                json_file = Path(__file__).parent / f"{remote}_{remote_path}.json"
+                json_file = Path(DATA_DIR) / f"{remote}_{remote_path}.json"
                 if json_file.exists():
                     with open(json_file, mode="r", encoding="utf-8") as f:
                         video_files = [Path(p) for p in json.load(f)]
@@ -487,12 +437,12 @@ def auto_strm(
         if not dry_run:
             # 保存处理结果
             with open(
-                Path(__file__).parent / handled_persisted_file,
+                Path(DATA_DIR) / handled_persisted_file,
                 "wb",
             ) as f:
                 pickle.dump(handled[remote_folder], f)
             with open(
-                Path(__file__).parent
+                Path(DATA_DIR)
                 / f"{remote_folder.strip('/').replace('/', '_')}_not_handled.pkl",
                 "wb",
             ) as f:
@@ -523,7 +473,7 @@ def generate_strm_cache(
             handled.add((media_path, str(file)))
 
     handled_persisted_file = f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl"
-    with open(Path(__file__).parent / handled_persisted_file, "wb") as f:
+    with open(Path(DATA_DIR) / handled_persisted_file, "wb") as f:
         pickle.dump(handled, f)
     logger.info(
         f"已生成 strm 文件缓存，共 {len(handled)} 个文件，保存到 {handled_persisted_file}"
@@ -533,7 +483,7 @@ def generate_strm_cache(
 def print_not_handled_summary(repair=False):
     """打印未处理文件的汇总"""
     not_handled_files = defaultdict(list)
-    for pkl_file in Path(__file__).parent.glob("*_not_handled.pkl"):
+    for pkl_file in Path(DATA_DIR).glob("*_not_handled.pkl"):
         remote_folder = pkl_file.stem.removeprefix("").removesuffix("_not_handled")
         with open(pkl_file, "rb") as f:
             not_handled = pickle.load(f)
@@ -555,13 +505,17 @@ def print_not_handled_summary(repair=False):
         for folder in to_repair_long_filename:
             check_and_handle_long_filename(folder, offset=5)
         time.sleep(60)  # 等待 rclone 刷新
-        # 重新扫描 Plex
-        _plex = Plex()
-        for folder in to_repair_long_filename:
-            _plex.scan(folder)
+        # 扫库
+        send_scan_request(
+            scan_folders=list(not_handled_files.keys()),
+            plex=PLEX_AUTO_SCAN,
+            emby=EMBY_AUTO_SCAN,
+        )
 
 
 if __name__ == "__main__":
+    if not Path(DATA_DIR).exists():
+        Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
     args = parse()
     auto_strm(
         remote_folders=args.folder,

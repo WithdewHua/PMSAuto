@@ -16,20 +16,20 @@ from datetime import date
 
 import anitopy
 import qbittorrentapi
-from autorclone import auto_rclone
-from log import logger
-from media_handle import handle_local_media, media_handle
-from settings import (
+from src.autorclone import auto_rclone
+from src.log import logger
+from src.media_handle import handle_local_media, media_handle
+from src.settings import (
     CATEGORY_SETTINGS_MAPPING,
+    DATA_DIR,
     HANDLE_LOCAL_MEDIA,
     QBIT,
     RCLONE_ALWAYS_UPLOAD,
     REMOVE_EMPTY_FOLDER,
     TG_CHAT_ID,
 )
-from tmdb import TMDB
-from tmdbv3api.exceptions import TMDbException
-from utils import (
+from src.tmdb import TMDB
+from src.utils import (
     dump_json,
     get_file_list,
     load_json,
@@ -37,8 +37,10 @@ from utils import (
     send_tg_msg,
     sumarize_tags,
 )
+from tmdbv3api.exceptions import TMDbException
 
-script_path = os.path.split(os.path.realpath(__file__))[0]
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR, exist_ok=True)
 
 
 def parse():
@@ -83,7 +85,7 @@ def main(src_dir=""):
         try:
             # 上传完的种子但没有处理的种子
             try:
-                to_handle = load_json("to_handle_media.json")
+                to_handle = load_json(os.path.join(DATA_DIR, "to_handle_media.json"))
             except Exception:
                 to_handle = {}
 
@@ -162,7 +164,7 @@ def main(src_dir=""):
 
                         # get media info cache
                         media_info_file_path = os.path.join(
-                            script_path, "media_info.cache"
+                            DATA_DIR, "media_info.cache"
                         )
                         if os.path.exists(media_info_file_path):
                             with open(media_info_file_path, "rb") as f:
@@ -871,7 +873,7 @@ def main(src_dir=""):
                         del to_handle[t]
 
             # 更新
-            dump_json(to_handle, "to_handle_media.json")
+            dump_json(to_handle, os.path.join(DATA_DIR, "to_handle_media.json"))
 
         except Exception as e:
             logger.exception(e)

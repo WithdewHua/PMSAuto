@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from typing import Union
 
-from log import logger
-from utils import is_filename_length_gt_255
+from src.log import logger
+from src.utils import is_filename_length_gt_255
 
 
 def rename_media(old_path, new_path, dryrun=False, replace=True):
@@ -72,3 +72,26 @@ def remove_small_files(root_dir_path, threshold=128 * 1024 * 1024, dryrun=False)
                 if not dryrun:
                     os.remove(filepath)
                 logger.info("Removed file: " + filepath + f", size {size}")
+
+
+def set_ownership(
+    path: Path,
+    uid: Union[str, int],
+    gid: Union[str, int],
+    recursive=True,
+    start_prefix=None,
+):
+    if recursive:
+        current_path = ""
+        file_parts = str(path).strip("/").split("/")
+        for part in file_parts:
+            if not part:
+                continue
+            current_path = f"{current_path}/{part}" if current_path else f"/{part}"
+            if start_prefix and start_prefix not in current_path:
+                continue
+            os.chown(current_path, uid=uid, gid=gid)
+            logger.info(f"修改文件(夹)权限：{current_path} ({uid}:{gid})")
+    else:
+        os.chown(path, uid, gid)
+        logger.info(f"修改文件(夹)权限：{current_path} ({uid}:{gid})")

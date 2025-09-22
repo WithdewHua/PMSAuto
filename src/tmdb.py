@@ -5,14 +5,16 @@ import pickle
 from pathlib import Path
 
 import filelock
-from log import logger
-from settings import LOG_LEVEL, TMDB_API_KEY
+from src.log import logger
+from src.settings import DATA_DIR, LOG_LEVEL, TMDB_API_KEY
+from src.utils import is_filename_length_gt_255
 from tmdbv3api import TV, Movie, Search, TMDb
-from utils import is_filename_length_gt_255
+
+DATA_PATH = Path(DATA_DIR)
 
 
 class TMDB:
-    cache: Path = Path(__file__).parent / "tmdb_info.cache"
+    cache: Path = DATA_PATH / "tmdb_info.cache"
     cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock")
 
     def __init__(

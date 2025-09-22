@@ -8,11 +8,11 @@ import traceback
 from pathlib import Path
 from time import sleep
 
-from autorclone import auto_rclone
-from log import logger
-from media_handle import add_plexmatch_file, rename_media, send_scan_request
-from scheduler import Scheduler
-from settings import EMBY_STRM_ASSISTANT_MEDIAINFO
+from src.autorclone import auto_rclone
+from src.log import logger
+from src.media_handle import add_plexmatch_file, rename_media, send_scan_request
+from src.scheduler import Scheduler
+from src.settings import EMBY_STRM_ASSISTANT_MEDIAINFO
 from tmdb import TMDB
 
 

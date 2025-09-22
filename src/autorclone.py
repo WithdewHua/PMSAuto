@@ -10,7 +10,7 @@ from logging.handlers import RotatingFileHandler
 
 import filelock
 import psutil
-from settings import RC_ADDR
+from src.settings import RC_ADDR
 
 # ------------配置项开始------------------
 # Account目录

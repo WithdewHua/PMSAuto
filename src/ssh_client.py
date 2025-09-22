@@ -3,8 +3,14 @@ from pathlib import Path
 from urllib.parse import quote
 
 import paramiko
-from log import logger
-from settings import GID, STRM_FILE_PATH, STRM_MEDIA_SOURCE, STRM_RSYNC_DEST_SERVER, UID
+from src.log import logger
+from src.settings import (
+    GID,
+    STRM_FILE_PATH,
+    STRM_MEDIA_SOURCE,
+    STRM_RSYNC_DEST_SERVER,
+    UID,
+)
 
 
 class SSHClient:

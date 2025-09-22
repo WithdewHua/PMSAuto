@@ -1,7 +1,7 @@
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
-from utils import Singleton
+from src.utils import Singleton
 
 
 class Scheduler(metaclass=Singleton):
