@@ -4,12 +4,10 @@ Plex 扫描模块
 """
 
 import os
-import random
 import sqlite3
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Set, Tuple
 
@@ -19,7 +17,6 @@ from src.auto_strm.file_collector import get_remote_folder_video_files
 from src.log import logger
 from src.mediaserver import send_scan_request
 from src.mediaserver.plex import Plex
-from src.scheduler import Scheduler
 from src.ssh_client import SSHClient
 
 
@@ -394,23 +391,8 @@ def batch_plex_scan_diff_and_update(
             scan_folders = set(
                 str(Path(file_path).parent) for file_path in all_diff_files
             )
-            scheduler = Scheduler()
             for folder in scan_folders:
-                scheduler.add_job(
-                    send_scan_request,
-                    args=(folder, True, False),
-                    trigger="date",
-                    run_date=datetime.now()
-                    + timedelta(
-                        seconds=10 * list(scan_folders).index(folder)
-                        + random.randint(1, 10)
-                    ),
-                )
-            while True:
-                if not scheduler.scheduler.get_jobs():
-                    break
-                time.sleep(10)
-            time.sleep(10)  # 确保所有任务都已触发
+                send_scan_request(scan_folders=folder, plex=True, emby=False)
             logger.info(
                 f"已向 Plex 发起批量扫描请求，扫描 {len(scan_folders)} 个文件夹"
             )
