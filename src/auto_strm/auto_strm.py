@@ -674,11 +674,12 @@ def print_not_handled_summary(repair=True):
             check_and_handle_long_filename(folder, offset=15)
         time.sleep(60)  # 等待 rclone 刷新
         # 扫库
-        send_scan_request(
-            scan_folders=to_repair_long_filename,
-            plex=PLEX_AUTO_SCAN,
-            emby=EMBY_AUTO_SCAN,
-        )
+        if to_repair_long_filename:
+            send_scan_request(
+                scan_folders=to_repair_long_filename,
+                plex=PLEX_AUTO_SCAN,
+                emby=EMBY_AUTO_SCAN,
+            )
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ def send_scan_request(scan_folders: Union[str, list, tuple, set], plex=True, emb
     # handle scan request
     if not isinstance(scan_folders, (list, tuple)):
         scan_folders = [scan_folders]
+    if not isinstance(scan_folders, set):
+        scan_folders = set(scan_folders)
     media_servers = []
     if plex:
         _plex = Plex()
@@ -22,7 +24,7 @@ def send_scan_request(scan_folders: Union[str, list, tuple, set], plex=True, emb
     for server in media_servers:
         while True:
             try:
-                server.scan(path=set(scan_folders))
+                server.scan(path=scan_folders)
             except Exception as e:
                 logger.error(f"Send scan request failed due to: {e}")
                 logger.error(traceback.format_exc())
