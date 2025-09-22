@@ -10,7 +10,7 @@ readonly PYTHON_BIN="${SCRIPT_DIR}/.venv/bin/python3"
 readonly STRM_SCRIPT="${SCRIPT_DIR}/src/auto_strm/auto_strm.py"
 
 # 默认参数值
-DEFAULT_SCAN_THREADS="4"  # 空表示使用默认值（顺序扫描）
+DEFAULT_SCAN_THREADS=""  # 空表示不传入参数，使用程序默认值
 DEFAULT_WORKERS=""       # 空表示使用默认值（CPU核心数）
 DEFAULT_INTERACTIVE=""   # 默认非交互式
 DEFAULT_PLEX_SCAN=""     # 默认不启用 Plex 扫描
@@ -28,7 +28,7 @@ show_help() {
 使用方法: $0 [选项]
 
 选项:
-  -s, --scan-threads NUM    扫描远程文件夹的最大线程数（最大为4），默认为顺序扫描
+  -s, --scan-threads NUM    扫描远程文件夹的最大线程数，默认不指定
   -w, --workers NUM         文件处理的最大线程数，默认为CPU核心数
   -i, --interactive         启用交互式模式，在关键阶段询问是否继续
   -p, --plex-scan           启用 Plex 差集扫描功能
@@ -143,7 +143,7 @@ run_strm_batch() {
         cmd_args+=("--scan-threads" "$SCAN_THREADS")
         log_info "使用扫描线程数: $SCAN_THREADS"
     else
-        log_info "使用默认扫描模式: 顺序扫描"
+        log_info "使用默认扫描模式: 程序默认值"
     fi
     
     # 添加文件处理线程数参数
