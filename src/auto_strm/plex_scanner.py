@@ -402,9 +402,8 @@ def batch_plex_scan_diff_and_update(
                     trigger="date",
                     run_date=datetime.now()
                     + timedelta(
-                        seconds=60
-                        * list(scan_folders).index(folder)
-                        * random.randint(1, 10)
+                        seconds=10 * list(scan_folders).index(folder)
+                        + random.randint(1, 10)
                     ),
                 )
             while True:
