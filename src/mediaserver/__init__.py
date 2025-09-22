@@ -8,7 +8,13 @@ from .emby import Emby
 from .plex import Plex
 
 
-def send_scan_request(scan_folders: Union[str, list, tuple, set], plex=True, emby=True):
+def send_scan_request(
+    scan_folders: Union[str, list, tuple, set],
+    plex=True,
+    emby=True,
+    interval=0,
+    random_interval=False,
+):
     # handle scan request
     if not isinstance(scan_folders, (list, tuple)):
         scan_folders = [scan_folders]
@@ -24,7 +30,11 @@ def send_scan_request(scan_folders: Union[str, list, tuple, set], plex=True, emb
     for server in media_servers:
         while True:
             try:
-                server.scan(path=scan_folders)
+                server.scan(
+                    path=scan_folders,
+                    interval=interval,
+                    random_interval=random_interval,
+                )
             except Exception as e:
                 logger.error(f"Send scan request failed due to: {e}")
                 logger.error(traceback.format_exc())

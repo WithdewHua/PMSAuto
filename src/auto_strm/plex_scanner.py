@@ -384,7 +384,13 @@ def batch_plex_scan_diff_and_update(
             scan_folders = [
                 str(Path(file_path).parent) for file_path in all_missing_files
             ]
-            send_scan_request(scan_folders=scan_folders, plex=True, emby=False)
+            send_scan_request(
+                scan_folders=scan_folders,
+                plex=True,
+                emby=False,
+                interval=3,
+                random_interval=True,
+            )
             logger.info(
                 f"已向 Plex 发起批量扫描请求，扫描 {len(scan_folders)} 个文件夹"
             )
