@@ -8,7 +8,7 @@ from .emby import Emby
 from .plex import Plex
 
 
-def send_scan_request(scan_folders: Union[str, list, tuple], plex=True, emby=True):
+def send_scan_request(scan_folders: Union[str, list, tuple, set], plex=True, emby=True):
     # handle scan request
     if not isinstance(scan_folders, (list, tuple)):
         scan_folders = [scan_folders]

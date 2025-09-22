@@ -120,9 +120,9 @@ main() {
     echo
     log_info "========== 执行结果 =========="
     log_info "总任务数: ${#configs[@]}"
-    log_success "成功: $success_count"
+    log_info "成功: $success_count"
     if [[ $failed_count -gt 0 ]]; then
-        log_error "失败: $failed_count"
+        log_info "失败: $failed_count"
     else
         log_info "失败: $failed_count"
     fi

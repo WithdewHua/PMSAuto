@@ -520,7 +520,7 @@ def print_not_handled_summary(repair=True):
         time.sleep(60)  # 等待 rclone 刷新
         # 扫库
         send_scan_request(
-            scan_folders=list(not_handled_files.keys()),
+            scan_folders=to_repair_long_filename,
             plex=PLEX_AUTO_SCAN,
             emby=EMBY_AUTO_SCAN,
         )
