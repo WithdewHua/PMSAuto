@@ -13,6 +13,7 @@ readonly STRM_SCRIPT="${SCRIPT_DIR}/src/auto_strm/auto_strm.py"
 DEFAULT_SCAN_THREADS="4"  # 空表示使用默认值（顺序扫描）
 DEFAULT_WORKERS=""       # 空表示使用默认值（CPU核心数）
 DEFAULT_INTERACTIVE=""   # 默认非交互式
+DEFAULT_PLEX_SCAN=""     # 默认不启用 Plex 扫描
 
 # 颜色定义
 readonly RED='\033[0;31m'
@@ -30,6 +31,7 @@ show_help() {
   -s, --scan-threads NUM    扫描远程文件夹的最大线程数（最大为4），默认为顺序扫描
   -w, --workers NUM         文件处理的最大线程数，默认为CPU核心数
   -i, --interactive         启用交互式模式，在关键阶段询问是否继续
+  -p, --plex-scan           启用 Plex 差集扫描功能
   -h, --help               显示此帮助信息
 
 示例:
@@ -38,7 +40,8 @@ show_help() {
   $0 -w 8                  # 使用8个线程处理文件
   $0 -s 3 -w 16            # 使用3个线程扫描，16个线程处理文件
   $0 -i                    # 启用交互式模式
-  $0 -s 2 -i               # 使用2个线程扫描，并启用交互式模式
+  $0 -p                    # 启用 Plex 差集扫描
+  $0 -s 2 -i -p            # 使用2个线程扫描，启用交互式模式和 Plex 扫描
 
 EOF
 }
@@ -48,6 +51,7 @@ parse_args() {
     SCAN_THREADS="$DEFAULT_SCAN_THREADS"
     WORKERS="$DEFAULT_WORKERS"
     INTERACTIVE="$DEFAULT_INTERACTIVE"
+    PLEX_SCAN="$DEFAULT_PLEX_SCAN"
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -71,6 +75,10 @@ parse_args() {
                 ;;
             -i|--interactive)
                 INTERACTIVE="1"
+                shift
+                ;;
+            -p|--plex-scan)
+                PLEX_SCAN="1"
                 shift
                 ;;
             -h|--help)
@@ -150,6 +158,12 @@ run_strm_batch() {
     if [[ -n "$INTERACTIVE" ]]; then
         cmd_args+=("--interactive")
         log_info "启用交互式模式"
+    fi
+    
+    # 添加 Plex 扫描参数
+    if [[ -n "$PLEX_SCAN" ]]; then
+        cmd_args+=("--plex-scan")
+        log_info "启用 Plex 差集扫描功能"
     fi
     
     log_info "开始批量处理 ${#configs[@]} 个配置..."

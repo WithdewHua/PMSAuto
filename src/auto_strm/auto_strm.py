@@ -1,32 +1,40 @@
 import argparse
-import json
 import os
 import pickle
-import re
 import subprocess
 import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 from urllib.parse import unquote
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from src.fs_operation import check_and_handle_long_filename, set_ownership
+from src.fs_operation import check_and_handle_long_filename
 from src.log import logger
 from src.mediaserver import send_scan_request
 from src.settings import (
     DATA_DIR,
     EMBY_AUTO_SCAN,
-    GID,
     PLEX_AUTO_SCAN,
+    PLEX_DB_PATH,
+    PLEX_SERVER_HOST,
     STRM_FILE_PATH,
     STRM_MEDIA_SOURCE,
-    UID,
 )
-from src.strm import create_strm_file
-from src.tmdb import TMDB, is_filename_length_gt_255
+
+# 导入模块化的组件
+try:
+    # 作为模块导入时使用相对导入
+    from .file_collector import collect_files_from_remote_folder
+    from .file_processor import process_single_file
+    from .plex_scanner import batch_plex_scan_diff_and_update
+except ImportError:
+    # 作为脚本直接运行时使用绝对导入
+    from file_collector import collect_files_from_remote_folder
+    from file_processor import process_single_file
+    from plex_scanner import batch_plex_scan_diff_and_update
 
 
 def parse():
@@ -74,307 +82,21 @@ def parse():
         default=False,
         help="是否交互式运行，默认不交互。若开启则在关键阶段询问是否继续。",
     )
-    return parser.parse_args()
-
-
-def process_single_file(
-    file: Union[Path, str],
-    strm_base_path: Union[str, Path],
-    replace_prefix: bool,
-    prefix: str,
-    category_index: int,
-    video_suffix: set,
-    subtitle_suffix: set,
-):
-    """
-    处理单个媒体文件创建 strm
-
-    Returns:
-        tuple: (success, file_path, result_info, is_handled)
-    """
-    if isinstance(file, str):
-        file = Path(file)
-    if isinstance(strm_base_path, str):
-        strm_base_path = Path(strm_base_path)
-    try:
-        category = file.parts[category_index]
-        is_movie = True if category in ["Movies", "Concerts", "NC17-Movies"] else False
-
-        # 对于 nsfw，直接同路径映射
-        if category == "NSFW":
-            if replace_prefix:
-                file_name = re.sub(r"^/.*?/", prefix, str(file))
-            else:
-                file_name = str(file)
-            target_strm_file = Path(strm_base_path) / (
-                str(file).removeprefix(prefix).rsplit(".", 1)[0] + ".strm"
-            )
-            if not target_strm_file.exists():
-                if create_strm_file(Path(file_name), strm_file_path=target_strm_file):
-                    set_ownership(
-                        target_strm_file, UID, GID, start_prefix=str(strm_base_path)
-                    )
-                    result_info = str(target_strm_file)
-
-                    # 处理图片/nfo 等刮削元数据
-                    for _file in file.parent.iterdir():
-                        if _file.name == file.name:
-                            continue
-                        if _file.name.rsplit(".", 1)[-1] in video_suffix:
-                            continue
-                        target_file = target_strm_file.parent / _file.name
-                        if target_file.exists():
-                            continue
-                        logger.info(f"复制文件：{_file} -> {target_file}")
-                        rslt = subprocess.run(
-                            ["rclone", "copyto", str(_file), str(target_file)],
-                            encoding="utf-8",
-                            capture_output=True,
-                        )
-                        if not rslt.returncode:
-                            set_ownership(
-                                target_file, UID, GID, start_prefix=str(strm_base_path)
-                            )
-                        else:
-                            logger.error(f"复制文件失败：{_file} -> {target_file}")
-
-                    return True, str(file), result_info, True
-                else:
-                    return False, str(file), "创建 strm 文件失败", False
-            else:
-                logger.info(f"Strm 文件已存在：{target_strm_file}")
-                return True, str(file), f"文件已存在: {target_strm_file}", True
-
-        else:
-            year = re.search(
-                r"(Aired|Released)_(?P<year>\d{4})|\s\((?P<year2>\d{4})\)\s",
-                file.as_posix(),
-            )
-            if year:
-                year = year.group("year") or year.group("year2")
-                year_prefix = "Aired_" if not is_movie else "Released_"
-                tmdb_name = (
-                    file.parent.parent.name if not is_movie else file.parent.name
-                )
-                if "tmdb-" not in tmdb_name:
-                    logger.warning(f"跳过处理文件 {file}: 无 TMDB 名字")
-                    return False, str(file), "无 TMDB 名字", False
-
-                # 旧格式
-                target_strm_folder = (
-                    strm_base_path / category / f"{year_prefix}{year}" / tmdb_name
-                )
-                # 没有则采用新格式
-                if not target_strm_folder.exists():
-                    tmdb_id = re.search(r"tmdb-(\d+)", tmdb_name).group(1)
-                    tmdb = TMDB(movie=is_movie)
-                    tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
-                    target_strm_folder = (
-                        strm_base_path
-                        / category
-                        / f"{year_prefix}{year}"
-                        / f"M{tmdb_info.get('month')}"
-                        / tmdb_name
-                    )
-                if not is_movie:
-                    # 季度信息
-                    season = file.parent.name
-                    if "Season" not in season:
-                        logger.warning(f"跳过处理文件 {file}: 无季度信息")
-                        return False, str(file), "无季度信息", False
-                    target_strm_folder = target_strm_folder / file.parent.name
-
-                target_strm_file = target_strm_folder / (file.name + ".strm")
-                # 考虑神医插件，最大占用 15 字节
-                if is_filename_length_gt_255(file.name, extra_len=15):
-                    logger.warning(f"跳过处理文件 {file}: 文件名过长")
-                    return False, str(file), "文件名过长", False
-
-                if replace_prefix:
-                    file_name = re.sub(r"^/.*?/", prefix, str(file))
-                else:
-                    file_name = str(file)
-
-                if not target_strm_file.exists():
-                    if create_strm_file(
-                        Path(file_name), strm_file_path=target_strm_file
-                    ):
-                        set_ownership(
-                            target_strm_file,
-                            uid=UID,
-                            gid=GID,
-                            start_prefix=str(strm_base_path),
-                        )
-                        result_info = str(target_strm_file)
-
-                        # 检查是否存在字幕
-                        file_pre = file_name.rsplit(".", 1)[0]
-                        for subtitle_suffix_item in subtitle_suffix:
-                            subtitle_file = (
-                                file.parent / f"{file_pre}.{subtitle_suffix_item}"
-                            )
-                            target_file = (
-                                target_strm_file.parent / f"{subtitle_file.name}"
-                            )
-                            if target_file.exists():
-                                continue
-                            if subtitle_file.exists():
-                                rslt = subprocess.run(
-                                    [
-                                        "rclone",
-                                        "copyto",
-                                        str(subtitle_file),
-                                        str(target_file),
-                                    ],
-                                    encoding="utf-8",
-                                    capture_output=True,
-                                )
-                                if not rslt.returncode:
-                                    set_ownership(
-                                        target_file,
-                                        uid=UID,
-                                        gid=GID,
-                                        start_prefix=str(strm_base_path),
-                                    )
-                                else:
-                                    logger.info(
-                                        f"复制文件失败：{subtitle_file} -> {target_file}"
-                                    )
-
-                        return True, str(file), result_info, True
-                    else:
-                        return False, str(file), "创建 strm 文件失败", False
-                else:
-                    logger.info(f"Strm 文件已存在：{target_strm_file}")
-                    return True, str(file), f"文件已存在: {target_strm_file}", True
-            else:
-                return False, str(file), "未获取到年份信息", False
-    except Exception as e:
-        logger.error(f"处理文件 {file} 时发生错误: {e}")
-        return False, str(file), f"处理异常: {e}", False
-
-
-# 遍历 rclone remote
-def traverse_rclone_remote(
-    remote: str,
-    path: str = "",
-    mount_point: str = "",
-    suffix: Optional[list[str]] = None,
-) -> list[Path]:
-    """
-    遍历 rclone remote，返回所有文件的路径列表
-
-    Args:
-        remote: rclone remote 名称
-        path: 远程路径
-        mount_point: 挂载点
-        suffix: 文件后缀列表
-
-    Returns:
-        文件路径列表
-    """
-    logger.info(f"开始遍历 rclone remote: {remote}:{path}")
-    if suffix is None:
-        suffix = []
-    cmd = [
-        "rclone",
-        "lsjson",
-        f"{remote}:{path}",
-        "--files-only",
-        "--no-mimetype",
-        "--no-modtime",
-        "--recursive",
-        "--fast-list",
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        logger.error(f"遍历 rclone remote 失败: {result.stderr}")
-        return []
-    files = json.loads(result.stdout)
-    file_paths = []
-    for file in files:
-        file_path = file["Path"]
-        if file["IsDir"]:
-            continue
-        if file_path.rsplit(".", 1)[-1].lower() not in suffix:
-            continue
-        file_paths.append(Path(mount_point) / path / file_path)
-    # 保存到文件中
-    with open(
-        Path(DATA_DIR) / f"{remote}_{path}.json", mode="w", encoding="utf-8"
-    ) as f:
-        json.dump([str(p) for p in file_paths], f, ensure_ascii=False, indent=4)
-    return file_paths
-
-
-def collect_files_from_remote_folder(
-    remote_folder: str,
-    read_from_file: bool,
-    continue_if_file_not_exist: bool,
-    increment: bool,
-) -> tuple[str, list[str], dict[str, str], dict[str, str]]:
-    """
-    从单个远程文件夹收集文件信息
-
-    Returns:
-        tuple: (remote_folder, video_files, last_handled, to_delete_files)
-    """
-    from settings import VIDEO_SUFFIX
-
-    logger.info(f"开始收集远程文件夹文件：{remote_folder}")
-    handled_persisted_file = f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl"
-    last_handled = {}
-    if increment and Path(DATA_DIR, handled_persisted_file).exists():
-        with open(Path(DATA_DIR, handled_persisted_file), "rb") as f:
-            _handled = pickle.load(f)
-            for file_path, strm_file_path in _handled:
-                last_handled[file_path] = strm_file_path
-
-    start_time = time.time()
-    # 收集所有符合条件的文件
-    video_files = []
-    if ":" in remote_folder:
-        remote, remote_path, mount_point = remote_folder.split(":", 2)
-        if read_from_file:
-            json_file = Path(DATA_DIR) / f"{remote}_{remote_path}.json"
-            if json_file.exists():
-                with open(json_file, mode="r", encoding="utf-8") as f:
-                    video_files = [Path(p) for p in json.load(f)]
-            elif continue_if_file_not_exist:
-                logger.warning(
-                    f"未找到缓存文件 {json_file}，将重新遍历 {remote}:{remote_path}"
-                )
-                video_files = traverse_rclone_remote(
-                    remote, remote_path, mount_point, VIDEO_SUFFIX
-                )
-        else:
-            video_files = traverse_rclone_remote(
-                remote, remote_path, mount_point, VIDEO_SUFFIX
-            )
-    else:
-        remote_folder_path = Path(remote_folder)
-        if not remote_folder_path.exists():
-            logger.warning(f"远程文件夹 {remote_folder} 不存在，跳过")
-            return remote_folder, [], {}, {}
-
-        logger.info(f"开始遍历文件夹：{remote_folder}")
-
-        for file in remote_folder_path.rglob("*"):
-            if file.is_file() and file.suffix.lstrip(".").lower() in VIDEO_SUFFIX:
-                video_files.append(file)
-
-    video_files = [str(p) for p in video_files]
-
-    # 计算需要删除的多余 strm 文件
-    to_delete_files = {}
-    for file_path in set(last_handled.keys()) - set(video_files):
-        to_delete_files[file_path] = last_handled[file_path]
-
-    logger.info(
-        f"{remote_folder} 找到 {len(video_files)} 个视频文件，需要删除 {len(to_delete_files)} 个多余的 strm 文件，耗时 {round(time.time() - start_time, 2)}s"
+    # 添加 Plex 扫描相关参数
+    parser.add_argument(
+        "--plex-scan",
+        action="store_true",
+        help="启用 Plex 差集扫描功能",
     )
-
-    return remote_folder, video_files, last_handled, to_delete_files
+    parser.add_argument(
+        "--plex-server-host",
+        help="Plex 服务器主机地址（SSH 连接用）",
+    )
+    parser.add_argument(
+        "--plex-db-path",
+        help="Plex 数据库路径",
+    )
+    return parser.parse_args()
 
 
 def auto_strm(
@@ -391,6 +113,10 @@ def auto_strm(
     dry_run: bool = False,
     scan_threads: int = None,
     interactive: bool = False,
+    # Plex 扫描相关参数
+    enable_plex_scan: bool = False,
+    plex_server_host: str = PLEX_SERVER_HOST,
+    plex_db_path: str = PLEX_DB_PATH,
 ):
     """
     自动为远程文件夹中的媒体文件创建 .strm 文件
@@ -398,13 +124,22 @@ def auto_strm(
     Args:
         remote_folders: 远程文件夹列表
         strm_base_path: .strm 文件存放目录
+        replace_prefix: 是否替换路径前缀
+        prefix: 替换的前缀字符串
+        category_index: 分类索引位置
         max_workers: 文件处理的最大线程数
-        scan_threads: 扫描远程文件夹的最大线程数（限制最大为4），如果为 None，则顺序扫描
+        read_from_file: 是否从缓存文件读取文件列表
+        continue_if_file_not_exist: 缓存文件不存在时是否继续处理
         increment: 是否增量处理，默认 True
         repair: 尝试修复错误，默认 True
+        dry_run: 是否为试运行模式
+        scan_threads: 扫描远程文件夹的最大线程数（限制最大为4），如果为 None，则顺序扫描
         interactive: 是否交互式运行，默认 False
+        enable_plex_scan: 是否启用 Plex 差集扫描功能
+        plex_server_host: Plex 服务器主机地址（SSH 连接用）
+        plex_db_path: Plex 数据库路径
     """
-    from settings import SUBTITLE_SUFFIX, VIDEO_SUFFIX
+    from src.settings import SUBTITLE_SUFFIX, VIDEO_SUFFIX
 
     if isinstance(strm_base_path, str):
         strm_base_path = Path(strm_base_path)
@@ -507,10 +242,6 @@ def auto_strm(
         f"需要处理 {total_to_handle} 个文件，删除 {total_to_delete} 个多余的 strm 文件"
     )
     logger.info("=" * 50)
-
-    if total_to_handle == 0 and total_to_delete == 0:
-        logger.info("没有文件需要处理，退出")
-        return
 
     # 第二阶段：统一处理所有文件
     logger.info("第二阶段：处理文件")
@@ -648,6 +379,31 @@ def auto_strm(
 
     print_not_handled_summary(repair=repair)
 
+    # 第三阶段：Plex 差集扫描（可选）
+    if enable_plex_scan and plex_server_host and plex_db_path:
+        if interactive:
+            ans = input("是否进行 Plex 差集扫描？(y/n): ")
+            if ans.strip().lower() not in ("y", "yes"):
+                logger.info("跳过 Plex 差集扫描")
+                return
+
+        logger.info("=" * 50)
+        logger.info("第三阶段：Plex 差集扫描")
+        logger.info("=" * 50)
+
+        batch_plex_scan_diff_and_update(
+            remote_folders=remote_folders,
+            plex_server_host=plex_server_host,
+            plex_db_path=plex_db_path,
+            folder_collections=folder_collections,
+            read_from_file=read_from_file,
+            continue_if_file_not_exist=continue_if_file_not_exist,
+        )
+        logger.info("Plex 差集扫描完成")
+    elif enable_plex_scan:
+        logger.warning("启用了 Plex 扫描但参数不完整，跳过扫描")
+        logger.warning("需要提供：--plex-server-host, --plex-db-path")
+
 
 def generate_strm_cache(
     strm_folder: str, remote_folder: str, strm_media_source: str = STRM_MEDIA_SOURCE
@@ -726,4 +482,8 @@ if __name__ == "__main__":
         increment=not args.not_increment,
         dry_run=args.dry_run,
         interactive=args.interactive,
+        # Plex 扫描相关参数
+        enable_plex_scan=args.plex_scan,
+        plex_server_host=args.plex_server_host or PLEX_SERVER_HOST,
+        plex_db_path=args.plex_db_path or PLEX_DB_PATH,
     )

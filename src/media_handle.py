@@ -495,6 +495,10 @@ def handle_tvshow(
                     if new_filename == file and not force:
                         logger.warning(f"{file}'s name does not change, skipping...")
                         continue
+                    if is_filename_length_gt_255(
+                        new_filename, extra_len=15 if CREATE_STRM_FILE else 0
+                    ):
+                        new_filename = new_filename.split(" - ", 1)[1]
                 else:
                     (
                         episode,
@@ -736,6 +740,10 @@ def handle_movie(
                 if new_filename == filename and not force:
                     logger.warning(f"{filename}'s name does not change, skipping...")
                     continue
+                if is_filename_length_gt_255(
+                    new_filename, extra_len=15 if CREATE_STRM_FILE else 0
+                ):
+                    new_filename = new_filename.split(" - ", 1)[1]
             else:
                 (
                     web_source,
