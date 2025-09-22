@@ -9,12 +9,73 @@ readonly SCRIPT_DIR="/opt/PMSAuto"
 readonly PYTHON_BIN="${SCRIPT_DIR}/.venv/bin/python3"
 readonly STRM_SCRIPT="${SCRIPT_DIR}/src/auto_strm/auto_strm.py"
 
+# 默认参数值
+DEFAULT_SCAN_THREADS="4"  # 空表示使用默认值（顺序扫描）
+DEFAULT_WORKERS=""       # 空表示使用默认值（CPU核心数）
+
 # 颜色定义
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
 readonly NC='\033[0m' # No Color
+
+# 显示帮助信息
+show_help() {
+    cat << EOF
+使用方法: $0 [选项]
+
+选项:
+  -s, --scan-threads NUM    扫描远程文件夹的最大线程数（最大为4），默认为顺序扫描
+  -w, --workers NUM         文件处理的最大线程数，默认为CPU核心数
+  -h, --help               显示此帮助信息
+
+示例:
+  $0                       # 使用默认参数
+  $0 -s 2                  # 使用2个线程扫描文件夹
+  $0 -w 8                  # 使用8个线程处理文件
+  $0 -s 3 -w 16            # 使用3个线程扫描，16个线程处理文件
+
+EOF
+}
+
+# 解析命令行参数
+parse_args() {
+    SCAN_THREADS="$DEFAULT_SCAN_THREADS"
+    WORKERS="$DEFAULT_WORKERS"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -s|--scan-threads)
+                if [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]]; then
+                    SCAN_THREADS="$2"
+                    shift 2
+                else
+                    log_error "选项 $1 需要一个数字参数"
+                    exit 1
+                fi
+                ;;
+            -w|--workers)
+                if [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]]; then
+                    WORKERS="$2"
+                    shift 2
+                else
+                    log_error "选项 $1 需要一个数字参数"
+                    exit 1
+                fi
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "未知选项: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+}
 
 # 日志函数
 log_info() {
@@ -58,13 +119,32 @@ check_environment() {
 # 执行STRM生成函数 - 批量处理
 run_strm_batch() {
     local configs=("$@")
+    local cmd_args=("-f" "${configs[@]}")
+    
+    # 添加扫描线程数参数
+    if [[ -n "$SCAN_THREADS" ]]; then
+        cmd_args+=("--scan-threads" "$SCAN_THREADS")
+        log_info "使用扫描线程数: $SCAN_THREADS"
+    else
+        log_info "使用默认扫描模式: 顺序扫描"
+    fi
+    
+    # 添加文件处理线程数参数
+    if [[ -n "$WORKERS" ]]; then
+        cmd_args+=("-w" "$WORKERS")
+        log_info "使用文件处理线程数: $WORKERS"
+    else
+        log_info "使用默认文件处理线程数: CPU核心数"
+    fi
     
     log_info "开始批量处理 ${#configs[@]} 个配置..."
     for config in "${configs[@]}"; do
         log_info "  - $config"
     done
     
-    if "$PYTHON_BIN" "$STRM_SCRIPT" -f "${configs[@]}"; then
+    log_info "执行命令: $PYTHON_BIN $STRM_SCRIPT ${cmd_args[*]}"
+    
+    if "$PYTHON_BIN" "$STRM_SCRIPT" "${cmd_args[@]}"; then
         log_success "批量处理完成，共处理 ${#configs[@]} 个配置"
         return 0
     else
@@ -78,6 +158,9 @@ main() {
     local start_time=$(date +%s)
     local failed_count=0
     local success_count=0
+    
+    # 解析命令行参数
+    parse_args "$@"
     
     log_info "开始STRM文件生成任务..."
     
