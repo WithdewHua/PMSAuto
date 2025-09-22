@@ -1,5 +1,6 @@
 #!/user/bin/env python3
 
+import random
 import re
 from time import sleep
 from typing import Optional, Sequence, Union
@@ -36,7 +37,7 @@ class Plex:
             return True
         return False
 
-    def scan(self, path: Union[str, Sequence]):
+    def scan(self, path: Union[str, Sequence], interval=0, random_interval=False):
         """发送扫描请求"""
         if isinstance(path, str):
             path = [path]
@@ -58,7 +59,11 @@ class Plex:
                     sleep(10)
                     continue
                 else:
-                    logger.info(f"Sent scan request successfully: {path}")
+                    logger.info(f"Sent scan request successfully: {p}")
+                    if interval:
+                        sleep(
+                            interval + (random.randint(1, 10) if random_interval else 0)
+                        )
                     break
 
     def refresh_recently_added(self, path: str, max: int = 10):

@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import json
+import random
 import re
 from pathlib import Path
 from time import sleep
@@ -231,7 +232,9 @@ class Emby:
             )
             create_strm_file(Path(file_path), strm_file_path=strm_path)
 
-    def scan(self, path: Union[str, Sequence]) -> None:
+    def scan(
+        self, path: Union[str, Sequence], interval=0, random_interval=False
+    ) -> None:
         """发送扫描请求"""
         if isinstance(path, str):
             path = [path]
@@ -266,6 +269,8 @@ class Emby:
                 continue
             else:
                 logger.info(f"Sent scan request successfully: {_path}")
+                if interval:
+                    sleep(interval + (random.randint(1, 10) if random_interval else 0))
                 break
 
 
