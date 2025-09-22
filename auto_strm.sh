@@ -55,20 +55,20 @@ check_environment() {
     log_success "环境检查通过"
 }
 
-# 执行STRM生成函数
-run_strm() {
-    local source="$1"
-    local category="$2"
-    local target="$3"
-    local config="${source}:${category}:${target}"
+# 执行STRM生成函数 - 批量处理
+run_strm_batch() {
+    local configs=("$@")
     
-    log_info "开始处理: $config"
+    log_info "开始批量处理 ${#configs[@]} 个配置..."
+    for config in "${configs[@]}"; do
+        log_info "  - $config"
+    done
     
-    if "$PYTHON_BIN" "$STRM_SCRIPT" -f "$config"; then
-        log_success "完成处理: $config"
+    if "$PYTHON_BIN" "$STRM_SCRIPT" -f "${configs[@]}"; then
+        log_success "批量处理完成，共处理 ${#configs[@]} 个配置"
         return 0
     else
-        log_error "处理失败: $config"
+        log_error "批量处理失败"
         return 1
     fi
 }
@@ -102,23 +102,16 @@ main() {
         "GD-NSFW-2:NSFW:/Media"
     )
     
-    # 执行所有任务
-    for config in "${configs[@]}"; do
-        IFS=':' read -r source category target <<< "$config"
-        
-        # 临时关闭 -e 模式，手动处理错误
-        set +e
-        if run_strm "$source" "$category" "$target"; then
-            ((success_count++))
-        else
-            ((failed_count++))
-        fi
-        # 重新启用 -e 模式
-        set -e
-        
-        # 添加短暂延迟避免过载
-        sleep 1
-    done
+    # 批量执行所有任务
+    set +e
+    if run_strm_batch "${configs[@]}"; then
+        success_count=${#configs[@]}
+        failed_count=0
+    else
+        success_count=0
+        failed_count=${#configs[@]}
+    fi
+    set -e
     
     # 输出执行结果
     local end_time=$(date +%s)

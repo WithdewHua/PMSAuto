@@ -21,6 +21,7 @@ class Plex:
             for loc in section.locations:
                 if re.search(rf"{loc}", location):
                     return section
+        logger.error(f"Section Not found by location {location}")
 
         return None
 
