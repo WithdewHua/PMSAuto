@@ -4,10 +4,12 @@ Plex 扫描模块
 """
 
 import os
+import random
 import sqlite3
 import sys
 import tempfile
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Set, Tuple
 
@@ -17,6 +19,7 @@ from src.auto_strm.file_collector import get_remote_folder_video_files
 from src.log import logger
 from src.mediaserver import send_scan_request
 from src.mediaserver.plex import Plex
+from src.scheduler import Scheduler
 from src.ssh_client import SSHClient
 
 
@@ -381,16 +384,27 @@ def batch_plex_scan_diff_and_update(
                 f"所有文件夹共发现 {len(all_missing_files)} 个缺失文件，将触发 Plex 扫描"
             )
             # 从文件路径中提取父目录进行扫描
-            scan_folders = [
+            scan_folders = set(
                 str(Path(file_path).parent) for file_path in all_missing_files
-            ]
-            send_scan_request(
-                scan_folders=scan_folders,
-                plex=True,
-                emby=False,
-                interval=3,
-                random_interval=True,
             )
+            scheduler = Scheduler()
+            for folder in scan_folders:
+                scheduler.add_job(
+                    send_scan_request,
+                    args=(folder, True, False),
+                    trigger="date",
+                    run_date=datetime.now()
+                    + timedelta(
+                        seconds=60
+                        * list(scan_folders).index(folder)
+                        * random.randint(1, 10)
+                    ),
+                )
+            while True:
+                if not scheduler.scheduler.get_jobs():
+                    break
+                time.sleep(10)
+            time.sleep(10)  # 确保所有任务都已触发
             logger.info(
                 f"已向 Plex 发起批量扫描请求，扫描 {len(scan_folders)} 个文件夹"
             )
