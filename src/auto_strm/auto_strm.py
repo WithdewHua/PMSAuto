@@ -702,9 +702,9 @@ def print_not_handled_summary(repair=True):
         for folder in to_repair_long_filename:
             # 考虑神医插件，最大占用 15 字节
             check_and_handle_long_filename(folder, offset=15)
-        time.sleep(60)  # 等待 rclone 刷新
         # 扫库
         if to_repair_long_filename:
+            time.sleep(60)  # 等待 rclone 刷新
             send_scan_request(
                 scan_folders=to_repair_long_filename,
                 plex=PLEX_AUTO_SCAN,
