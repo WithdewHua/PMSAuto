@@ -172,7 +172,7 @@ def process_single_file(
 
                 target_strm_file = target_strm_folder / (file.name + ".strm")
                 # 考虑神医插件，最大占用 15 字节
-                if is_filename_length_gt_255(file.name, offset=15):
+                if is_filename_length_gt_255(file.name, extra_len=15):
                     logger.warning(f"跳过处理文件 {file}: 文件名过长")
                     return False, str(file), "文件名过长", False
 
@@ -303,6 +303,7 @@ def auto_strm(
     read_from_file: bool = False,
     continue_if_file_not_exist: bool = False,
     increment=True,
+    repair=True,
     dry_run: bool = False,
 ):
     """
@@ -313,6 +314,7 @@ def auto_strm(
         strm_base_path: .strm 文件存放目录
         max_workers: 最大线程数
         increment: 是否增量处理，默认 True
+        repair: 尝试修复错误，默认 True
     """
     from settings import SUBTITLE_SUFFIX, VIDEO_SUFFIX
 
@@ -459,6 +461,7 @@ def auto_strm(
         logger.info(
             f"{remote_folder} 处理完成，共处理 {len(handled[remote_folder])} 个文件（增量处理 {len(handled[remote_folder]) - len(last_handled.keys())}），未处理 {len(not_handled[remote_folder])} 个文件，删除 {deleted_strm_files} 个文件，共计耗时 {round(time.time() - start_time, 2)}s"
         )
+    print_not_handled_summary(repair=repair)
 
 
 def generate_strm_cache(
