@@ -737,6 +737,8 @@ def handle_movie(
 
             if re.search(r"tmdb-\d+", filename):
                 new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, filename)
+                # 去除不规范命名，会导致 plex 无法扫出
+                new_filename = re.sub(r"[\.\s]?S\d{2}(E\d{1,4})?", "", new_filename)
                 if new_filename == filename and not force:
                     logger.warning(f"{filename}'s name does not change, skipping...")
                     continue
@@ -785,6 +787,8 @@ def handle_movie(
                     new_filename += f" - {filename_pre}"
 
                 new_filename += f".{filename_suffix}"
+                # 去除不规范命名，会导致 plex 无法扫出
+                new_filename = re.sub(r"[\.\s]?S\d{2}(E\d{1,4})?", "", new_filename)
 
                 if is_filename_length_gt_255(
                     new_filename, extra_len=15 if CREATE_STRM_FILE else 0
