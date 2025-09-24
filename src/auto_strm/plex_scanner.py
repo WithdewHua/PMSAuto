@@ -17,7 +17,7 @@ from src.auto_strm.file_collector import get_remote_folder_video_files
 from src.log import logger
 from src.mediaserver import send_scan_request
 from src.mediaserver.plex import Plex
-from src.settings import VIDEO_SUFFIX
+from src.settings import DATA_DIR, VIDEO_SUFFIX
 from src.ssh_client import SSHClient
 
 
@@ -402,6 +402,12 @@ def batch_plex_scan_diff_and_update(
                 send_scan_request(scan_folders=folder, plex=True, emby=False)
             logger.info(
                 f"已向 Plex 发起批量扫描请求，扫描 {len(scan_folders)} 个文件夹"
+            )
+            # 将所有差异文件写入文件
+            if not Path(DATA_DIR).exists():
+                Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+            Path(DATA_DIR, "missing_in_plex_files.txt").write_text(
+                "\n".join(all_diff_files)
             )
         else:
             logger.info("所有文件夹均无差异文件，Plex 无需更新")
