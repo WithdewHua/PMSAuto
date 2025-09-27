@@ -332,7 +332,7 @@ def auto_strm(
         for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
             if not dry_run:
                 rslt = subprocess.run(
-                    ["rm", "-f", strm_file_path], capture_output=True, encoding="utf-8"
+                    ["rm", strm_file_path], capture_output=True, encoding="utf-8"
                 )
                 if not rslt.returncode:
                     deleted_count += 1
