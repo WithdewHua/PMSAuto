@@ -239,30 +239,34 @@ def _copy_subtitle_files(
 ):
     """复制字幕文件"""
     file_pre = file_name.rsplit(".", 1)[0]
-    for subtitle_suffix_item in subtitle_suffix:
-        subtitle_file = file.parent / f"{file_pre}.{subtitle_suffix_item}"
-        target_file = target_strm_file.parent / f"{subtitle_file.name}"
-
-        if target_file.exists():
+    for _file in file.parent.iterdir():
+        if _file.name == file.name:
             continue
-
-        if subtitle_file.exists():
-            rslt = subprocess.run(
-                [
-                    "rclone",
-                    "copyto",
-                    str(subtitle_file),
-                    str(target_file),
-                ],
-                encoding="utf-8",
-                capture_output=True,
+        if not _file.name.startswith(file_pre):
+            continue
+        if _file.name.rsplit(".", 1)[-1] not in subtitle_suffix:
+            continue
+        target_file = target_strm_file.parent / _file.name
+        if target_file.exists():
+            logger.info(f"字幕文件已存在：{target_file}")
+            continue
+        logger.info(f"复制字幕文件：{file} -> {target_file}")
+        rslt = subprocess.run(
+            [
+                "rclone",
+                "copyto",
+                str(_file),
+                str(target_file),
+            ],
+            encoding="utf-8",
+            capture_output=True,
+        )
+        if not rslt.returncode:
+            set_ownership(
+                target_file,
+                uid=UID,
+                gid=GID,
+                start_prefix=str(strm_base_path),
             )
-            if not rslt.returncode:
-                set_ownership(
-                    target_file,
-                    uid=UID,
-                    gid=GID,
-                    start_prefix=str(strm_base_path),
-                )
-            else:
-                logger.info(f"复制文件失败：{subtitle_file} -> {target_file}")
+        else:
+            logger.info(f"复制文件失败：{_file} -> {target_file}")
