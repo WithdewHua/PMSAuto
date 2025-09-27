@@ -1,7 +1,6 @@
 import argparse
 import os
 import pickle
-import subprocess
 import sys
 import time
 from collections import defaultdict
@@ -331,14 +330,12 @@ def auto_strm(
         logger.info(f"开始删除 {len(all_to_delete)} 个多余的文件")
         for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
             if not dry_run:
-                rslt = subprocess.run(
-                    ["rm", strm_file_path], capture_output=True, encoding="utf-8"
-                )
-                if not rslt.returncode:
-                    deleted_count += 1
+                try:
+                    Path(strm_file_path).unlink(missing_ok=False)
                     logger.info(f"删除文件成功: {strm_file_path}")
-                else:
-                    logger.error(f"删除文件失败: {strm_file_path}")
+                    deleted_count += 1
+                except Exception as e:
+                    logger.error(f"删除文件失败: {strm_file_path} - {e}")
             else:
                 deleted_count += 1
 
