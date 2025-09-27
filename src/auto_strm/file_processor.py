@@ -73,6 +73,11 @@ def _process_nsfw_file(
     video_suffix: set,
 ):
     """处理 NSFW 类型文件"""
+    # 在处理 nsfw 视频文件时，会复制同目录下的图片/nfo 等刮削元数据
+    # 所有如果不是视频文件，直接跳过，并认为已处理
+    if file.suffix.lstrip(".").lower() not in video_suffix:
+        logger.info(f"跳过处理文件 {file}: NSFW 非视频文件")
+        return True, str(file), "NSFW 非视频文件，跳过", True
     if replace_prefix:
         file_name = re.sub(r"^/.*?/", prefix, str(file))
     else:
@@ -127,11 +132,28 @@ def _process_regular_file(
     target_strm_folder = _build_target_folder_path(
         strm_base_path, file, year_prefix, year, tmdb_name, is_movie
     )
-
-    target_strm_file = target_strm_folder / (file.name + ".strm")
-
+    is_subtitle = file.suffix.lstrip(".").lower() in subtitle_suffix
+    if not is_subtitle:
+        target_strm_file = target_strm_folder / (file.name + ".strm")
+    else:
+        # 检查是否存在 strm 文件
+        file_name = None
+        for _file in target_strm_folder.iterdir():
+            if not _file.name.endswith(".strm"):
+                continue
+            # 去掉 .mkv 等后缀，再去掉 .strm
+            file_pre = _file.name.rsplit(".", 2)[0]
+            if file.name.startswith(file_pre):
+                file_name = (
+                    f"{_file.name.rsplit('.', 1)[0]}{file.name.removeprefix(file_pre)}"
+                )
+                break
+        if not file_name:
+            logger.warning(f"跳过处理文件 {file}: 未找到对应的 strm 文件")
+            return False, str(file), "未找到对应的 strm 文件", False
+        target_strm_file = target_strm_folder / file_name
     # 考虑神医插件，最大占用 15 字节
-    if is_filename_length_gt_255(file.name, extra_len=15):
+    if not is_subtitle and is_filename_length_gt_255(file.name, extra_len=15):
         logger.warning(f"跳过处理文件 {file}: 文件名过长")
         return False, str(file), "文件名过长", False
 
@@ -141,29 +163,26 @@ def _process_regular_file(
         file_name = str(file)
 
     if not target_strm_file.exists():
-        if create_strm_file(Path(file_name), strm_file_path=target_strm_file):
-            set_ownership(
-                target_strm_file,
-                uid=UID,
-                gid=GID,
-                start_prefix=str(strm_base_path),
-            )
-            result_info = str(target_strm_file)
+        if not is_subtitle:
+            if create_strm_file(Path(file_name), strm_file_path=target_strm_file):
+                set_ownership(
+                    target_strm_file,
+                    uid=UID,
+                    gid=GID,
+                    start_prefix=str(strm_base_path),
+                )
+                result_info = str(target_strm_file)
 
-            # 处理字幕文件
-            _copy_subtitle_files(
-                file, target_strm_file, file_name, subtitle_suffix, strm_base_path
-            )
-
-            return True, str(file), result_info, True
+                return True, str(file), result_info, True
+            else:
+                return False, str(file), "创建 strm 文件失败", False
         else:
-            return False, str(file), "创建 strm 文件失败", False
+            # 直接复制字幕文件
+            copy_file(Path(file), target_strm_file, strm_base_path)
+            return True, str(file), f"字幕文件已复制: {target_strm_file}", True
+
     else:
-        logger.info(f"Strm 文件已存在：{target_strm_file}")
-        # 处理字幕文件
-        _copy_subtitle_files(
-            file, target_strm_file, file_name, subtitle_suffix, strm_base_path
-        )
+        logger.info(f"文件已存在：{target_strm_file}")
         return True, str(file), f"文件已存在: {target_strm_file}", True
 
 
@@ -230,43 +249,19 @@ def _copy_metadata_files(
             logger.error(f"复制文件失败：{_file} -> {target_file}")
 
 
-def _copy_subtitle_files(
-    file: Path,
-    target_strm_file: Path,
-    file_name: str,
-    subtitle_suffix: set,
-    strm_base_path: Path,
-):
-    """复制字幕文件"""
-    file_pre = file_name.rsplit(".", 1)[0]
-    for _file in file.parent.iterdir():
-        if _file.name == file.name:
-            continue
-        if not _file.name.startswith(file_pre):
-            continue
-        if _file.name.rsplit(".", 1)[-1] not in subtitle_suffix:
-            continue
-        target_file = target_strm_file.parent / _file.name
-        if target_file.exists():
-            logger.info(f"字幕文件已存在：{target_file}")
-            continue
-        logger.info(f"复制字幕文件：{file} -> {target_file}")
-        rslt = subprocess.run(
-            [
-                "rclone",
-                "copyto",
-                str(_file),
-                str(target_file),
-            ],
-            encoding="utf-8",
-            capture_output=True,
-        )
-        if not rslt.returncode:
-            set_ownership(
-                target_file,
-                uid=UID,
-                gid=GID,
-                start_prefix=str(strm_base_path),
-            )
-        else:
-            logger.info(f"复制文件失败：{_file} -> {target_file}")
+def copy_file(src: Path, dest: Path, strm_base_path: Path):
+    """复制文件"""
+    if dest.exists():
+        logger.info(f"文件已存在，跳过复制：{dest}")
+        return
+
+    logger.info(f"复制文件：{src} -> {dest}")
+    rslt = subprocess.run(
+        ["rclone", "copyto", str(src), str(dest)],
+        encoding="utf-8",
+        capture_output=True,
+    )
+    if not rslt.returncode:
+        set_ownership(dest, UID, GID, start_prefix=str(strm_base_path))
+    else:
+        logger.error(f"复制文件失败：{src} -> {dest}: {rslt.stderr}")

@@ -159,19 +159,24 @@ def auto_strm(
     logger.info("第一阶段：收集文件信息")
     logger.info("=" * 50)
 
-    folder_collections = {}  # {remote_folder: (video_files, last_handled, to_delete_files)}
+    folder_collections = {}  # {remote_folder: (video_files, subtitle_files, last_handled, to_delete_files)}
 
     if len(remote_folders) == 1:
         logger.info("顺序收集远程文件夹信息")
         for remote_folder in remote_folders:
-            remote_folder, video_files, last_handled, to_delete_files = (
-                collect_files_from_remote_folder(
-                    remote_folder, read_from_file, continue_if_file_not_exist, increment
-                )
+            (
+                remote_folder,
+                video_files,
+                subtitle_files,
+                last_handled,
+                to_delete_files,
+            ) = collect_files_from_remote_folder(
+                remote_folder, read_from_file, continue_if_file_not_exist, increment
             )
-            if video_files or to_delete_files:
+            if video_files or subtitle_files or to_delete_files:
                 folder_collections[remote_folder] = (
                     video_files,
+                    subtitle_files,
                     last_handled,
                     to_delete_files,
                 )
@@ -198,12 +203,17 @@ def auto_strm(
             for future in as_completed(future_to_folder):
                 original_folder = future_to_folder[future]
                 try:
-                    remote_folder, video_files, last_handled, to_delete_files = (
-                        future.result()
-                    )
-                    if video_files or to_delete_files:
+                    (
+                        remote_folder,
+                        video_files,
+                        subtitle_files,
+                        last_handled,
+                        to_delete_files,
+                    ) = future.result()
+                    if video_files or subtitle_files or to_delete_files:
                         folder_collections[remote_folder] = (
                             video_files,
+                            subtitle_files,
                             last_handled,
                             to_delete_files,
                         )
@@ -219,7 +229,7 @@ def auto_strm(
             return
 
     # 统计总文件数并准备所有需要处理的文件和相关信息
-    total_files = 0
+    total_video_files, total_subtitle_files = 0, 0
     total_to_handle = 0
     total_to_delete = 0
     files_to_process = []  # [(file, remote_folder)]
@@ -228,12 +238,14 @@ def auto_strm(
 
     for remote_folder, (
         video_files,
+        subtitle_files,
         last_handled,
         to_delete_files,
     ) in folder_collections.items():
         # 统计文件数
-        total_files += len(video_files)
-        to_handle = set(video_files) - set(last_handled.keys())
+        total_video_files += len(video_files)
+        total_subtitle_files += len(subtitle_files)
+        to_handle = set(video_files + subtitle_files) - set(last_handled.keys())
         total_to_handle += len(to_handle)
         total_to_delete += len(to_delete_files)
 
@@ -251,10 +263,10 @@ def auto_strm(
 
     logger.info("=" * 50)
     logger.info(
-        f"收集完成！共 {len(folder_collections)} 个文件夹，{total_files} 个视频文件"
+        f"收集完成！共 {len(folder_collections)} 个文件夹，{total_video_files} 个视频文件，{total_subtitle_files} 个字幕文件"
     )
     logger.info(
-        f"需要处理 {total_to_handle} 个文件，删除 {total_to_delete} 个多余的 strm 文件"
+        f"需要处理 {total_to_handle} 个文件，删除 {total_to_delete} 个多余的文件"
     )
     logger.info("=" * 50)
 
@@ -312,16 +324,16 @@ def auto_strm(
                     )
                     all_not_handled[remote_folder].add((str(file), f"处理异常: {exc}"))
 
-    # 删除多余的 strm 文件
+    # 删除多余的 strm 文件和字幕文件
     deleted_count = 0
     if all_to_delete:
-        logger.info(f"开始删除 {len(all_to_delete)} 个多余的 strm 文件")
+        logger.info(f"开始删除 {len(all_to_delete)} 个多余的文件")
         for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
             if not dry_run:
                 rslt = subprocess.run(["rm", "-f", strm_file_path], capture_output=True)
                 if not rslt.returncode:
                     deleted_count += 1
-                    logger.info(f"删除多余的 strm 文件: {strm_file_path}")
+                    logger.info(f"删除文件成功: {strm_file_path}")
                 else:
                     logger.error(f"删除文件失败: {strm_file_path}")
             else:

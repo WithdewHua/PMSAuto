@@ -351,11 +351,24 @@ def handle_remote_strm_files(new_file_path, new_filename, strm_base_path, dryrun
 
     # 如果是字幕文件，则复制一份到 strm 文件同目录下
     elif file_extension in SUBTITLE_SUFFIX:
-        subtitle_dst_file_path = strm_base_path / new_filename
-        logger.debug(f"{subtitle_dst_file_path=}")
+        from ssh_client import copy_file_to_remote, list_remote_directory_files
 
-        # 使用远程 SSH 复制字幕文件
-        from ssh_client import copy_file_to_remote
+        subtitle_file_name = None
+        remote_strm_base_path_file_list = list_remote_directory_files(
+            strm_base_path, file_extensions=[".strm"], include_directories=False
+        )
+        for _file_info in remote_strm_base_path_file_list:
+            _file = Path(_file_info.get("path"))
+            # 去掉 .mkv 等后缀，再去掉 .strm
+            file_pre = _file.name.rsplit(".", 2)[0]
+            if new_filename.startswith(file_pre):
+                subtitle_file_name = f"{_file.name.rsplit('.', 1)[0]}{new_filename.removeprefix(file_pre)}"
+                break
+        if not subtitle_file_name:
+            logger.warning(f"跳过处理文件 {new_file_path}: 未找到对应的 strm 文件")
+            return
+        subtitle_dst_file_path = strm_base_path / subtitle_file_name
+        logger.debug(f"{subtitle_dst_file_path=}")
 
         retry_count = 0
 

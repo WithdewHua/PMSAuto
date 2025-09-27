@@ -307,6 +307,159 @@ class SSHClient:
             )
             return False
 
+    def list_directory_files(
+        self,
+        directory: str,
+        recursive: bool = False,
+        file_extensions: list = None,
+        include_directories: bool = True,
+        include_hidden: bool = False,
+    ) -> list:
+        """
+        获取指定目录下的文件列表
+
+        Args:
+            directory: 要列出文件的目录路径
+            recursive: 是否递归获取子目录中的文件
+            file_extensions: 要过滤的文件扩展名列表，如 ['.mp4', '.mkv']
+            include_directories: 是否包含目录
+            include_hidden: 是否包含隐藏文件
+
+        Returns:
+            list: 文件信息列表，每个元素是一个字典包含：
+                  {
+                      'name': 文件名,
+                      'path': 完整路径,
+                      'type': 'file' 或 'directory',
+                      'size': 文件大小（字节），目录为None,
+                      'permissions': 权限信息,
+                      'modified_time': 修改时间
+                  }
+        """
+        if not self.client:
+            logger.error("SSH 连接未建立")
+            return []
+
+        try:
+            # 检查目录是否存在
+            if not self.remote_path_exists(directory):
+                logger.error(f"远程目录不存在: {directory}")
+                return []
+
+            # 构建 ls 命令
+            ls_options = "-la"  # 详细信息，包含权限、大小等
+            if not include_hidden:
+                # 过滤隐藏文件（不以.开头的文件，但保留 . 和 ..）
+                find_cmd = f'find "{directory}"'
+                if not recursive:
+                    find_cmd += " -maxdepth 1"
+
+                if not include_directories:
+                    find_cmd += " -type f"
+
+                # 排除隐藏文件
+                find_cmd += ' ! -path "*/.*" -o -name "." -o -name ".."'
+
+                # 使用 find 命令并结合 ls 获取详细信息
+                command = f'{find_cmd} | xargs -I {{}} ls -ld "{{}}" 2>/dev/null'
+            else:
+                if recursive:
+                    command = f'find "{directory}" -exec ls -ld {{}} \\;'
+                    if not include_directories:
+                        command = f'find "{directory}" -type f -exec ls -ld {{}} \\;'
+                else:
+                    command = f'ls {ls_options} "{directory}"'
+                    if not include_directories:
+                        command = f'find "{directory}" -maxdepth 1 -type f -exec ls -ld {{}} \\;'
+
+            success, stdout, stderr = self.execute_command(command)
+            if not success:
+                logger.error(f"获取目录文件列表失败: {directory}, 错误: {stderr}")
+                return []
+
+            files_info = []
+            lines = stdout.strip().split("\n")
+
+            for line in lines:
+                if not line.strip():
+                    continue
+
+                # 解析 ls -l 输出格式
+                parts = line.split()
+                if len(parts) < 9:
+                    continue
+
+                permissions = parts[0]
+                size_str = parts[4]
+
+                # 文件名是从第8个部分开始的所有剩余部分
+                name = " ".join(parts[8:])
+
+                # 跳过当前目录和父目录
+                if name in [".", ".."]:
+                    continue
+
+                # 如果不是递归模式，去掉目录前缀
+                if not recursive and name.startswith(directory):
+                    display_name = name[len(directory) :].lstrip("/")
+                else:
+                    display_name = Path(name).name if not recursive else name
+
+                # 确定文件类型
+                if permissions.startswith("d"):
+                    file_type = "directory"
+                    size = None
+                elif permissions.startswith("l"):
+                    file_type = "symlink"
+                    size = None
+                else:
+                    file_type = "file"
+                    try:
+                        size = int(size_str)
+                    except ValueError:
+                        size = 0
+
+                # 过滤文件类型
+                if not include_directories and file_type == "directory":
+                    continue
+
+                # 过滤文件扩展名
+                if file_extensions and file_type == "file":
+                    file_ext = Path(display_name).suffix.lower()
+                    if file_ext not in [ext.lower() for ext in file_extensions]:
+                        continue
+
+                # 获取修改时间（月 日 时间或年份）
+                modified_time = " ".join(parts[5:8])
+
+                # 构建完整路径
+                if recursive and not name.startswith(directory):
+                    full_path = str(Path(directory) / display_name)
+                else:
+                    full_path = (
+                        name if recursive else str(Path(directory) / display_name)
+                    )
+
+                file_info = {
+                    "name": display_name,
+                    "path": full_path,
+                    "type": file_type,
+                    "size": size,
+                    "permissions": permissions,
+                    "modified_time": modified_time,
+                }
+
+                files_info.append(file_info)
+
+            logger.debug(
+                f"获取目录文件列表成功: {directory}, 共 {len(files_info)} 个项目"
+            )
+            return files_info
+
+        except Exception as e:
+            logger.error(f"获取目录文件列表异常: {directory}, 错误: {e}")
+            return []
+
 
 class RemoteStrmManager:
     """远程 STRM 文件管理器，基于 paramiko 实现"""
@@ -660,3 +813,41 @@ def move_remote_file(
             f"远程文件移动失败: {source_path} -> {destination_path}, 错误: {e}"
         )
         return False
+
+
+def list_remote_directory_files(
+    directory: str,
+    hostname: str = STRM_RSYNC_DEST_SERVER,
+    username: str = "root",
+    recursive: bool = False,
+    file_extensions: list = None,
+    include_directories: bool = True,
+    include_hidden: bool = False,
+) -> list:
+    """
+    便捷函数：获取远程服务器指定目录下的文件列表
+
+    Args:
+        directory: 要列出文件的目录路径
+        hostname: 远程服务器主机名
+        username: SSH 用户名
+        recursive: 是否递归获取子目录中的文件
+        file_extensions: 要过滤的文件扩展名列表，如 ['.mp4', '.mkv']
+        include_directories: 是否包含目录
+        include_hidden: 是否包含隐藏文件
+
+    Returns:
+        list: 文件信息列表，每个元素是一个字典包含文件详细信息
+    """
+    try:
+        with SSHClient(hostname, username) as ssh_client:
+            return ssh_client.list_directory_files(
+                directory,
+                recursive,
+                file_extensions,
+                include_directories,
+                include_hidden,
+            )
+    except Exception as e:
+        logger.error(f"获取远程目录文件列表失败: {directory}, 错误: {e}")
+        return []

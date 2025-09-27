@@ -259,13 +259,10 @@ def get_plex_diff_files(
     """
     # 如果没有提供 remote_files，则重新获取（向后兼容）
     if remote_files is None:
-        remote_files = set(
-            get_remote_folder_video_files(
-                remote_folder, read_from_file, continue_if_file_not_exist
-            )
+        _, remote_files, _ = get_remote_folder_video_files(
+            remote_folder, read_from_file, continue_if_file_not_exist
         )
-    else:
-        remote_files = set(remote_files)
+    remote_files = set(remote_files)
 
     # 获取 Plex 文件列表
     if ":" in remote_folder:
@@ -290,7 +287,7 @@ def get_plex_diff_files(
     # 对称差集：两者的并集
     symmetric_diff = missing_in_plex | missing_in_remote
 
-    logger.info(f"远程文件夹共有 {len(remote_files)} 个文件")
+    logger.info(f"远程文件夹共有 {len(remote_files)} 个视频文件")
     logger.info(f"Plex 库中已有 {len(plex_files)} 个文件")
     logger.info(f"远程有但 Plex 缺失 {len(missing_in_plex)} 个文件: ")
     for file in missing_in_plex:
@@ -373,10 +370,10 @@ def batch_plex_scan_diff_and_update(
                 # 如果提供了 folder_collections，使用已收集的文件列表
                 remote_files = None
                 if folder_collections and remote_folder in folder_collections:
-                    video_files, _, _ = folder_collections[remote_folder]
+                    video_files, _, _, _ = folder_collections[remote_folder]
                     remote_files = set(video_files)
                     logger.info(
-                        f"使用已收集的文件列表，{remote_folder} 共 {len(video_files)} 个文件"
+                        f"使用已收集的文件列表，{remote_folder} 共 {len(video_files)} 个视频文件"
                     )
 
                 diff_files = get_plex_diff_files(

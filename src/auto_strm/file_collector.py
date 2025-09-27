@@ -4,6 +4,7 @@
 """
 
 import json
+import pickle
 import subprocess
 import sys
 import time
@@ -13,7 +14,7 @@ from typing import Optional
 # 添加项目根目录到 Python 路径
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from src.log import logger
-from src.settings import DATA_DIR
+from src.settings import DATA_DIR, SUBTITLE_SUFFIX, VIDEO_SUFFIX
 
 
 def traverse_rclone_remote(
@@ -72,7 +73,7 @@ def get_remote_folder_video_files(
     remote_folder: str,
     read_from_file: bool = False,
     continue_if_file_not_exist: bool = False,
-) -> list[str]:
+) -> tuple[list[str], list[str], list[str]]:
     """
     获取 remote_folder 下所有视频文件路径（字符串列表）
 
@@ -84,10 +85,9 @@ def get_remote_folder_video_files(
     Returns:
         视频文件路径字符串列表
     """
-    from src.settings import VIDEO_SUFFIX
 
     logger.info(f"获取远程文件夹视频文件列表：{remote_folder}")
-    video_files = []
+    media_files = []
 
     if ":" in remote_folder:
         remote, remote_path, mount_point = remote_folder.split(":", 2)
@@ -95,17 +95,17 @@ def get_remote_folder_video_files(
             json_file = Path(DATA_DIR) / f"{remote}_{remote_path}.json"
             if json_file.exists():
                 with open(json_file, mode="r", encoding="utf-8") as f:
-                    video_files = [Path(p) for p in json.load(f)]
+                    media_files = [Path(p) for p in json.load(f)]
             elif continue_if_file_not_exist:
                 logger.warning(
                     f"未找到缓存文件 {json_file}，将重新遍历 {remote}:{remote_path}"
                 )
-                video_files = traverse_rclone_remote(
-                    remote, remote_path, mount_point, VIDEO_SUFFIX
+                media_files = traverse_rclone_remote(
+                    remote, remote_path, mount_point, VIDEO_SUFFIX + SUBTITLE_SUFFIX
                 )
         else:
-            video_files = traverse_rclone_remote(
-                remote, remote_path, mount_point, VIDEO_SUFFIX
+            media_files = traverse_rclone_remote(
+                remote, remote_path, mount_point, VIDEO_SUFFIX + SUBTITLE_SUFFIX
             )
     else:
         remote_folder_path = Path(remote_folder)
@@ -114,10 +114,20 @@ def get_remote_folder_video_files(
             return []
         logger.info(f"开始遍历文件夹：{remote_folder}")
         for file in remote_folder_path.rglob("*"):
-            if file.is_file() and file.suffix.lstrip(".").lower() in VIDEO_SUFFIX:
-                video_files.append(file)
+            if file.is_file() and file.suffix.lstrip(".").lower() in (
+                VIDEO_SUFFIX + SUBTITLE_SUFFIX
+            ):
+                media_files.append(file)
 
-    return [str(p) for p in video_files]
+    all_files, video_files, subtitle_files = [], [], []
+    for file in media_files:
+        all_files.append(str(file))
+        if file.suffix.lstrip(".").lower() in VIDEO_SUFFIX:
+            video_files.append(str(file))
+        if file.suffix.lstrip(".").lower() in SUBTITLE_SUFFIX:
+            subtitle_files.append(str(file))
+
+    return all_files, video_files, subtitle_files
 
 
 def collect_files_from_remote_folder(
@@ -125,7 +135,7 @@ def collect_files_from_remote_folder(
     read_from_file: bool,
     continue_if_file_not_exist: bool,
     increment: bool,
-) -> tuple[str, list[str], dict[str, str], dict[str, str]]:
+) -> tuple[str, list[str], list[str], dict[str, str], dict[str, str]]:
     """
     从单个远程文件夹收集文件信息，包含增量处理逻辑
 
@@ -136,9 +146,8 @@ def collect_files_from_remote_folder(
         increment: 是否增量处理
 
     Returns:
-        tuple: (remote_folder, video_files, last_handled, to_delete_files)
+        tuple: (remote_folder, video_files, subtitle_files, last_handled, to_delete_files)
     """
-    import pickle
 
     logger.info(f"开始收集远程文件夹文件：{remote_folder}")
     handled_persisted_file = f"{remote_folder.strip('/').replace('/', '_')}_handled.pkl"
@@ -150,19 +159,19 @@ def collect_files_from_remote_folder(
                 last_handled[file_path] = strm_file_path
 
     start_time = time.time()
-    video_files = get_remote_folder_video_files(
+    media_files, video_files, subtitle_files = get_remote_folder_video_files(
         remote_folder, read_from_file, continue_if_file_not_exist
     )
 
-    # 计算需要删除的多余 strm 文件
+    # 计算需要删除的多余 strm 文件及字幕文件
     to_delete_files = {}
-    for file_path in set(last_handled.keys()) - set(video_files):
+    for file_path in set(last_handled.keys()) - set(media_files):
         to_delete_files[file_path] = last_handled[file_path]
 
     logger.info(
-        f"{remote_folder} 找到 {len(video_files)} 个视频文件，"
-        f"需要删除 {len(to_delete_files)} 个多余的 strm 文件，"
+        f"{remote_folder} 找到 {len(video_files)} 个视频文件，{len(subtitle_files)} 个字幕文件，"
+        f"需要删除 {len(to_delete_files)} 个多余的文件，"
         f"耗时 {round(time.time() - start_time, 2)}s"
     )
 
-    return remote_folder, video_files, last_handled, to_delete_files
+    return remote_folder, video_files, subtitle_files, last_handled, to_delete_files
