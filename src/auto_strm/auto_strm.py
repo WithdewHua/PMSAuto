@@ -292,6 +292,7 @@ def auto_strm(
                     category_index,
                     VIDEO_SUFFIX,
                     SUBTITLE_SUFFIX,
+                    remote_folder,
                 ): (file, remote_folder)
                 for file, remote_folder in files_to_process
             }

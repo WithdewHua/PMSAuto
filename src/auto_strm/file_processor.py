@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 # 添加项目根目录到 Python 路径
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -26,6 +26,7 @@ def process_single_file(
     category_index: int,
     video_suffix: set,
     subtitle_suffix: set,
+    remote_folder: Optional[str] = None,
 ):
     """
     处理单个媒体文件创建 strm
@@ -38,6 +39,7 @@ def process_single_file(
         category_index: 分类索引
         video_suffix: 视频文件后缀集合
         subtitle_suffix: 字幕文件后缀集合
+        remote_folder: rclone 远程文件夹 (rclone:folder:mount_point)
 
     Returns:
         tuple: (success, file_path, result_info, is_handled)
@@ -58,7 +60,13 @@ def process_single_file(
             )
         else:
             return _process_regular_file(
-                file, strm_base_path, replace_prefix, prefix, is_movie, subtitle_suffix
+                file,
+                strm_base_path,
+                replace_prefix,
+                prefix,
+                is_movie,
+                subtitle_suffix,
+                remote_folder=remote_folder,
             )
     except Exception as e:
         logger.error(f"处理文件 {file} 时发生错误: {e}")
@@ -110,6 +118,7 @@ def _process_regular_file(
     prefix: str,
     is_movie: bool,
     subtitle_suffix: set,
+    remote_folder: Optional[str] = None,
 ):
     """处理常规类型文件"""
     year = re.search(
@@ -178,8 +187,10 @@ def _process_regular_file(
                 return False, str(file), "创建 strm 文件失败", False
         else:
             # 直接复制字幕文件
-            copy_file(Path(file), target_strm_file, strm_base_path)
-            return True, str(file), f"字幕文件已复制: {target_strm_file}", True
+            if copy_file(Path(file), target_strm_file, strm_base_path, remote_folder):
+                return True, str(file), f"字幕文件已复制: {target_strm_file}", True
+            else:
+                return False, str(file), f"字幕文件复制失败: {target_strm_file}", False
 
     else:
         logger.info(f"文件已存在：{target_strm_file}")
@@ -249,11 +260,21 @@ def _copy_metadata_files(
             logger.error(f"复制文件失败：{_file} -> {target_file}")
 
 
-def copy_file(src: Path, dest: Path, strm_base_path: Path):
+def copy_file(
+    src: Path, dest: Path, strm_base_path: Path, remote_folder: Optional[str] = None
+):
     """复制文件"""
     if dest.exists():
         logger.info(f"文件已存在，跳过复制：{dest}")
         return
+
+    if remote_folder:
+        remote_folder = remote_folder.split(":")
+        if len(remote_folder) != 3:
+            src = src
+        else:
+            rclone, _, mount_point = remote_folder[:]
+            src = f"{rclone}:{str(src).removeprefix(mount_point)}"
 
     logger.info(f"复制文件：{src} -> {dest}")
     rslt = subprocess.run(
@@ -263,5 +284,7 @@ def copy_file(src: Path, dest: Path, strm_base_path: Path):
     )
     if not rslt.returncode:
         set_ownership(dest, UID, GID, start_prefix=str(strm_base_path))
+        return True
     else:
         logger.error(f"复制文件失败：{src} -> {dest}: {rslt.stderr}")
+        return False
