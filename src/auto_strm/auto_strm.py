@@ -218,20 +218,36 @@ def auto_strm(
             print("用户取消操作。")
             return
 
-    # 统计总文件数
+    # 统计总文件数并准备所有需要处理的文件和相关信息
     total_files = 0
     total_to_handle = 0
     total_to_delete = 0
+    files_to_process = []  # [(file, remote_folder)]
+    all_last_handled = {}  # {file_path: (strm_file_path, remote_folder)}
+    all_to_delete = {}  # {file_path: (strm_file_path, remote_folder)}
 
     for remote_folder, (
         video_files,
         last_handled,
         to_delete_files,
     ) in folder_collections.items():
+        # 统计文件数
         total_files += len(video_files)
         to_handle = set(video_files) - set(last_handled.keys())
         total_to_handle += len(to_handle)
         total_to_delete += len(to_delete_files)
+
+        # 准备需要处理的文件
+        for file in to_handle:
+            files_to_process.append((file, remote_folder))
+
+        # 准备已处理的文件信息
+        for file_path, strm_file_path in last_handled.items():
+            all_last_handled[file_path] = (strm_file_path, remote_folder)
+
+        # 准备需要删除的文件信息
+        for file_path, strm_file_path in to_delete_files.items():
+            all_to_delete[file_path] = (strm_file_path, remote_folder)
 
     logger.info("=" * 50)
     logger.info(
@@ -245,26 +261,6 @@ def auto_strm(
     # 第二阶段：统一处理所有文件
     logger.info("第二阶段：处理文件")
     logger.info("=" * 50)
-
-    # 准备所有需要处理的文件和相关信息
-    files_to_process = []  # [(file, remote_folder)]
-    all_last_handled = {}  # {file_path: (strm_file_path, remote_folder)}
-    all_to_delete = {}  # {file_path: (strm_file_path, remote_folder)}
-
-    for remote_folder, (
-        video_files,
-        last_handled,
-        to_delete_files,
-    ) in folder_collections.items():
-        to_handle = set(video_files) - set(last_handled.keys())
-        for file in to_handle:
-            files_to_process.append((file, remote_folder))
-
-        for file_path, strm_file_path in last_handled.items():
-            all_last_handled[file_path] = (strm_file_path, remote_folder)
-
-        for file_path, strm_file_path in to_delete_files.items():
-            all_to_delete[file_path] = (strm_file_path, remote_folder)
 
     # 处理文件
     processed_count = 0

@@ -160,6 +160,10 @@ def _process_regular_file(
             return False, str(file), "创建 strm 文件失败", False
     else:
         logger.info(f"Strm 文件已存在：{target_strm_file}")
+        # 处理字幕文件
+        _copy_subtitle_files(
+            file, target_strm_file, file_name, subtitle_suffix, strm_base_path
+        )
         return True, str(file), f"文件已存在: {target_strm_file}", True
 
 
