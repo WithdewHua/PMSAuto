@@ -325,7 +325,7 @@ def auto_strm(
                     all_not_handled[remote_folder].add((str(file), f"处理异常: {exc}"))
 
     # 删除多余的 strm 文件和字幕文件
-    deleted_count = 0
+    deleted = []
     if all_to_delete:
         logger.info(f"开始删除 {len(all_to_delete)} 个多余的文件")
         for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
@@ -333,16 +333,19 @@ def auto_strm(
                 try:
                     Path(strm_file_path).unlink(missing_ok=False)
                     logger.info(f"删除文件成功: {strm_file_path}")
-                    deleted_count += 1
+                    deleted.append(file_path)
                 except Exception as e:
                     logger.error(f"删除文件失败: {strm_file_path} - {e}")
             else:
-                deleted_count += 1
+                deleted.append(file_path)
+        logger.info(
+            f"成功删除 {len(deleted)} 个文件，仍有 {len(all_to_delete) - len(deleted)} 个文件删除失败"
+        )
 
     # 添加已存在的文件到处理结果中
     for file_path, (strm_file_path, remote_folder) in all_last_handled.items():
-        # 只有在当前仍存在的文件才添加（排除已删除的）
-        if file_path not in all_to_delete:
+        # 只有在当前仍存在的文件才添加（排除已成功删除的）
+        if file_path not in deleted:
             all_handled[remote_folder].add((file_path, strm_file_path))
 
     # 保存处理结果
@@ -368,7 +371,8 @@ def auto_strm(
     logger.info("处理完成！")
     logger.info(f"成功处理: {total_handled} 个文件")
     logger.info(f"处理失败: {total_not_handled} 个文件")
-    logger.info(f"删除多余: {deleted_count} 个文件")
+    logger.info(f"删除多余: {len(deleted)} 个文件")
+    logger.info(f"删除失败: {len(all_to_delete) - len(deleted)} 个文件")
     logger.info("=" * 50)
 
     # 按文件夹显示详细统计
