@@ -52,6 +52,18 @@ def check_and_handle_long_filename(folder: Union[str, Path], offset: int = 0):
                 continue
 
 
+def remove_long_filename_file(folder: Union[str, Path], offset: int = 0):
+    if isinstance(folder, str):
+        folder = Path(folder)
+    for file in folder.rglob("*"):
+        if not file.is_file():
+            continue
+        if is_filename_length_gt_255(file.stem, extra_len=offset):
+            logger.warning(f"文件 {file.name} 文件名过长, 将被删除")
+            file.unlink()
+            logger.info(f"删除成功：{file}")
+
+
 def remove_hidden_files(root_dir_path, dryrun=False):
     removed_files = []
     for file in os.listdir(root_dir_path):
