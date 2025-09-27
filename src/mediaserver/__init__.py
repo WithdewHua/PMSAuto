@@ -9,7 +9,7 @@ from .plex import Plex
 
 
 def send_scan_request(
-    scan_folders: Union[str, list, tuple, set],
+    scan_folders: Union[str, list, tuple],
     plex=True,
     emby=True,
     interval=0,
@@ -18,8 +18,6 @@ def send_scan_request(
     # handle scan request
     if not isinstance(scan_folders, (list, tuple)):
         scan_folders = [scan_folders]
-    if not isinstance(scan_folders, set):
-        scan_folders = set(scan_folders)
     media_servers = []
     if plex:
         _plex = Plex()
@@ -31,7 +29,7 @@ def send_scan_request(
         while True:
             try:
                 server.scan(
-                    path=scan_folders,
+                    path=set(scan_folders),
                     interval=interval,
                     random_interval=random_interval,
                 )

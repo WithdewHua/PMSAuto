@@ -473,7 +473,7 @@ def print_not_handled_summary(repair=True):
         if to_repair_long_filename:
             time.sleep(60)  # 等待 rclone 刷新
             send_scan_request(
-                scan_folders=to_repair_long_filename,
+                scan_folders=list(to_repair_long_filename),
                 plex=PLEX_AUTO_SCAN,
                 emby=EMBY_AUTO_SCAN,
             )
