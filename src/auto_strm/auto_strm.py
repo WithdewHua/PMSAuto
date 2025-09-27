@@ -331,7 +331,9 @@ def auto_strm(
         logger.info(f"开始删除 {len(all_to_delete)} 个多余的文件")
         for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
             if not dry_run:
-                rslt = subprocess.run(["rm", "-f", strm_file_path], capture_output=True)
+                rslt = subprocess.run(
+                    ["rm", "-f", strm_file_path], capture_output=True, encoding="utf-8"
+                )
                 if not rslt.returncode:
                     deleted_count += 1
                     logger.info(f"删除文件成功: {strm_file_path}")

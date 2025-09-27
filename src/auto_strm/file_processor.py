@@ -81,34 +81,38 @@ def _process_nsfw_file(
     video_suffix: set,
 ):
     """处理 NSFW 类型文件"""
-    # 在处理 nsfw 视频文件时，会复制同目录下的图片/nfo 等刮削元数据
-    # 所有如果不是视频文件，直接跳过，并认为已处理
-    if file.suffix.lstrip(".").lower() not in video_suffix:
-        logger.info(f"跳过处理文件 {file}: NSFW 非视频文件")
-        return True, str(file), "NSFW 非视频文件，跳过", True
     if replace_prefix:
         file_name = re.sub(r"^/.*?/", prefix, str(file))
     else:
         file_name = str(file)
+    # 在处理 nsfw 视频文件时，会复制同目录下的图片/nfo 等刮削元数据
+    # 所有如果不是视频文件，直接跳过，并认为已处理
+    if file.suffix.lstrip(".").lower() not in video_suffix:
+        logger.info(f"跳过处理文件 {file}: NSFW 非视频文件")
+        return (
+            True,
+            str(file),
+            str(Path(strm_base_path, file_name.removeprefix(prefix))),
+            True,
+        )
 
     target_strm_file = Path(strm_base_path) / (
-        str(file).removeprefix(prefix).rsplit(".", 1)[0] + ".strm"
+        file_name.removeprefix(prefix).rsplit(".", 1)[0] + ".strm"
     )
 
     if not target_strm_file.exists():
         if create_strm_file(Path(file_name), strm_file_path=target_strm_file):
             set_ownership(target_strm_file, UID, GID, start_prefix=str(strm_base_path))
-            result_info = str(target_strm_file)
 
             # 处理图片/nfo 等刮削元数据
             _copy_metadata_files(file, target_strm_file, video_suffix, strm_base_path)
 
-            return True, str(file), result_info, True
+            return True, str(file), str(target_strm_file), True
         else:
             return False, str(file), "创建 strm 文件失败", False
     else:
         logger.info(f"Strm 文件已存在：{target_strm_file}")
-        return True, str(file), f"文件已存在: {target_strm_file}", True
+        return True, str(file), str(target_strm_file), True
 
 
 def _process_regular_file(
@@ -180,21 +184,20 @@ def _process_regular_file(
                     gid=GID,
                     start_prefix=str(strm_base_path),
                 )
-                result_info = str(target_strm_file)
 
-                return True, str(file), result_info, True
+                return True, str(file), str(target_strm_file), True
             else:
                 return False, str(file), "创建 strm 文件失败", False
         else:
             # 直接复制字幕文件
             if copy_file(Path(file), target_strm_file, strm_base_path, remote_folder):
-                return True, str(file), f"字幕文件已复制: {target_strm_file}", True
+                return True, str(file), str(target_strm_file), True
             else:
                 return False, str(file), f"字幕文件复制失败: {target_strm_file}", False
 
     else:
         logger.info(f"文件已存在：{target_strm_file}")
-        return True, str(file), f"文件已存在: {target_strm_file}", True
+        return True, str(file), str(target_strm_file), True
 
 
 def _build_target_folder_path(
