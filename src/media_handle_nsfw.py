@@ -14,10 +14,10 @@ dst_dirs = os.listdir(dst_path)
 
 scan_folders = []
 
-release_cre = re.compile(r"<release>([\d-]+)</release>")
+release_cre = re.compile(r"<(release|premiered)>([\d-]+)</(release|premiered)>")
 # actors/number
 for src_dir in src_dirs:
-    if src_dir in ["failed", "佚名"]:
+    if src_dir in ["failed", "佚名", "#未知女优"]:
         continue
     numbers = os.listdir(os.path.join(src_path, src_dir))
     for number in numbers:
@@ -37,7 +37,7 @@ for src_dir in src_dirs:
         if not date_match:
             logger.warning(f"Failed to match {number}'s release data, skip...")
             continue
-        year, month, _ = date_match.group(1).split("-")
+        year, month, _ = date_match.group(2).split("-")
 
         dst_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", number)
         if os.path.exists(dst_dir):
