@@ -516,7 +516,7 @@ def main(src_dir=""):
                                 if is_nc17 is None:
                                     tmdb.tmdb_id = tmdb_id
                                     is_nc17 = tmdb.get_movie_certification()
-                                if is_nc17:
+                                if is_nc17 and "no_rating" not in tags:
                                     save_path = "Inbox/NC17-Movies"
 
                             if re.search(r"Music", category):

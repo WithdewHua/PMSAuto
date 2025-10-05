@@ -1151,5 +1151,5 @@ if __name__ == "__main__":
     while True:
         if not scheduler.scheduler.get_jobs():
             break
-        sleep(30)
-    sleep(30)
+        sleep(10)
+    sleep(10)
