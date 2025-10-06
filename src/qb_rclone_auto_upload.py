@@ -88,8 +88,10 @@ def main(src_dir=""):
                 to_handle = load_json(os.path.join(DATA_DIR, "to_handle_media.json"))
             except Exception:
                 to_handle = {}
-
-            for torrent in qbt_client.torrents_info(sort="size"):
+            torrents = qbt_client.torrents_info(sort="size")
+            # torrents 进行排序，优先处理 tag 中有 HP 的种子
+            torrents = sorted(torrents, key=lambda x: "HP" in x.tags, reverse=True)
+            for torrent in torrents:
                 try:
                     if torrent.progress == 1 or torrent.state in [
                         "uploading",
@@ -877,8 +879,7 @@ def main(src_dir=""):
 
         except Exception as e:
             logger.exception(e)
-            time.sleep(60)
-            continue
+
         # clean empty folder
         if REMOVE_EMPTY_FOLDER:
             remove_empty_folder(folders=list(CATEGORY_SETTINGS_MAPPING.keys()))
@@ -888,7 +889,7 @@ def main(src_dir=""):
             handle_local_media()
 
         # check interval
-        time.sleep(60)
+        time.sleep(5)
 
 
 if __name__ == "__main__":
