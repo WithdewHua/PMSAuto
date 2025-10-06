@@ -158,7 +158,9 @@ def main(src_dir=""):
                         )
                         is_nc17 = True if re.search(r"NC17-Movies", category) else False
                         query_flag = (
-                            True if not re.search(r"NSFW|Music", category) else False
+                            True
+                            if not re.search(r"NSFW|Music|Hentai", category)
+                            else False
                         )
                         is_anime = True if re.search(r"Anime", category) else False
                         is_documentary, is_variety = False, False
