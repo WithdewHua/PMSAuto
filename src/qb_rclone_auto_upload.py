@@ -91,7 +91,8 @@ def main(src_dir=""):
             torrents = qbt_client.torrents_info(sort="size")
             # torrents 进行排序，优先处理 tag 中有 HP 的种子
             torrents = sorted(torrents, key=lambda x: "HP" in x.tags, reverse=True)
-            for torrent in torrents:
+            # 取前 3 个进行处理，及时刷新
+            for torrent in torrents[:3]:
                 try:
                     if torrent.progress == 1 or torrent.state in [
                         "uploading",
