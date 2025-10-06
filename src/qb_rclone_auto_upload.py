@@ -91,8 +91,8 @@ def main(src_dir=""):
             torrents = qbt_client.torrents_info(sort="size")
             # torrents 进行排序，优先处理 tag 中有 HP 的种子
             torrents = sorted(torrents, key=lambda x: "HP" in x.tags, reverse=True)
-            # 取前 3 个进行处理，及时刷新
-            for torrent in torrents[:3]:
+            handled = 0
+            for torrent in torrents:
                 try:
                     if torrent.progress == 1 or torrent.state in [
                         "uploading",
@@ -829,6 +829,9 @@ def main(src_dir=""):
                             with open(media_info_file_path, "wb") as f:
                                 pickle.dump(media_info, f)
 
+                            # 处理计数
+                            handled += 1
+
                     else:
                         # torrent is in inappropiate state
                         if torrent.state in ["error", "missingFiles"]:
@@ -850,7 +853,9 @@ def main(src_dir=""):
                     )
                     logger.exception(traceback.format_exc())
                     continue
-
+                if handled >= 3:
+                    logger.info("Handled 3 torrents, break for this round")
+                    break
             # 处理遗留的
             if to_handle:
                 _ = deepcopy(to_handle)
