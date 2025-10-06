@@ -54,7 +54,7 @@ def process_single_file(
         is_movie = True if category in ["Movies", "Concerts", "NC17-Movies"] else False
 
         # 对于 nsfw，直接同路径映射
-        if category == "NSFW":
+        if category in ["NSFW", "Hentai"]:
             return _process_nsfw_file(
                 file, strm_base_path, replace_prefix, prefix, video_suffix
             )
@@ -260,7 +260,7 @@ def _copy_metadata_files(
         if not rslt.returncode:
             set_ownership(target_file, UID, GID, start_prefix=str(strm_base_path))
         else:
-            logger.error(f"复制文件失败：{_file} -> {target_file}")
+            logger.error(f"复制文件失败：{_file} -> {target_file}: {rslt.stderr}")
 
 
 def copy_file(

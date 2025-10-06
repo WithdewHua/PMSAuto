@@ -494,6 +494,7 @@ if __name__ == "__main__":
             "GD-Movies-2:NC17-Movies:/Media",
             "GD-Movies-2:Concerts:/Media",
             "GD-NSFW-2:NSFW:/Media",
+            "GD-NSFW-2:Hentai:/Media",
         ]
 
     auto_strm(
