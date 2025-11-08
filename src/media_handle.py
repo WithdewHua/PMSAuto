@@ -108,6 +108,11 @@ def get_media_info_from_filename(
                 return False
         else:
             episode = parse_rslt.get("episode_number")
+            if isinstance(episode, list):
+                episode = re.search(
+                    r"- (\d{2,4})(?!\d) ", filename_pre, re.IGNORECASE
+                ).group(1)
+        logger.debug(f"{episode=}")
         resolution = parse_rslt.get("video_resolution", "")
         medium = parse_rslt.get("source", [])
         if isinstance(medium, str):

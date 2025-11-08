@@ -249,6 +249,7 @@ def _copy_metadata_files(
 
         target_file = target_strm_file.parent / _file.name
         if target_file.exists():
+            logger.info(f"文件已存在：{target_file}")
             continue
 
         logger.info(f"复制文件：{_file} -> {target_file}")
