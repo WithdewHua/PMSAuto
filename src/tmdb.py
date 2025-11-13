@@ -5,12 +5,25 @@ import pickle
 from pathlib import Path
 
 import filelock
+import requests
 from src.log import logger
 from src.settings import DATA_DIR, LOG_LEVEL, TMDB_API_KEY
 from src.utils import is_filename_length_gt_255
 from tmdbv3api import TV, Movie, Search, TMDb
 
 DATA_PATH = Path(DATA_DIR)
+
+
+class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
+    """HTTP Adapter with default timeout"""
+
+    def __init__(self, timeout, *args, **kwargs):
+        self.timeout = timeout
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):
+        kwargs["timeout"] = kwargs.get("timeout") or self.timeout
+        return super().send(request, **kwargs)
 
 
 class TMDB:
@@ -23,8 +36,16 @@ class TMDB:
         language: str = "zh",
         movie: bool = False,
         log_level: str = LOG_LEVEL,
+        timeout: int = 10,
     ) -> None:
-        self.tmdb = TMDb()
+        # 创建带 timeout 的 session
+        session = requests.Session()
+        adapter = TimeoutHTTPAdapter(timeout=timeout)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        # 将 session 传递给 TMDb
+        self.tmdb = TMDb(session=session)
         self.tmdb.api_key = api_key
         self.tmdb.language = language
         if log_level == "DEBUG":

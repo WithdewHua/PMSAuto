@@ -45,6 +45,7 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
                         {"chat_id": _chat_id, "text": text, "parse_mode": parse_mode}
                     ),
                     headers=headers,
+                    timeout=10,
                 )
                 res.raise_for_status()
             except Exception as e:
