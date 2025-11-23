@@ -834,6 +834,9 @@ def main(src_dir=""):
                             # 处理计数
                             handled += 1
 
+                            # 关闭 tmdb session
+                            tmdb.close()
+
                     else:
                         # torrent is in inappropiate state
                         if torrent.state in ["error", "missingFiles"]:

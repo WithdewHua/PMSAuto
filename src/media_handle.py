@@ -261,37 +261,39 @@ def query_tmdb_id(name, media_type):
         return tmdb_id_match.group(1)
     is_movie = True if media_type == "movie" else False
     # init TMDB
-    tmdb = TMDB(movie=is_movie)
     tmdb_id = None
-    if media_type != "anima":
-        match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", name)
-        if not match:
-            logger.error(f"Failed to get correct formatted name: {name}")
-            raise
-        name = " ".join(match.group(2).strip(".").split("."))
-        year = int(match.group(3))
-    else:
-        name = anitopy.parse(name).get("anime_title")
-        year = anitopy.parse(name).get("anime_title")
+    with TMDB(movie=is_movie) as tmdb:
+        if media_type != "anima":
+            match = re.search(r"^((.+?)[\s\.](\d{4})[\.\s])(?!\d{4}[\s\.])", name)
+            if not match:
+                logger.error(f"Failed to get correct formatted name: {name}")
+                raise
+            name = " ".join(match.group(2).strip(".").split("."))
+            year = int(match.group(3))
+        else:
+            name = anitopy.parse(name).get("anime_title")
+            year = anitopy.parse(name).get("anime_title")
 
-    cn_match = re.match(
-        r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
-        name,
-    )
+        cn_match = re.match(
+            r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
+            name,
+        )
 
-    if cn_match:
-        # 分别用中文和英文进行查询
-        for i in range(2):
-            name = cn_match.group(i + 1)
+        if cn_match:
+            # 分别用中文和英文进行查询
+            for i in range(2):
+                name = cn_match.group(i + 1)
+                tmdb_info = tmdb.get_info_from_tmdb(
+                    query_dict={"query": name, "year": year}
+                )
+                tmdb_id = tmdb_info.get("tmdb_id")
+                if tmdb_id:
+                    break
+        else:
             tmdb_info = tmdb.get_info_from_tmdb(
                 query_dict={"query": name, "year": year}
             )
             tmdb_id = tmdb_info.get("tmdb_id")
-            if tmdb_id:
-                break
-    else:
-        tmdb_info = tmdb.get_info_from_tmdb(query_dict={"query": name, "year": year})
-        tmdb_id = tmdb_info.get("tmdb_id")
     return tmdb_id
 
 
@@ -435,253 +437,259 @@ def handle_tvshow(
     if not tmdb_id:
         raise Exception(f"Failed to get info. for {media_path} from TMDB")
     # get details from tmdb
-    tmdb = TMDB(movie=False)
-    details = tmdb.get_info_from_tmdb_by_id(tmdb_id=tmdb_id)
-    tmdb_name = details.get("tmdb_name")
-    year = details.get("year")
-    month = details.get("month")
+    with TMDB(movie=False) as tmdb:
+        details = tmdb.get_info_from_tmdb_by_id(tmdb_id=tmdb_id)
+        tmdb_name = details.get("tmdb_name")
+        year = details.get("year")
+        month = details.get("month")
 
-    # 用于记录处理的文件数量,如果为 0,则认为为空文件夹
-    handled_files = 0
-    # workaround: 由于可能出现 os.walk 无内容的情况，暂时增加重试次数来规避下
-    retry = 3
-    while retry > 0:
-        for dir, _, files in os.walk(media_path):
-            removed_files = remove_hidden_files(dir, dryrun=dryrun)
-            for file in removed_files:
-                if file[1] == 0:
-                    files.remove(file[0])
-            for file in files:
-                (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
-                    dir, file
-                )
-                # remove unuseful files
-                keep_file_suffix = deepcopy(MEDIA_SUFFIX)
-                if keep_nfo:
-                    keep_file_suffix.append("nfo")
-                if not re.search(
-                    r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
-                ):
-                    if not dryrun:
-                        os.remove(filepath)
-                    logger.info("Removed file: " + filepath)
-                    continue
-
-                # remove season.nfo/tvshow.nfo
-                if re.search(r"(season|tvshow)\.nfo", file):
-                    if not dryrun:
-                        os.remove(filepath)
-                    logger.info(f"Removed file: {filepath}")
-                    continue
-
-                if not season:
-                    season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
-                    if not season_match:
-                        raise Exception(f"Not found season number: {dir + file}")
-                    _season = season_match.group(2)
-                else:
-                    _season = season
-                _season = _season.zfill(2)
-                logger.debug(f"Got season: {_season}")
-
-                # special seaon
-                if "Specials" in filepath:
-                    _season = "00"
-
-                handled_files += 1
-                # 原文件中已经包含 tmdb id
-                if re.search(r"tmdb-\d+", file):
-                    # 替换 tmdb name
-                    new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
-                    # 替换 season number
-                    new_filename = re.sub(
-                        r"S\d{2}", f"S{_season}", new_filename, count=1
+        # 用于记录处理的文件数量,如果为 0,则认为为空文件夹
+        handled_files = 0
+        # workaround: 由于可能出现 os.walk 无内容的情况，暂时增加重试次数来规避下
+        retry = 3
+        while retry > 0:
+            for dir, _, files in os.walk(media_path):
+                removed_files = remove_hidden_files(dir, dryrun=dryrun)
+                for file in removed_files:
+                    if file[1] == 0:
+                        files.remove(file[0])
+                for file in files:
+                    (filepath, filename_pre, filename_suffix) = (
+                        media_filename_pre_handle(dir, file)
                     )
-                    # 替换 episode
-                    episode = get_media_info_from_filename(
-                        filename_pre,
-                        media_type=media_type,
-                        regex=regex,
-                        nogroup=nogroup,
-                        group=group,
-                    )[0]
-                    if offset:
-                        episode = str(int(episode) - int(offset)).zfill(len(episode))
-                    new_filename = re.sub(
-                        r"E(\d+)", f"E{episode}", new_filename, count=1
-                    )
-                    if new_filename == file and not force:
-                        logger.warning(f"{file}'s name does not change, skipping...")
+                    # remove unuseful files
+                    keep_file_suffix = deepcopy(MEDIA_SUFFIX)
+                    if keep_nfo:
+                        keep_file_suffix.append("nfo")
+                    if not re.search(
+                        r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
+                    ):
+                        if not dryrun:
+                            os.remove(filepath)
+                        logger.info("Removed file: " + filepath)
                         continue
-                    if is_filename_length_gt_255(
-                        new_filename, extra_len=15 if CREATE_STRM_FILE else 0
-                    ):
-                        new_filename = new_filename.split(" - ", 1)[1]
-                else:
-                    (
-                        episode,
-                        web_source,
-                        resolution,
-                        medium,
-                        frame,
-                        codec,
-                        audio,
-                        version,
-                        _group,
-                    ) = get_media_info_from_filename(
-                        filename_pre,
-                        media_type=media_type,
-                        regex=regex,
-                        nogroup=nogroup,
-                        group=group,
-                    )
-                    # new file name with file extension
-                    new_filename = (
-                        tmdb_name
-                        + " - "
-                        + f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
-                    )
 
-                    if version:
-                        new_filename += (
-                            f" - [{version}]"
-                            if "edition-" not in version
-                            else f" - {version}"
-                        )
-                    if not ORIGIN_NAME:
-                        if web_source:
-                            new_filename += f" [{web_source}]"
-                        if resolution:
-                            new_filename += f" [{resolution}]"
-                        if medium:
-                            new_filename += f" [{' '.join(medium)}]"
-                        if frame:
-                            new_filename += f" [{frame}]"
-                        if codec:
-                            new_filename += f" [{' '.join(codec)}]"
-                        if audio:
-                            new_filename += f" [{' '.join(audio)}]"
-                        if _group:
-                            new_filename += f" [{_group}]"
+                    # remove season.nfo/tvshow.nfo
+                    if re.search(r"(season|tvshow)\.nfo", file):
+                        if not dryrun:
+                            os.remove(filepath)
+                        logger.info(f"Removed file: {filepath}")
+                        continue
+
+                    if not season:
+                        season_match = re.search(r"S(eason)?\s?(\d{1,2})", dir + file)
+                        if not season_match:
+                            raise Exception(f"Not found season number: {dir + file}")
+                        _season = season_match.group(2)
                     else:
-                        new_filename += f" - {filename_pre}"
+                        _season = season
+                    _season = _season.zfill(2)
+                    logger.debug(f"Got season: {_season}")
 
-                    new_filename += f".{filename_suffix}"
-                    # 如果需要创建 strm 文件，因为需要增加 .strm 后缀，文件名长度需要更短一些
-                    # 考虑到神医插件，最大占用 15 字节，offset 取最大 15
-                    if is_filename_length_gt_255(
-                        new_filename, extra_len=15 if CREATE_STRM_FILE else 0
-                    ):
+                    # special seaon
+                    if "Specials" in filepath:
+                        _season = "00"
+
+                    handled_files += 1
+                    # 原文件中已经包含 tmdb id
+                    if re.search(r"tmdb-\d+", file):
+                        # 替换 tmdb name
+                        new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, file)
+                        # 替换 season number
+                        new_filename = re.sub(
+                            r"S\d{2}", f"S{_season}", new_filename, count=1
+                        )
+                        # 替换 episode
+                        episode = get_media_info_from_filename(
+                            filename_pre,
+                            media_type=media_type,
+                            regex=regex,
+                            nogroup=nogroup,
+                            group=group,
+                        )[0]
+                        if offset:
+                            episode = str(int(episode) - int(offset)).zfill(
+                                len(episode)
+                            )
+                        new_filename = re.sub(
+                            r"E(\d+)", f"E{episode}", new_filename, count=1
+                        )
+                        if new_filename == file and not force:
+                            logger.warning(
+                                f"{file}'s name does not change, skipping..."
+                            )
+                            continue
+                        if is_filename_length_gt_255(
+                            new_filename, extra_len=15 if CREATE_STRM_FILE else 0
+                        ):
+                            new_filename = new_filename.split(" - ", 1)[1]
+                    else:
+                        (
+                            episode,
+                            web_source,
+                            resolution,
+                            medium,
+                            frame,
+                            codec,
+                            audio,
+                            version,
+                            _group,
+                        ) = get_media_info_from_filename(
+                            filename_pre,
+                            media_type=media_type,
+                            regex=regex,
+                            nogroup=nogroup,
+                            group=group,
+                        )
+                        # new file name with file extension
                         new_filename = (
-                            f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+                            tmdb_name
                             + " - "
-                            + file
+                            + f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
                         )
 
-                # 由于 plex 对多层目录支持不好，直接使用一级目录
-                # 已有的保持之前的多层目录
-                new_media_dir = os.path.join(
-                    dst_path, f"Aired_{year}", f"M{month}", tmdb_name
-                )
-                if not os.path.exists(new_media_dir):
-                    new_media_dir = os.path.join(dst_path, tmdb_name)
-                new_dir = os.path.join(new_media_dir, f"Season {_season}")
-                new_file_path = os.path.join(new_dir, new_filename)
-                if dst_path != media_path and not dryrun:
-                    if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
-                        add_plexmatch_file(
-                            new_dir,
-                            details.get("title"),
-                            year=year,
-                            tmdb_id=tmdb_id,
-                            season=int(_season),
-                        )
-                    if not os.path.exists(os.path.join(new_media_dir, ".plexmatch")):
-                        add_plexmatch_file(
-                            new_media_dir,
-                            details.get("title"),
-                            year=year,
-                            tmdb_id=tmdb_id,
-                        )
-                    scan_folders.append(new_dir)
-                    logger.debug(f"Added scan folder: {new_dir}")
+                        if version:
+                            new_filename += (
+                                f" - [{version}]"
+                                if "edition-" not in version
+                                else f" - {version}"
+                            )
+                        if not ORIGIN_NAME:
+                            if web_source:
+                                new_filename += f" [{web_source}]"
+                            if resolution:
+                                new_filename += f" [{resolution}]"
+                            if medium:
+                                new_filename += f" [{' '.join(medium)}]"
+                            if frame:
+                                new_filename += f" [{frame}]"
+                            if codec:
+                                new_filename += f" [{' '.join(codec)}]"
+                            if audio:
+                                new_filename += f" [{' '.join(audio)}]"
+                            if _group:
+                                new_filename += f" [{_group}]"
+                        else:
+                            new_filename += f" - {filename_pre}"
 
-                rename_media(
-                    os.path.join(dir, file),
-                    new_file_path,
-                    dryrun=dryrun,
-                    replace=replace,
-                )
-                # 创建 strm 文件
-                # 旧格式，新格式仍采用年月的多层格式
-                strm_base_path = (
-                    Path(STRM_FILE_PATH)
-                    / Path(dst_path).name
-                    / f"Aired_{year}"
-                    / tmdb_name
-                    / f"Season {_season}"
-                )
-                if not check_remote_path_exists(strm_base_path):
+                        new_filename += f".{filename_suffix}"
+                        # 如果需要创建 strm 文件，因为需要增加 .strm 后缀，文件名长度需要更短一些
+                        # 考虑到神医插件，最大占用 15 字节，offset 取最大 15
+                        if is_filename_length_gt_255(
+                            new_filename, extra_len=15 if CREATE_STRM_FILE else 0
+                        ):
+                            new_filename = (
+                                f"S{_season}E{str(int(episode) - int(offset)).zfill(int(len(episode))).zfill(int(episode_bit))}"
+                                + " - "
+                                + file
+                            )
+
+                    # 由于 plex 对多层目录支持不好，直接使用一级目录
+                    # 已有的保持之前的多层目录
+                    new_media_dir = os.path.join(
+                        dst_path, f"Aired_{year}", f"M{month}", tmdb_name
+                    )
+                    if not os.path.exists(new_media_dir):
+                        new_media_dir = os.path.join(dst_path, tmdb_name)
+                    new_dir = os.path.join(new_media_dir, f"Season {_season}")
+                    new_file_path = os.path.join(new_dir, new_filename)
+                    if dst_path != media_path and not dryrun:
+                        if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
+                            add_plexmatch_file(
+                                new_dir,
+                                details.get("title"),
+                                year=year,
+                                tmdb_id=tmdb_id,
+                                season=int(_season),
+                            )
+                        if not os.path.exists(
+                            os.path.join(new_media_dir, ".plexmatch")
+                        ):
+                            add_plexmatch_file(
+                                new_media_dir,
+                                details.get("title"),
+                                year=year,
+                                tmdb_id=tmdb_id,
+                            )
+                        scan_folders.append(new_dir)
+                        logger.debug(f"Added scan folder: {new_dir}")
+
+                    rename_media(
+                        os.path.join(dir, file),
+                        new_file_path,
+                        dryrun=dryrun,
+                        replace=replace,
+                    )
+                    # 创建 strm 文件
+                    # 旧格式，新格式仍采用年月的多层格式
                     strm_base_path = (
                         Path(STRM_FILE_PATH)
                         / Path(dst_path).name
                         / f"Aired_{year}"
-                        / f"M{month}"
                         / tmdb_name
                         / f"Season {_season}"
                     )
-                handle_remote_strm_files(
-                    new_file_path, new_filename, strm_base_path, dryrun
-                )
-                # 处理原 strm 文件
-                if strm_check:
-                    old_file_path = Path(dir) / file
-                    old_year = re.search(r"\s\((\d{4})\)\s", str(old_file_path))
-                    if old_year:
-                        old_year = old_year.group(1)
-                        old_tmdb_name = old_file_path.parent.parent.name
-                        old_strm_base_path = (
+                    if not check_remote_path_exists(strm_base_path):
+                        strm_base_path = (
                             Path(STRM_FILE_PATH)
-                            / str(Path(media_path)).split("/")[2]
-                            / f"Aired_{old_year}"
-                            / old_tmdb_name
-                            / old_file_path.parent.name
+                            / Path(dst_path).name
+                            / f"Aired_{year}"
+                            / f"M{month}"
+                            / tmdb_name
+                            / f"Season {_season}"
                         )
-                        # 删除原 strm 文件
-                        from ssh_client import delete_remote_strm_file
-
-                        delete_remote_strm_file(
-                            old_strm_base_path / (old_file_path.name + ".strm")
-                        )
-                        # 删除 mediainfo 文件
-                        delete_remote_strm_file(
-                            old_strm_base_path
-                            / (old_file_path.name + "-mediainfo.json")
-                        )
-
-                # mediainfo
-                # 目前只对非 strm 进行处理
-                if not CREATE_STRM_FILE and EMBY_STRM_ASSISTANT_MEDIAINFO:
-                    handle_strm_assistant_mediainfo(
-                        dir,
-                        filename_pre,
-                        new_dir,
-                        new_filename,
-                        dryrun=dryrun,
-                        replace=replace,
+                    handle_remote_strm_files(
+                        new_file_path, new_filename, strm_base_path, dryrun
                     )
+                    # 处理原 strm 文件
+                    if strm_check:
+                        old_file_path = Path(dir) / file
+                        old_year = re.search(r"\s\((\d{4})\)\s", str(old_file_path))
+                        if old_year:
+                            old_year = old_year.group(1)
+                            old_tmdb_name = old_file_path.parent.parent.name
+                            old_strm_base_path = (
+                                Path(STRM_FILE_PATH)
+                                / str(Path(media_path)).split("/")[2]
+                                / f"Aired_{old_year}"
+                                / old_tmdb_name
+                                / old_file_path.parent.name
+                            )
+                            # 删除原 strm 文件
+                            from ssh_client import delete_remote_strm_file
 
-        if handled_files != 0:
-            break
-        retry -= 1
-        sleep(30)
+                            delete_remote_strm_file(
+                                old_strm_base_path / (old_file_path.name + ".strm")
+                            )
+                            # 删除 mediainfo 文件
+                            delete_remote_strm_file(
+                                old_strm_base_path
+                                / (old_file_path.name + "-mediainfo.json")
+                            )
 
-    if handled_files == 0:
-        if not os.listdir(media_path):
-            logger.debug(f"Empty folder: {media_path}")
-        else:
-            # raise, 交由上层继续处理
-            raise Exception(f"Meida Not Found: {media_path}")
+                    # mediainfo
+                    # 目前只对非 strm 进行处理
+                    if not CREATE_STRM_FILE and EMBY_STRM_ASSISTANT_MEDIAINFO:
+                        handle_strm_assistant_mediainfo(
+                            dir,
+                            filename_pre,
+                            new_dir,
+                            new_filename,
+                            dryrun=dryrun,
+                            replace=replace,
+                        )
+
+            if handled_files != 0:
+                break
+            retry -= 1
+            sleep(30)
+
+        if handled_files == 0:
+            if not os.listdir(media_path):
+                logger.debug(f"Empty folder: {media_path}")
+            else:
+                # raise, 交由上层继续处理
+                raise Exception(f"Meida Not Found: {media_path}")
 
     return scan_folders
 
@@ -710,185 +718,194 @@ def handle_movie(
         scan_folders = []
     # 初始化 tmdb
     tmdb_name = ""
-    tmdb = TMDB(movie=True)
 
-    for dir, subdir, files in os.walk(media_path):
-        removed_files = remove_hidden_files(dir, dryrun=dryrun)
-        for file in removed_files:
-            if file[1] == 1:
-                subdir.remove(file[0])
-        for _dir in subdir:
-            if re.search("Sample", _dir):
-                if not dryrun:
-                    shutil.rmtree(os.path.join(dir, _dir))
-                logger.info(f"Removed sample folder: {os.path.join(media_path, _dir)}")
-        for filename in files:
-            if isfile and filename != os.path.basename(media_name):
-                logger.info(f"No need to handle {filename}, skip...")
-                continue
-
-            (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
-                dir, filename
-            )
-            keep_file_suffix = deepcopy(MEDIA_SUFFIX)
-            if keep_nfo:
-                keep_file_suffix.append("nfo")
-            if not re.search(
-                r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
-            ):
-                if not dryrun:
-                    os.remove(filepath)
-                logger.info("Removed file: " + filepath)
-                continue
-
-            # for collections, query for each file
-            logger.info(f"Handling {filename} starts")
-            _tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
-            if not _tmdb_id:
-                raise Exception(
-                    f"Failed to get info. for {os.path.join(dir, filename)} from TMDB"
-                )
-            details = tmdb.get_info_from_tmdb_by_id(tmdb_id=_tmdb_id)
-            tmdb_name = details.get("tmdb_name")
-            year = details.get("year")
-            month = details.get("month")
-
-            if re.search(r"tmdb-\d+", filename):
-                new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, filename)
-                # 去除不规范命名，会导致 plex 无法扫出
-                new_filename = re.sub(r"[\.\s]?S\d{2}(E\d{1,4})?", "", new_filename)
-                if new_filename == filename and not force:
-                    logger.warning(f"{filename}'s name does not change, skipping...")
+    with TMDB(movie=True) as tmdb:
+        for dir, subdir, files in os.walk(media_path):
+            removed_files = remove_hidden_files(dir, dryrun=dryrun)
+            for file in removed_files:
+                if file[1] == 1:
+                    subdir.remove(file[0])
+            for _dir in subdir:
+                if re.search("Sample", _dir):
+                    if not dryrun:
+                        shutil.rmtree(os.path.join(dir, _dir))
+                    logger.info(
+                        f"Removed sample folder: {os.path.join(media_path, _dir)}"
+                    )
+            for filename in files:
+                if isfile and filename != os.path.basename(media_name):
+                    logger.info(f"No need to handle {filename}, skip...")
                     continue
-                if is_filename_length_gt_255(
-                    new_filename, extra_len=15 if CREATE_STRM_FILE else 0
-                ):
-                    new_filename = new_filename.split(" - ", 1)[1]
-            else:
-                (
-                    web_source,
-                    resolution,
-                    medium,
-                    frame,
-                    codec,
-                    audio,
-                    version,
-                    _group,
-                ) = get_media_info_from_filename(
-                    filename_pre, media_type="movie", nogroup=nogroup, group=group
+
+                (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
+                    dir, filename
                 )
-                # new file name with file extension
-                new_filename = tmdb_name
-
-                if version:
-                    new_filename += (
-                        f" - [{version}]"
-                        if "edition-" not in version
-                        else f" - {version}"
-                    )
-                if not ORIGIN_NAME:
-                    if web_source:
-                        new_filename += f" [{web_source}]"
-                    if resolution:
-                        new_filename += f" [{resolution}]"
-                    if medium:
-                        new_filename += f" [{' '.join(medium)}]"
-                    if frame:
-                        new_filename += f" [{frame}]"
-                    if codec:
-                        new_filename += f" [{' '.join(codec)}]"
-                    if audio:
-                        new_filename += f" [{' '.join(audio)}]"
-                    if _group:
-                        new_filename += f" [{_group}]"
-                else:
-                    new_filename += f" - {filename_pre}"
-
-                new_filename += f".{filename_suffix}"
-                # 去除不规范命名，会导致 plex 无法扫出
-                new_filename = re.sub(r"[\.\s]?S\d{2}(E\d{1,4})?", "", new_filename)
-
-                if is_filename_length_gt_255(
-                    new_filename, extra_len=15 if CREATE_STRM_FILE else 0
+                keep_file_suffix = deepcopy(MEDIA_SUFFIX)
+                if keep_nfo:
+                    keep_file_suffix.append("nfo")
+                if not re.search(
+                    r"|".join(keep_file_suffix), filename_suffix, re.IGNORECASE
                 ):
-                    new_filename = (
-                        f"{version} - {filename}" if "edition-" in version else filename
+                    if not dryrun:
+                        os.remove(filepath)
+                    logger.info("Removed file: " + filepath)
+                    continue
+
+                # for collections, query for each file
+                logger.info(f"Handling {filename} starts")
+                _tmdb_id = tmdb_id or query_tmdb_id(filename, media_type="movie")
+                if not _tmdb_id:
+                    raise Exception(
+                        f"Failed to get info. for {os.path.join(dir, filename)} from TMDB"
                     )
-            # 由于 plex 对多层目录支持不好，直接使用一级目录
-            # 已有的保持之前的多层目录
-            new_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", tmdb_name)
-            if not os.path.exists(new_dir):
-                new_dir = os.path.join(dst_path, tmdb_name)
-            new_file_path = os.path.join(new_dir, new_filename)
-            if dst_path != media_path and not dryrun:
-                if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
-                    add_plexmatch_file(
-                        new_dir, details.get("title"), year=year, tmdb_id=_tmdb_id
+                details = tmdb.get_info_from_tmdb_by_id(tmdb_id=_tmdb_id)
+                tmdb_name = details.get("tmdb_name")
+                year = details.get("year")
+                month = details.get("month")
+
+                if re.search(r"tmdb-\d+", filename):
+                    new_filename = re.sub(r".*{tmdb-\d+}", tmdb_name, filename)
+                    # 去除不规范命名，会导致 plex 无法扫出
+                    new_filename = re.sub(r"[\.\s]?S\d{2}(E\d{1,4})?", "", new_filename)
+                    if new_filename == filename and not force:
+                        logger.warning(
+                            f"{filename}'s name does not change, skipping..."
+                        )
+                        continue
+                    if is_filename_length_gt_255(
+                        new_filename, extra_len=15 if CREATE_STRM_FILE else 0
+                    ):
+                        new_filename = new_filename.split(" - ", 1)[1]
+                else:
+                    (
+                        web_source,
+                        resolution,
+                        medium,
+                        frame,
+                        codec,
+                        audio,
+                        version,
+                        _group,
+                    ) = get_media_info_from_filename(
+                        filename_pre, media_type="movie", nogroup=nogroup, group=group
                     )
-                scan_folders.append(new_dir)
-                logger.debug(f"Added scan folder: {new_dir}")
-            rename_media(
-                os.path.join(dir, filename),
-                new_file_path,
-                dryrun=dryrun,
-                replace=replace,
-            )
-            # 创建 strm 文件
-            # 旧格式，新格式仍采用年月方式
-            strm_base_path = (
-                Path(STRM_FILE_PATH)
-                / Path(dst_path).name
-                / f"Released_{year}"
-                / tmdb_name
-            )
-            if not check_remote_path_exists(strm_base_path):
+                    # new file name with file extension
+                    new_filename = tmdb_name
+
+                    if version:
+                        new_filename += (
+                            f" - [{version}]"
+                            if "edition-" not in version
+                            else f" - {version}"
+                        )
+                    if not ORIGIN_NAME:
+                        if web_source:
+                            new_filename += f" [{web_source}]"
+                        if resolution:
+                            new_filename += f" [{resolution}]"
+                        if medium:
+                            new_filename += f" [{' '.join(medium)}]"
+                        if frame:
+                            new_filename += f" [{frame}]"
+                        if codec:
+                            new_filename += f" [{' '.join(codec)}]"
+                        if audio:
+                            new_filename += f" [{' '.join(audio)}]"
+                        if _group:
+                            new_filename += f" [{_group}]"
+                    else:
+                        new_filename += f" - {filename_pre}"
+
+                    new_filename += f".{filename_suffix}"
+                    # 去除不规范命名，会导致 plex 无法扫出
+                    new_filename = re.sub(r"[\.\s]?S\d{2}(E\d{1,4})?", "", new_filename)
+
+                    if is_filename_length_gt_255(
+                        new_filename, extra_len=15 if CREATE_STRM_FILE else 0
+                    ):
+                        new_filename = (
+                            f"{version} - {filename}"
+                            if "edition-" in version
+                            else filename
+                        )
+                # 由于 plex 对多层目录支持不好，直接使用一级目录
+                # 已有的保持之前的多层目录
+                new_dir = os.path.join(
+                    dst_path, f"Released_{year}", f"M{month}", tmdb_name
+                )
+                if not os.path.exists(new_dir):
+                    new_dir = os.path.join(dst_path, tmdb_name)
+                new_file_path = os.path.join(new_dir, new_filename)
+                if dst_path != media_path and not dryrun:
+                    if not os.path.exists(os.path.join(new_dir, ".plexmatch")):
+                        add_plexmatch_file(
+                            new_dir, details.get("title"), year=year, tmdb_id=_tmdb_id
+                        )
+                    scan_folders.append(new_dir)
+                    logger.debug(f"Added scan folder: {new_dir}")
+                rename_media(
+                    os.path.join(dir, filename),
+                    new_file_path,
+                    dryrun=dryrun,
+                    replace=replace,
+                )
+                # 创建 strm 文件
+                # 旧格式，新格式仍采用年月方式
                 strm_base_path = (
                     Path(STRM_FILE_PATH)
                     / Path(dst_path).name
                     / f"Released_{year}"
-                    / f"M{month}"
                     / tmdb_name
                 )
-            handle_remote_strm_files(
-                new_file_path, new_filename, strm_base_path, dryrun
-            )
-            # 处理原 strm 文件
-            if strm_check:
-                old_file_path = Path(dir) / filename
-                old_year = re.search(r"\s\((\d{4})\)\s", str(old_file_path))
-                if old_year:
-                    old_year = old_year.group(1)
-                    old_tmdb_name = old_file_path.parent.name
-                    old_strm_base_path = (
+                if not check_remote_path_exists(strm_base_path):
+                    strm_base_path = (
                         Path(STRM_FILE_PATH)
-                        / str(Path(media_path)).split("/")[2]
-                        / f"Released_{old_year}"
-                        / old_tmdb_name
+                        / Path(dst_path).name
+                        / f"Released_{year}"
+                        / f"M{month}"
+                        / tmdb_name
                     )
-                    # 删除原 strm 文件
-                    from ssh_client import delete_remote_strm_file
-
-                    delete_remote_strm_file(
-                        old_strm_base_path / (old_file_path.name + ".strm")
-                    )
-                    # 删除 mediainfo 文件
-                    delete_remote_strm_file(
-                        old_strm_base_path / (old_file_path.name + "-mediainfo.json")
-                    )
-
-            # mediainfo
-            # 目前只对非 strm 进行处理
-            if not CREATE_STRM_FILE and EMBY_STRM_ASSISTANT_MEDIAINFO:
-                handle_strm_assistant_mediainfo(
-                    dir,
-                    filename_pre
-                    if not CREATE_STRM_FILE
-                    else filename_pre + f".{filename_suffix}",
-                    new_dir,
-                    new_filename,
-                    dryrun=dryrun,
-                    replace=replace,
+                handle_remote_strm_files(
+                    new_file_path, new_filename, strm_base_path, dryrun
                 )
+                # 处理原 strm 文件
+                if strm_check:
+                    old_file_path = Path(dir) / filename
+                    old_year = re.search(r"\s\((\d{4})\)\s", str(old_file_path))
+                    if old_year:
+                        old_year = old_year.group(1)
+                        old_tmdb_name = old_file_path.parent.name
+                        old_strm_base_path = (
+                            Path(STRM_FILE_PATH)
+                            / str(Path(media_path)).split("/")[2]
+                            / f"Released_{old_year}"
+                            / old_tmdb_name
+                        )
+                        # 删除原 strm 文件
+                        from ssh_client import delete_remote_strm_file
+
+                        delete_remote_strm_file(
+                            old_strm_base_path / (old_file_path.name + ".strm")
+                        )
+                        # 删除 mediainfo 文件
+                        delete_remote_strm_file(
+                            old_strm_base_path
+                            / (old_file_path.name + "-mediainfo.json")
+                        )
+
+                # mediainfo
+                # 目前只对非 strm 进行处理
+                if not CREATE_STRM_FILE and EMBY_STRM_ASSISTANT_MEDIAINFO:
+                    handle_strm_assistant_mediainfo(
+                        dir,
+                        filename_pre
+                        if not CREATE_STRM_FILE
+                        else filename_pre + f".{filename_suffix}",
+                        new_dir,
+                        new_filename,
+                        dryrun=dryrun,
+                        replace=replace,
+                    )
 
     return scan_folders
 

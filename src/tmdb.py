@@ -58,6 +58,16 @@ class TMDB:
             self.tmdb_media = TV()
         self.tmdb_id = None
 
+    def close(self):
+        """Close TMDB session"""
+        self.tmdb._session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     @classmethod
     def _read_cache(cls):
         """Read cache from file"""
