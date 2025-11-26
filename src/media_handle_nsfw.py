@@ -6,7 +6,7 @@ from src.log import logger
 from src.media_handle import rename_media, send_scan_request
 from src.mediaserver import Plex
 
-src_path = "/Media/Inbox/NSFW/Done"
+src_path = "/Media/Inbox/MDC-NG"
 dst_path = "/Media/NSFW"
 
 src_dirs = os.listdir(src_path)
@@ -17,8 +17,11 @@ scan_folders = []
 release_cre = re.compile(r"<(release|premiered)>([\d-]+)</(release|premiered)>")
 # actors/number
 for src_dir in src_dirs:
-    if src_dir in ["failed", "佚名", "#未知女优"]:
+    if src_dir in ["failed", "佚名", "#未知女优", "未知演员"]:
         continue
+    logger.info(
+        f"当前进度: {src_dirs.index(src_dir)+1}/{len(src_dirs)} 正在处理: {src_dir}"
+    )
     numbers = os.listdir(os.path.join(src_path, src_dir))
     for number in numbers:
         c_nfo = os.path.join(src_path, src_dir, number, f"{number}-C.nfo")
@@ -51,7 +54,7 @@ for src_dir in src_dirs:
 
 _plex = Plex()
 for scan_folder in set(scan_folders):
-    send_scan_request(scan_folder, plex=True, emby=False)
+    send_scan_request(scan_folder, plex=False, emby=False)
     sleep(30)
     # refresh metadata
     _plex.refresh_recently_added("/Media/NSFW", max=5)
