@@ -331,8 +331,9 @@ def auto_strm(
         for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
             if not dry_run:
                 try:
-                    Path(strm_file_path).unlink(missing_ok=False)
-                    logger.info(f"删除文件成功: {strm_file_path}")
+                    if Path(strm_file_path).exists():
+                        Path(strm_file_path).unlink(missing_ok=False)
+                        logger.info(f"删除文件成功: {strm_file_path}")
                     deleted.append(file_path)
                 except Exception as e:
                     logger.error(f"删除文件失败: {strm_file_path} - {e}")

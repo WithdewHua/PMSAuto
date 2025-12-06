@@ -1128,8 +1128,8 @@ def media_handle(
         logger.warning("Unkown media type, skip……")
 
     if (PLEX_AUTO_SCAN or EMBY_AUTO_SCAN) and scan_folders:
-        # 120s 后执行, 尽量避免 rclone 未更新导致路径找不到
-        run_date = datetime.datetime.now() + datetime.timedelta(minutes=3)
+        # 60s 后执行, 尽量避免 rclone 未更新导致路径找不到
+        run_date = datetime.datetime.now() + datetime.timedelta(minutes=1)
         scheduler = Scheduler()
         if keep_job_persisted and not scheduler.jobstores.get("sqlite"):
             scheduler.add_jobstore(
