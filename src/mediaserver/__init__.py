@@ -20,8 +20,17 @@ def send_scan_request(
         scan_folders = [scan_folders]
     media_servers = []
     if plex:
-        _plex = Plex()
-        media_servers.append(_plex)
+        retry = 0
+        while retry < 3:
+            try:
+                _plex = Plex()
+            except Exception as e:
+                logger.error(f"Failed to initialize Plex due to: {e}")
+                logger.error(traceback.format_exc())
+            else:
+                media_servers.append(_plex)
+                break
+            retry += 1
     if emby:
         _emby = Emby()
         media_servers.append(_emby)
