@@ -2,6 +2,7 @@
 
 import random
 import re
+import traceback
 from time import sleep
 from typing import Optional, Sequence, Union
 
@@ -15,7 +16,18 @@ class Plex:
     """class Plex"""
 
     def __init__(self, base_url: str = PLEX_BASE_URL, token: str = PLEX_API_TOKEN):
-        self.plex_server = PlexServer(baseurl=base_url, token=token)
+        self.plex_server = None
+        retry = 0
+        while retry < 3:
+            try:
+                self.plex_server = PlexServer(baseurl=base_url, token=token)
+            except Exception as e:
+                logger.error(f"Failed to initialize PlexServer due to: {e}")
+                logger.error(traceback.format_exc())
+                sleep(3)
+                retry += 1
+            else:
+                break
 
     def get_section_by_location(self, location: str) -> Optional[Section]:
         for section in self.plex_server.library.sections():
