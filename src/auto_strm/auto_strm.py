@@ -273,7 +273,26 @@ def auto_strm(
     logger.info("第二阶段：处理文件")
     logger.info("=" * 50)
 
-    # 处理文件
+    # 先删除多余的 strm 文件和字幕文件
+    deleted = []
+    if all_to_delete:
+        logger.info(f"开始删除 {len(all_to_delete)} 个多余的文件")
+        for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
+            if not dry_run:
+                try:
+                    if Path(strm_file_path).exists():
+                        Path(strm_file_path).unlink(missing_ok=False)
+                        logger.info(f"删除文件成功: {strm_file_path}")
+                    deleted.append(file_path)
+                except Exception as e:
+                    logger.error(f"删除文件失败: {strm_file_path} - {e}")
+            else:
+                deleted.append(file_path)
+        logger.info(
+            f"成功删除 {len(deleted)} 个文件，仍有 {len(all_to_delete) - len(deleted)} 个文件删除失败"
+        )
+
+    # 再处理新增文件
     processed_count = 0
 
     if not dry_run and files_to_process:
@@ -323,25 +342,6 @@ def auto_strm(
                         f"[{processed_count}/{len(files_to_process)}] 文件 {file} 处理异常: {exc}"
                     )
                     all_not_handled[remote_folder].add((str(file), f"处理异常: {exc}"))
-
-    # 删除多余的 strm 文件和字幕文件
-    deleted = []
-    if all_to_delete:
-        logger.info(f"开始删除 {len(all_to_delete)} 个多余的文件")
-        for file_path, (strm_file_path, remote_folder) in all_to_delete.items():
-            if not dry_run:
-                try:
-                    if Path(strm_file_path).exists():
-                        Path(strm_file_path).unlink(missing_ok=False)
-                        logger.info(f"删除文件成功: {strm_file_path}")
-                    deleted.append(file_path)
-                except Exception as e:
-                    logger.error(f"删除文件失败: {strm_file_path} - {e}")
-            else:
-                deleted.append(file_path)
-        logger.info(
-            f"成功删除 {len(deleted)} 个文件，仍有 {len(all_to_delete) - len(deleted)} 个文件删除失败"
-        )
 
     # 添加已存在的文件到处理结果中
     for file_path, (strm_file_path, remote_folder) in all_last_handled.items():
@@ -494,8 +494,8 @@ if __name__ == "__main__":
             "GD-Movies-2:Movies:/Media",
             "GD-Movies-2:NC17-Movies:/Media",
             "GD-Movies-2:Concerts:/Media",
-            "GD-NSFW-2:NSFW:/Media",
-            "GD-NSFW-2:Hentai:/Media",
+            # "GD-NSFW-2:NSFW:/Media",
+            # "GD-NSFW-2:Hentai:/Media",
         ]
 
     auto_strm(
