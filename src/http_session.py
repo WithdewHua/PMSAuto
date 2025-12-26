@@ -9,7 +9,9 @@
 import atexit
 
 import requests
+from requests.adapters import HTTPAdapter
 from src.log import logger
+from urllib3.util.retry import Retry
 
 
 class GlobalHTTPSessionManager:
@@ -37,11 +39,28 @@ class GlobalHTTPSessionManager:
             logger.info("初始化全局 HTTP Session 连接池")
             self._session = requests.Session()
 
+            # 配置重试策略 - 更合理的重试参数
+            retry_strategy = Retry(
+                total=3,  # 总重试次数
+                backoff_factor=1,  # 重试间隔系数 (1, 2, 4 秒)
+                status_forcelist=[429, 500, 502, 503, 504],  # 需要重试的 HTTP 状态码
+                allowed_methods=[
+                    "HEAD",
+                    "GET",
+                    "PUT",
+                    "DELETE",
+                    "OPTIONS",
+                    "TRACE",
+                    "POST",
+                ],
+                raise_on_status=False,  # 不在重试时抛出异常
+            )
+
             # 配置 HTTP 适配器 - 优化连接池参数
-            adapter = requests.adapters.HTTPAdapter(
+            adapter = HTTPAdapter(
                 pool_connections=20,  # 连接池大小
                 pool_maxsize=40,  # 每个主机的最大连接数
-                max_retries=3,  # 重试次数
+                max_retries=retry_strategy,  # 使用重试策略
                 pool_block=False,  # 非阻塞模式
             )
 
