@@ -540,8 +540,7 @@ def main(src_dir=""):
                                 if tmdb.is_movie and tmdb_name:
                                     # 记录中没有则进行查询
                                     if is_nc17 is None:
-                                        tmdb.tmdb_id = tmdb_id
-                                        is_nc17 = tmdb.get_movie_certification()
+                                        is_nc17 = tmdb.get_movie_certification(tmdb_id)
                                     if is_nc17 and "no_rating" not in tags:
                                         save_path = "Inbox/NC17-Movies"
 
