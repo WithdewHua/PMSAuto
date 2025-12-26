@@ -39,28 +39,52 @@ class TMDB:
         timeout: int = 10,
     ) -> None:
         # 创建带 timeout 的 session
-        session = requests.Session()
+        self._session = requests.Session()
         adapter = TimeoutHTTPAdapter(timeout=timeout)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
 
         # 将 session 传递给 TMDb
-        self.tmdb = TMDb(session=session)
+        self.tmdb = TMDb(session=self._session)
         self.tmdb.api_key = api_key
         self.tmdb.language = language
         if log_level == "DEBUG":
             self.tmdb.debug = True
         self.is_movie = movie
-        self.tmdb_search = Search()
+        self.tmdb_search = Search(session=self._session)
         if self.is_movie:
-            self.tmdb_media = Movie()
+            self.tmdb_media = Movie(session=self._session)
         else:
-            self.tmdb_media = TV()
+            self.tmdb_media = TV(session=self._session)
         self.tmdb_id = None
+
+        # 保持对所有对象的引用以便清理
+        self._tmdb_objects = [self.tmdb, self.tmdb_search, self.tmdb_media]
 
     def close(self):
         """Close TMDB session"""
-        self.tmdb._session.close()
+        try:
+            # tmdbv3api 的对象都共享同一个 session
+            # 我们需要确保 session 只被关闭一次
+            # 先清除对象的 session 引用,防止它们再次使用
+            for obj in getattr(self, "_tmdb_objects", []):
+                if hasattr(obj, "_session"):
+                    obj._session = None
+
+            # 最后关闭主 session
+            if hasattr(self, "_session") and self._session:
+                self._session.close()
+                self._session = None
+        except Exception as e:
+            logger.exception(f"Error closing TMDB session: {e}")
+
+    def __del__(self):
+        """Destructor to ensure session is closed"""
+        try:
+            if hasattr(self, "_session") and self._session:
+                self._session.close()
+        except Exception:
+            pass  # 忽略析构时的任何错误
 
     def __enter__(self):
         return self
