@@ -118,6 +118,7 @@ def main(root_folder, media_type="movie", ignore_filter=None):
         logger.error(e)
         logger.error(traceback.format_exc())
     finally:
+        t.close()
         with open(cache_path, "wb") as f:
             pickle.dump(cache, f)
 
@@ -256,6 +257,7 @@ def mv_lib(
         logger.error(e)
         logger.error(traceback.format_exc())
     finally:
+        t.close()
         while True:
             if not scheduler.scheduler.get_jobs():
                 break

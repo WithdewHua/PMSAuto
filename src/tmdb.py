@@ -302,8 +302,8 @@ class TMDB:
 
 
 if __name__ == "__main__":
-    tmdb = TMDB(movie=True)
-    print(tmdb.get_info_from_tmdb_by_id(tmdb_id=27205))
+    with TMDB(movie=True) as tmdb:
+        print(tmdb.get_info_from_tmdb_by_id(tmdb_id=27205))
 
-    tmdb_tv = TMDB(movie=False)
-    print(tmdb_tv.get_info_from_tmdb_by_id(tmdb_id=64197))
+    with TMDB(movie=False) as tmdb_tv:
+        print(tmdb_tv.get_info_from_tmdb_by_id(tmdb_id=64197))

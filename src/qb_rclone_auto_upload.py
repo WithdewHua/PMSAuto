@@ -252,169 +252,232 @@ def main(src_dir=""):
                         if "up_done" not in tags:
                             tmdb_name = ""
                             tmdb_id = None
-                            tmdb = TMDB(movie=is_movie)
-
-                            # get media info from file
-                            local_record = False
-                            write_record = True
-                            media_info_rslt = media_info.get(media_info_match_key, {})
-                            if media_info_rslt:
-                                local_record = True
-                                write_record = False
-                                tmdb_name = media_info_rslt.get("tmdb_name")
-                                tmdb_id = media_info_rslt.get("tmdb_id")
-                                record_tags = media_info_rslt.get("tags", [])
-                                # 除了 tmdb_name 和 tmdb_id 其他都需要重新获取
-                                tmdb_info = (
-                                    {}
-                                    if not tmdb_id
-                                    else tmdb.get_info_from_tmdb_by_id(tmdb_id)
+                            with TMDB(movie=is_movie) as tmdb:
+                                # get media info from file
+                                local_record = False
+                                write_record = True
+                                media_info_rslt = media_info.get(
+                                    media_info_match_key, {}
                                 )
-                                is_anime = tmdb_info.get("is_anime")
-                                is_documentary = tmdb_info.get("is_documentary")
-                                is_variety = tmdb_info.get("is_variety")
-                                is_nc17 = tmdb_info.get("is_nc17")
-                                # 更新 tags
-                                if tags:
-                                    tags = sumarize_tags(record_tags, tags)
-                                    # 更新记录
-                                    write_record = True
-                                    media_info_rslt.update({"tags": tags})
-                                else:
-                                    tags = record_tags
-                                logger.debug(
-                                    f"Got {media_info_match_key}'s info: "
-                                    f"\ntmdb_name: {tmdb_name}"
-                                    f"\ntmdb_id: {tmdb_id}"
-                                    f"\nrecord_tags: {record_tags}"
-                                    f"\ntags: {tags}"
-                                    f"\nis_anime: {is_anime}"
-                                    f"\nis_documentary: {is_documentary}"
-                                    f"\nis_variety: {is_variety}"
-                                )
-                            else:
-                                media_info_rslt = {
-                                    "tags": tags,
-                                    "category": category,
-                                }
-
-                            # GoogleDrive's default base save path
-                            save_path = "Inbox" + "/" + category
-                            # default save name
-                            save_name = tmdb_name or torrent.name
-
-                            # get year from tag
-                            year_tag = re.search(r"Y(\d{4})", ", ".join(tags))
-                            year = int(year_tag.group(1)) if year_tag else year
-                            # get episode offset from tag
-                            offset_tag = re.search(r"O(-?\d+)", ", ".join(tags))
-                            offset = int(offset_tag.group(1)) if offset_tag else 0
-                            # get season info from tag
-                            season_flag = re.search(r"S(\d{2})", ", ".join(tags))
-                            season = season_flag.group(1) if season_flag else season
-                            # get tmdb_id from tag
-                            tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags))
-                            tmdb_id = tmdb_id_tag.group(1) if tmdb_id_tag else tmdb_id
-
-                            # tmdb 与记录中 tmdb 一致，直接用之前的 tmdb_name
-                            if (
-                                tmdb_id
-                                and local_record
-                                and str(tmdb_id)
-                                == str(media_info_rslt.get("tmdb_id", ""))
-                            ):
-                                save_name = tmdb_name
-                                # None 代表没有记录，重新获取下
-                                if (
-                                    is_anime is None
-                                    or is_documentary is None
-                                    or is_variety is None
-                                    or (is_nc17 is None and is_movie)
-                                ):
-                                    _tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
-                                    is_anime = _tmdb_info.get("is_anime")
-                                    is_documentary = _tmdb_info.get("is_documentary")
-                                    is_variety = _tmdb_info.get("is_variety")
-                                    is_nc17 = _tmdb_info.get("is_nc17")
-                                    # 需要更新记录
-                                    write_record = True
-                            # 没有记录，或者 tag 的 tmdb_id 发生变化
-                            elif tmdb_id and (
-                                not local_record
-                                or (
-                                    local_record
-                                    and str(tmdb_id) not in ",".join(record_tags)
-                                )
-                            ):
-                                try:
-                                    tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
-                                    tmdb_name = (
-                                        tmdb_info.get("tmdb_name")
-                                        if not tmdb_name or write_record
-                                        else tmdb_name
+                                if media_info_rslt:
+                                    local_record = True
+                                    write_record = False
+                                    tmdb_name = media_info_rslt.get("tmdb_name")
+                                    tmdb_id = media_info_rslt.get("tmdb_id")
+                                    record_tags = media_info_rslt.get("tags", [])
+                                    # 除了 tmdb_name 和 tmdb_id 其他都需要重新获取
+                                    tmdb_info = (
+                                        {}
+                                        if not tmdb_id
+                                        else tmdb.get_info_from_tmdb_by_id(tmdb_id)
                                     )
-                                    # 判断是否为 anime
                                     is_anime = tmdb_info.get("is_anime")
                                     is_documentary = tmdb_info.get("is_documentary")
                                     is_variety = tmdb_info.get("is_variety")
                                     is_nc17 = tmdb_info.get("is_nc17")
-                                    save_name = tmdb_name
-                                except Exception as e:
-                                    logger.error(f"Failed to get tmdb info: {e}")
-                                    logger.error(traceback.format_exc())
-                                    continue
-                            # 否则通过种子名字进行查询
-                            else:
-                                tv_year_deviation = 0 if not year_tag else 0
-                                movie_year_deviation = 0 if not year_tag else 0
-
-                                # anime 种子名比较特殊,进行特殊处理
-                                if "Anime" in category:
-                                    parse_rslt = anitopy.parse(torrent.name)
-                                    if not year_tag:
-                                        if season and int(season) != 1:
-                                            year = int(year) - int(season) + 1
-                                    if not local_record:
-                                        tmdb_info = tmdb.get_info_from_tmdb(
-                                            {
-                                                "query": name,
-                                                "first_air_date_year": int(year),
-                                            },
-                                            year_deviation=tv_year_deviation,
-                                        )
-                                        tmdb_name = tmdb_info.get("tmdb_name")
-                                        tmdb_id = tmdb_info.get("tmdb_id")
-                                    save_name = (
-                                        torrent.name if not tmdb_name else tmdb_name
+                                    # 更新 tags
+                                    if tags:
+                                        tags = sumarize_tags(record_tags, tags)
+                                        # 更新记录
+                                        write_record = True
+                                        media_info_rslt.update({"tags": tags})
+                                    else:
+                                        tags = record_tags
+                                    logger.debug(
+                                        f"Got {media_info_match_key}'s info: "
+                                        f"\ntmdb_name: {tmdb_name}"
+                                        f"\ntmdb_id: {tmdb_id}"
+                                        f"\nrecord_tags: {record_tags}"
+                                        f"\ntags: {tags}"
+                                        f"\nis_anime: {is_anime}"
+                                        f"\nis_documentary: {is_documentary}"
+                                        f"\nis_variety: {is_variety}"
                                     )
-                                # 一般种子
                                 else:
-                                    # 匹配到年份
-                                    if torrent_name_match:
-                                        if (
-                                            not year_tag
-                                            and season
-                                            and int(season) != 1
-                                            and not re.search(r"HHWEB", torrent.name)
-                                        ):
-                                            year = int(year) - int(season) + 1
-                                        # rename if there is chinese
-                                        cn_match = re.match(
-                                            r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
-                                            name,
+                                    media_info_rslt = {
+                                        "tags": tags,
+                                        "category": category,
+                                    }
+
+                                # GoogleDrive's default base save path
+                                save_path = "Inbox" + "/" + category
+                                # default save name
+                                save_name = tmdb_name or torrent.name
+
+                                # get year from tag
+                                year_tag = re.search(r"Y(\d{4})", ", ".join(tags))
+                                year = int(year_tag.group(1)) if year_tag else year
+                                # get episode offset from tag
+                                offset_tag = re.search(r"O(-?\d+)", ", ".join(tags))
+                                offset = int(offset_tag.group(1)) if offset_tag else 0
+                                # get season info from tag
+                                season_flag = re.search(r"S(\d{2})", ", ".join(tags))
+                                season = season_flag.group(1) if season_flag else season
+                                # get tmdb_id from tag
+                                tmdb_id_tag = re.search(r"T(\d+)", ", ".join(tags))
+                                tmdb_id = (
+                                    tmdb_id_tag.group(1) if tmdb_id_tag else tmdb_id
+                                )
+
+                                # tmdb 与记录中 tmdb 一致，直接用之前的 tmdb_name
+                                if (
+                                    tmdb_id
+                                    and local_record
+                                    and str(tmdb_id)
+                                    == str(media_info_rslt.get("tmdb_id", ""))
+                                ):
+                                    save_name = tmdb_name
+                                    # None 代表没有记录，重新获取下
+                                    if (
+                                        is_anime is None
+                                        or is_documentary is None
+                                        or is_variety is None
+                                        or (is_nc17 is None and is_movie)
+                                    ):
+                                        _tmdb_info = tmdb.get_info_from_tmdb_by_id(
+                                            tmdb_id
                                         )
-                                        if cn_match:
-                                            if query_flag:
-                                                if not local_record:
-                                                    # query tmdb with chinese or other language
-                                                    for i in range(2):
-                                                        _g = i + 1
+                                        is_anime = _tmdb_info.get("is_anime")
+                                        is_documentary = _tmdb_info.get(
+                                            "is_documentary"
+                                        )
+                                        is_variety = _tmdb_info.get("is_variety")
+                                        is_nc17 = _tmdb_info.get("is_nc17")
+                                        # 需要更新记录
+                                        write_record = True
+                                # 没有记录，或者 tag 的 tmdb_id 发生变化
+                                elif tmdb_id and (
+                                    not local_record
+                                    or (
+                                        local_record
+                                        and str(tmdb_id) not in ",".join(record_tags)
+                                    )
+                                ):
+                                    try:
+                                        tmdb_info = tmdb.get_info_from_tmdb_by_id(
+                                            tmdb_id
+                                        )
+                                        tmdb_name = (
+                                            tmdb_info.get("tmdb_name")
+                                            if not tmdb_name or write_record
+                                            else tmdb_name
+                                        )
+                                        # 判断是否为 anime
+                                        is_anime = tmdb_info.get("is_anime")
+                                        is_documentary = tmdb_info.get("is_documentary")
+                                        is_variety = tmdb_info.get("is_variety")
+                                        is_nc17 = tmdb_info.get("is_nc17")
+                                        save_name = tmdb_name
+                                    except Exception as e:
+                                        logger.error(f"Failed to get tmdb info: {e}")
+                                        logger.error(traceback.format_exc())
+                                        continue
+                                # 否则通过种子名字进行查询
+                                else:
+                                    tv_year_deviation = 0 if not year_tag else 0
+                                    movie_year_deviation = 0 if not year_tag else 0
+
+                                    # anime 种子名比较特殊,进行特殊处理
+                                    if "Anime" in category:
+                                        parse_rslt = anitopy.parse(torrent.name)
+                                        if not year_tag:
+                                            if season and int(season) != 1:
+                                                year = int(year) - int(season) + 1
+                                        if not local_record:
+                                            tmdb_info = tmdb.get_info_from_tmdb(
+                                                {
+                                                    "query": name,
+                                                    "first_air_date_year": int(year),
+                                                },
+                                                year_deviation=tv_year_deviation,
+                                            )
+                                            tmdb_name = tmdb_info.get("tmdb_name")
+                                            tmdb_id = tmdb_info.get("tmdb_id")
+                                        save_name = (
+                                            torrent.name if not tmdb_name else tmdb_name
+                                        )
+                                    # 一般种子
+                                    else:
+                                        # 匹配到年份
+                                        if torrent_name_match:
+                                            if (
+                                                not year_tag
+                                                and season
+                                                and int(season) != 1
+                                                and not re.search(
+                                                    r"HHWEB", torrent.name
+                                                )
+                                            ):
+                                                year = int(year) - int(season) + 1
+                                            # rename if there is chinese
+                                            cn_match = re.match(
+                                                r"\[?([\u4e00-\u9fa5]+.*?[\u4e00-\u9fa5]*?)\]? (?![\u4e00-\u9fa5]+)(.+)$",
+                                                name,
+                                            )
+                                            if cn_match:
+                                                if query_flag:
+                                                    if not local_record:
+                                                        # query tmdb with chinese or other language
+                                                        for i in range(2):
+                                                            _g = i + 1
+                                                            if is_movie:
+                                                                tmdb_info = tmdb.get_info_from_tmdb(
+                                                                    {
+                                                                        "query": cn_match.group(
+                                                                            _g
+                                                                        ),
+                                                                        "year": int(
+                                                                            year
+                                                                        ),
+                                                                    },
+                                                                    year_deviation=movie_year_deviation,
+                                                                )
+                                                            else:
+                                                                tmdb_info = tmdb.get_info_from_tmdb(
+                                                                    {
+                                                                        "query": cn_match.group(
+                                                                            _g
+                                                                        ),
+                                                                        "first_air_date_year": int(
+                                                                            year
+                                                                        ),
+                                                                    },
+                                                                    year_deviation=tv_year_deviation,
+                                                                )
+                                                            tmdb_name = tmdb_info.get(
+                                                                "tmdb_name"
+                                                            )
+                                                            tmdb_id = tmdb_info.get(
+                                                                "tmdb_id"
+                                                            )
+                                                            is_anime = tmdb_info.get(
+                                                                "is_anime"
+                                                            )
+                                                            is_documentary = (
+                                                                tmdb_info.get(
+                                                                    "is_documentary"
+                                                                )
+                                                            )
+                                                            is_variety = tmdb_info.get(
+                                                                "is_variety"
+                                                            )
+                                                            is_nc17 = tmdb_info.get(
+                                                                "is_nc17"
+                                                            )
+                                                            if tmdb_name:
+                                                                break
+                                                save_name = (
+                                                    f"[{cn_match.group(1)}] {cn_match.group(2)} ({year})"
+                                                    if not tmdb_name
+                                                    else tmdb_name
+                                                )
+                                            else:
+                                                if query_flag:
+                                                    if not local_record:
                                                         if is_movie:
                                                             tmdb_info = tmdb.get_info_from_tmdb(
                                                                 {
-                                                                    "query": cn_match.group(
-                                                                        _g
-                                                                    ),
+                                                                    "query": name,
                                                                     "year": int(year),
                                                                 },
                                                                 year_deviation=movie_year_deviation,
@@ -422,9 +485,7 @@ def main(src_dir=""):
                                                         else:
                                                             tmdb_info = tmdb.get_info_from_tmdb(
                                                                 {
-                                                                    "query": cn_match.group(
-                                                                        _g
-                                                                    ),
+                                                                    "query": name,
                                                                     "first_air_date_year": int(
                                                                         year
                                                                     ),
@@ -449,99 +510,59 @@ def main(src_dir=""):
                                                         is_nc17 = tmdb_info.get(
                                                             "is_nc17"
                                                         )
-                                                        if tmdb_name:
-                                                            break
-                                            save_name = (
-                                                f"[{cn_match.group(1)}] {cn_match.group(2)} ({year})"
-                                                if not tmdb_name
-                                                else tmdb_name
-                                            )
-                                        else:
-                                            if query_flag:
-                                                if not local_record:
-                                                    if is_movie:
-                                                        tmdb_info = tmdb.get_info_from_tmdb(
-                                                            {
-                                                                "query": name,
-                                                                "year": int(year),
-                                                            },
-                                                            year_deviation=movie_year_deviation,
-                                                        )
-                                                    else:
-                                                        tmdb_info = tmdb.get_info_from_tmdb(
-                                                            {
-                                                                "query": name,
-                                                                "first_air_date_year": int(
-                                                                    year
-                                                                ),
-                                                            },
-                                                            year_deviation=tv_year_deviation,
-                                                        )
-                                                    tmdb_name = tmdb_info.get(
-                                                        "tmdb_name"
+                                                    save_name = (
+                                                        name + " " + f"({year})"
+                                                        if not tmdb_name
+                                                        else tmdb_name
                                                     )
-                                                    tmdb_id = tmdb_info.get("tmdb_id")
-                                                    is_anime = tmdb_info.get("is_anime")
-                                                    is_documentary = tmdb_info.get(
-                                                        "is_documentary"
-                                                    )
-                                                    is_variety = tmdb_info.get(
-                                                        "is_variety"
-                                                    )
-                                                    is_nc17 = tmdb_info.get("is_nc17")
-                                                save_name = (
-                                                    name + " " + f"({year})"
-                                                    if not tmdb_name
-                                                    else tmdb_name
-                                                )
 
-                            # stop if rename fail
-                            if (
-                                query_flag
-                                and (not tmdb_name or (not is_movie and not season))
-                                and (not RCLONE_ALWAYS_UPLOAD)
-                            ):
-                                logger.error(
-                                    f"Renaming {torrent.name} failed, please adjust manually"
-                                )
-                                send_tg_msg(
-                                    chat_id=TG_CHAT_ID,
-                                    text=f"Renaming `{torrent.name}` failed, please adjust manually",
-                                )
-                                continue
-                            # add season info for tvshows
-                            if re.search(r"TVShows|Anime", category) and season:
-                                save_name = (
-                                    save_name + "/" + f"Season {season.zfill(2)}"
-                                )
-
-                            # get certification info for movie
-                            if tmdb.is_movie and tmdb_name:
-                                # 记录中没有则进行查询
-                                if is_nc17 is None:
-                                    tmdb.tmdb_id = tmdb_id
-                                    is_nc17 = tmdb.get_movie_certification()
-                                if is_nc17 and "no_rating" not in tags:
-                                    save_path = "Inbox/NC17-Movies"
-
-                            if re.search(r"Music", category):
-                                save_name = torrent.name
-                                if re.search(r"-HHWEB|LeagueCD", torrent.name):
-                                    tags.append("format")
-                                save_path = "Music"
-                                # 对于种子名在 [] 中包含歌手名-专辑名
-                                if "format" in tags:
-                                    singer_album_match = re.search(
-                                        r"^\[(.*?)\]", torrent.name
+                                # stop if rename fail
+                                if (
+                                    query_flag
+                                    and (not tmdb_name or (not is_movie and not season))
+                                    and (not RCLONE_ALWAYS_UPLOAD)
+                                ):
+                                    logger.error(
+                                        f"Renaming {torrent.name} failed, please adjust manually"
                                     )
-                                    if singer_album_match:
-                                        singer_album = singer_album_match.group(1)
-                                        singer, album = singer_album.split("-", 1)
-                                    else:
-                                        singer, album = torrent.name.split("-", 1)
-                                    singer = singer.strip()
-                                    album = album.strip()
-                                    save_name = f"{singer}/{album}"
+                                    send_tg_msg(
+                                        chat_id=TG_CHAT_ID,
+                                        text=f"Renaming `{torrent.name}` failed, please adjust manually",
+                                    )
+                                    continue
+                                # add season info for tvshows
+                                if re.search(r"TVShows|Anime", category) and season:
+                                    save_name = (
+                                        save_name + "/" + f"Season {season.zfill(2)}"
+                                    )
+
+                                # get certification info for movie
+                                if tmdb.is_movie and tmdb_name:
+                                    # 记录中没有则进行查询
+                                    if is_nc17 is None:
+                                        tmdb.tmdb_id = tmdb_id
+                                        is_nc17 = tmdb.get_movie_certification()
+                                    if is_nc17 and "no_rating" not in tags:
+                                        save_path = "Inbox/NC17-Movies"
+
+                                if re.search(r"Music", category):
+                                    save_name = torrent.name
+                                    if re.search(r"-HHWEB|LeagueCD", torrent.name):
+                                        tags.append("format")
+                                    save_path = "Music"
+                                    # 对于种子名在 [] 中包含歌手名-专辑名
+                                    if "format" in tags:
+                                        singer_album_match = re.search(
+                                            r"^\[(.*?)\]", torrent.name
+                                        )
+                                        if singer_album_match:
+                                            singer_album = singer_album_match.group(1)
+                                            singer, album = singer_album.split("-", 1)
+                                        else:
+                                            singer, album = torrent.name.split("-", 1)
+                                        singer = singer.strip()
+                                        album = album.strip()
+                                        save_name = f"{singer}/{album}"
 
                             # 根据分类/年份来决定 GD/挂载点等
                             configs = {}
@@ -833,9 +854,6 @@ def main(src_dir=""):
 
                             # 处理计数
                             handled += 1
-
-                            # 关闭 tmdb session
-                            tmdb.close()
 
                     else:
                         # torrent is in inappropiate state

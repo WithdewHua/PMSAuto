@@ -217,8 +217,8 @@ def _build_target_folder_path(
     # 没有则采用新格式
     if not target_strm_folder.exists():
         tmdb_id = re.search(r"tmdb-(\d+)", tmdb_name).group(1)
-        tmdb = TMDB(movie=is_movie)
-        tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
+        with TMDB(movie=is_movie) as tmdb:
+            tmdb_info = tmdb.get_info_from_tmdb_by_id(tmdb_id)
         target_strm_folder = (
             strm_base_path
             / category

@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import threading
+import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Union
@@ -29,9 +30,43 @@ def dump_json(obj, path):
 TG_BOT_MSG = f"https://api.telegram.org/bot{TG_API_KEY}/sendMessage"
 # TG_BOT_PIC = f'https://api.telegram.org/bot{API_KEY}/sendPhoto'
 
+# 消息缓存：用于防止短时间内发送重复消息
+# 格式: {message_hash: last_send_timestamp}
+_tg_msg_cache = {}
+_tg_msg_cache_lock = threading.Lock()
+_TG_MSG_INTERVAL = 300  # 5分钟 = 300秒
+
 
 def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
-    """Send telegram message"""
+    """Send telegram message
+
+    相同消息在5分钟内只发送一次，避免触发Telegram的消息限制
+    """
+    # 生成消息的唯一标识（使用 chat_id 和 text 组合）
+    msg_key = f"{chat_id}:{text}"
+
+    # 检查是否需要发送
+    current_time = time.time()
+    with _tg_msg_cache_lock:
+        last_send_time = _tg_msg_cache.get(msg_key, 0)
+        if current_time - last_send_time < _TG_MSG_INTERVAL:
+            logger.debug(
+                f"消息被限流跳过（距上次发送 {int(current_time - last_send_time)}秒）: {text[:50]}..."
+            )
+            return
+
+        # 更新发送时间
+        _tg_msg_cache[msg_key] = current_time
+
+        # 清理过期的缓存记录（超过10分钟的）
+        expired_keys = [
+            k
+            for k, v in _tg_msg_cache.items()
+            if current_time - v > _TG_MSG_INTERVAL * 2
+        ]
+        for k in expired_keys:
+            del _tg_msg_cache[k]
+
     if isinstance(chat_id, (str, int)):
         chat_id = [chat_id]
     headers = {"Accept": "application/json", "Content-Type": "application/json"}

@@ -5,8 +5,9 @@ import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from copy import deepcopy
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 from urllib.parse import unquote
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -94,6 +95,11 @@ def parse():
     parser.add_argument(
         "--plex-db-path",
         help="Plex 数据库路径",
+    )
+    parser.add_argument(
+        "--print-not-handled-only",
+        action="store_true",
+        help="打印未处理文件汇总，并进行修复",
     )
     return parser.parse_args()
 
@@ -389,7 +395,7 @@ def auto_strm(
             print("用户取消操作。")
             return
 
-    print_not_handled_summary(repair=repair)
+    print_not_handled_summary(repair=repair, remote_folders=remote_folders)
 
     # 第三阶段：Plex 差集扫描（可选）
     if enable_plex_scan and plex_server_host and plex_db_path:
@@ -445,16 +451,28 @@ def generate_strm_cache(
     )
 
 
-def print_not_handled_summary(repair=True):
-    """打印未处理文件的汇总"""
+def print_not_handled_summary(
+    repair=True, handle=False, remote_folders: Optional[list[str]] = None
+):
+    """打印未处理文件的汇总并处理"""
+    remote_local_map = {}
+    if remote_folders:
+        for remote_folder in remote_folders:
+            remote, remote_path, local_path = remote_folder.split(":")
+            remote_local_map[
+                f"{remote}:{remote_path}:{local_path.replace('/', '_')}"
+            ] = f"{local_path}/{remote_path.split('/', 1)[-1]}"
     not_handled_files = defaultdict(list)
     for pkl_file in Path(DATA_DIR).glob("*_not_handled.pkl"):
         remote_folder = pkl_file.stem.removeprefix("").removesuffix("_not_handled")
+        if remote_local_map and remote_folder not in remote_local_map.keys():
+            continue
         with open(pkl_file, "rb") as f:
             not_handled = pickle.load(f)
             not_handled_files[remote_folder].extend(not_handled)
 
     to_repair_long_filename = set()
+    not_handled_files_exclude_longname = deepcopy(not_handled_files)
     for remote_folder, files in not_handled_files.items():
         if len(files) == 0:
             continue
@@ -465,6 +483,9 @@ def print_not_handled_summary(repair=True):
             logger.info(f"- {file_path}: {reason}")
             if "文件名过长" in reason:
                 to_repair_long_filename.add(str(Path(file_path).parent))
+                not_handled_files_exclude_longname[remote_folder].remove(
+                    (file_path, reason)
+                )
 
     if repair:
         for folder in to_repair_long_filename:
@@ -478,6 +499,158 @@ def print_not_handled_summary(repair=True):
                 plex=PLEX_AUTO_SCAN,
                 emby=EMBY_AUTO_SCAN,
             )
+
+    # 处理未识别的媒体文件
+    if handle and not_handled_files_exclude_longname:
+        import logging
+
+        from src.media_handle import media_handle
+
+        # 保存原始日志级别
+        original_level = logger.level
+
+        def save_not_handled_files(remote_folder, files_list):
+            """保存未处理文件列表到 pickle 文件"""
+            not_handled_persisted_file = (
+                f"{remote_folder.strip('/').replace('/', '_')}_not_handled.pkl"
+            )
+            with open(Path(DATA_DIR) / not_handled_persisted_file, "wb") as f:
+                pickle.dump(files_list, f)
+            logger.info(
+                f"已保存 {remote_folder} 的未处理文件列表，剩余 {len(files_list)} 个文件"
+            )
+
+        for remote_folder, files in not_handled_files_exclude_longname.items():
+            if len(files) == 0:
+                continue
+            logger.info(
+                f"开始处理远程文件夹 {remote_folder} 的未处理文件，共计 {len(files)} 个文件"
+            )
+
+            # 跟踪本次处理成功的文件
+            successfully_handled = []
+
+            try:
+                for file_path, reason in files:
+                    logger.info(
+                        f"尝试处理文件 ({files.index((file_path, reason)) + 1}/{len(files)})：{file_path}"
+                    )
+
+                    # 临时提高日志级别,抑制 INFO 及以下级别的日志
+                    logger.setLevel(logging.CRITICAL)
+
+                    # 清屏并显示提示(可选,取决于终端环境)
+                    # print("\033[2J\033[H", end="")  # ANSI 清屏命令
+
+                    # 使用醒目的分隔线和纯 print 输出提示,避免被日志冲刷
+                    print("\n" + "=" * 80)
+                    print(
+                        f">>> 当前文件 ({files.index((file_path, reason)) + 1}/{len(files)}): {file_path}"
+                    )
+                    print(f">>> 失败原因: {reason}")
+                    print("=" * 80)
+                    tmdb_id = input(">>> 请输入 TMDB ID（或直接回车跳过）: ").strip()
+                    print("=" * 80 + "\n")
+
+                    # 恢复日志级别
+                    logger.setLevel(original_level)
+
+                    if not tmdb_id:
+                        logger.info(f"跳过文件：{file_path}")
+                        continue
+                    if remote_folder.split(":")[1] in [
+                        "TVShows",
+                        "VarietyShows",
+                        "Documentary",
+                    ]:
+                        _media_type = "tv"
+                    elif remote_folder.split(":")[1] == "Anime":
+                        _media_type = "anime"
+                    elif remote_folder.split(":")[1] in [
+                        "Movies",
+                        "NC17-Movies",
+                        "Concerts",
+                    ]:
+                        _media_type = "movie"
+                    elif remote_folder.split(":")[1] == "Music":
+                        _media_type = "music"
+                    elif remote_folder.split(":")[1] == "NSFW":
+                        _media_type = "av"
+
+                    # 再次抑制日志
+                    logger.setLevel(logging.CRITICAL)
+
+                    print("\n" + "=" * 80)
+                    print(f">>> 当前识别的媒体类型: {_media_type}")
+                    print(">>> 可选类型: movie, tv, anime, av, music")
+                    print("=" * 80)
+                    media_type = (
+                        input(f">>> 请输入媒体类型（直接回车使用 '{_media_type}'）: ")
+                        .strip()
+                        .lower()
+                    )
+                    print("=" * 80 + "\n")
+
+                    # 恢复日志级别
+                    logger.setLevel(original_level)
+
+                    if not media_type:
+                        media_type = _media_type
+                    if media_type not in ("movie", "tv", "anime", "av", "music"):
+                        logger.info(f"无效的媒体类型，跳过文件：{file_path}")
+                        continue
+
+                    # 再次抑制日志
+                    logger.setLevel(logging.CRITICAL)
+
+                    print("\n" + "=" * 80)
+                    print(f">>> 默认目标路径: {remote_local_map.get(remote_folder)}")
+                    print("=" * 80)
+                    dst_path = input(
+                        ">>> 请输入目标路径（直接回车使用默认路径）: "
+                    ).strip()
+                    print("=" * 80 + "\n")
+
+                    # 恢复日志级别
+                    logger.setLevel(original_level)
+
+                    if not dst_path:
+                        dst_path = remote_local_map.get(remote_folder)
+
+                    try:
+                        media_handle(
+                            path=file_path,
+                            tmdb_id=tmdb_id,
+                            media_type=media_type,
+                            dst_path=dst_path,
+                            dryrun=False,
+                        )
+                        # 处理成功，记录文件
+                        successfully_handled.append((file_path, reason))
+                        logger.info(f"成功处理文件：{file_path}")
+                    except Exception as e:
+                        logger.error(f"处理文件失败：{file_path} - {e}")
+
+            except KeyboardInterrupt:
+                # 用户按下 Ctrl+C
+                logger.warning("\n检测到 Ctrl+C，正在保存当前进度...")
+                # 恢复日志级别
+                logger.setLevel(original_level)
+
+            finally:
+                # 无论是正常结束还是被中断，都保存更新后的未处理文件列表
+                # 从未处理文件列表中移除成功处理的文件
+                remaining_files = [
+                    (fp, r)
+                    for fp, r in not_handled_files[remote_folder]
+                    if (fp, r) not in successfully_handled
+                ]
+
+                save_not_handled_files(remote_folder, remaining_files)
+
+                logger.info(
+                    f"远程文件夹 {remote_folder} 处理完成：成功 {len(successfully_handled)} 个，剩余 {len(remaining_files)} 个未处理文件"
+                )
 
 
 if __name__ == "__main__":
@@ -497,19 +670,21 @@ if __name__ == "__main__":
             # "GD-NSFW-2:NSFW:/Media",
             # "GD-NSFW-2:Hentai:/Media",
         ]
-
-    auto_strm(
-        remote_folders=folders,
-        strm_base_path=args.dest,
-        max_workers=args.workers,
-        scan_threads=args.scan_threads,
-        read_from_file=args.read_from_file,
-        continue_if_file_not_exist=args.continue_if_file_not_exist,
-        increment=not args.not_increment,
-        dry_run=args.dry_run,
-        interactive=args.interactive,
-        # Plex 扫描相关参数
-        enable_plex_scan=args.plex_scan,
-        plex_server_host=args.plex_server_host or PLEX_SERVER_HOST,
-        plex_db_path=args.plex_db_path or PLEX_DB_PATH,
-    )
+    if args.print_not_handled_only:
+        print_not_handled_summary(repair=True, handle=True, remote_folders=folders)
+    else:
+        auto_strm(
+            remote_folders=folders,
+            strm_base_path=args.dest,
+            max_workers=args.workers,
+            scan_threads=args.scan_threads,
+            read_from_file=args.read_from_file,
+            continue_if_file_not_exist=args.continue_if_file_not_exist,
+            increment=not args.not_increment,
+            dry_run=args.dry_run,
+            interactive=args.interactive,
+            # Plex 扫描相关参数
+            enable_plex_scan=args.plex_scan,
+            plex_server_host=args.plex_server_host or PLEX_SERVER_HOST,
+            plex_db_path=args.plex_db_path or PLEX_DB_PATH,
+        )
