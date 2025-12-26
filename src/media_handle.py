@@ -11,7 +11,12 @@ from time import sleep
 
 import anitopy
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from src.fs_operation import remove_hidden_files, remove_small_files, rename_media
+from src.fs_operation import (
+    remove_hidden_files,
+    remove_small_files,
+    remove_specified_keyword_files,
+    rename_media,
+)
 from src.log import logger
 from src.mediaserver import send_scan_request
 from src.scheduler import Scheduler
@@ -458,6 +463,7 @@ def handle_tvshow(
                         media_filename_pre_handle(dir, file)
                     )
                     # remove unuseful files
+                    remove_specified_keyword_files(filepath, dryrun=dryrun)
                     keep_file_suffix = deepcopy(MEDIA_SUFFIX)
                     if keep_nfo:
                         keep_file_suffix.append("nfo")
@@ -740,6 +746,8 @@ def handle_movie(
                 (filepath, filename_pre, filename_suffix) = media_filename_pre_handle(
                     dir, filename
                 )
+                # remove unuseful files
+                remove_specified_keyword_files(filepath, dryrun=dryrun)
                 keep_file_suffix = deepcopy(MEDIA_SUFFIX)
                 if keep_nfo:
                     keep_file_suffix.append("nfo")

@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Union
 
@@ -84,6 +85,14 @@ def remove_small_files(root_dir_path, threshold=128 * 1024 * 1024, dryrun=False)
                 if not dryrun:
                     os.remove(filepath)
                 logger.info("Removed file: " + filepath + f", size {size}")
+
+
+def remove_specified_keyword_files(file, dryrun=False):
+    pattern = re.compile(r"(NCED(\d+)?\.|NCOP(\d+)?\.)", re.IGNORECASE)
+    if pattern.search(file):
+        if not dryrun:
+            os.remove(file)
+    logger.info("Removed file: " + file)
 
 
 def set_ownership(
