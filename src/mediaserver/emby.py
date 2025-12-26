@@ -8,6 +8,7 @@ from time import sleep
 from typing import Dict, List, Optional, Sequence, Union
 
 import requests
+from src.http_session import get_http_session
 from src.log import logger
 from src.settings import EMBY_API_TOKEN, EMBY_BASE_URL, STRM_FILE_PATH
 from src.strm import create_strm_file
@@ -21,10 +22,12 @@ class Emby:
     ) -> None:
         self.token = token
         self.base_url = base_url
+        # 使用全局共享的 HTTP Session
+        self.session = get_http_session()
 
     @property
     def libraries(self) -> List[Dict[str, str]]:
-        res = requests.get(
+        res = self.session.get(
             f"{self.base_url}/Library/SelectableMediaFolders?api_key={self.token}"
         )
         if res.status_code != requests.codes.ok:
@@ -76,7 +79,7 @@ class Emby:
             if parent_id:
                 params["ParentId"] = parent_id
 
-            response = requests.get(url, params=params)
+            response = self.session.get(url, params=params)
             response.raise_for_status()
 
             data = response.json()
@@ -211,7 +214,7 @@ class Emby:
                 "X-Emby-Token": "ac4252bd8e8c450893e2964319658707",
                 "X-Emby-Language": "zh-cn",
             }
-            response = requests.post(url, params=params, timeout=600)
+            response = self.session.post(url, params=params, timeout=600)
             response.raise_for_status()
             logger.info(f"删除媒体项目 {item_id} 成功")
             return True
@@ -253,7 +256,7 @@ class Emby:
 
         while True:
             try:
-                res = requests.post(
+                res = self.session.post(
                     url=f"{self.base_url}/Library/Media/Updated?api_key={self.token}",
                     data=json.dumps(payload),
                     headers=headers,

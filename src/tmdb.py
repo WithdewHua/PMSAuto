@@ -1,87 +1,17 @@
 #!/usr/local/bin/env python
 
-import atexit
 import datetime
 import pickle
 from pathlib import Path
 
 import filelock
-import requests
+from src.http_session import get_http_session
 from src.log import logger
 from src.settings import DATA_DIR, LOG_LEVEL, TMDB_API_KEY
 from src.utils import is_filename_length_gt_255
 from tmdbv3api import TV, Movie, Search, TMDb
 
 DATA_PATH = Path(DATA_DIR)
-
-
-class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
-    """HTTP Adapter with default timeout"""
-
-    def __init__(self, timeout, *args, **kwargs):
-        self.timeout = timeout
-        super().__init__(*args, **kwargs)
-
-    def send(self, request, **kwargs):
-        kwargs["timeout"] = kwargs.get("timeout") or self.timeout
-        return super().send(request, **kwargs)
-
-
-# 全局 Session 管理器
-class TMDBSessionManager:
-    """管理全局的 TMDB Session 连接池"""
-
-    _instance = None
-    _session = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def get_session(self, timeout: int = 10) -> requests.Session:
-        """获取或创建全局 session"""
-        if self._session is None:
-            logger.info("创建全局 TMDB session 连接池")
-            self._session = requests.Session()
-
-            # 配置连接池参数 - 合理的连接池大小
-            adapter = TimeoutHTTPAdapter(
-                timeout=timeout,
-                pool_connections=10,  # 连接池大小
-                pool_maxsize=20,  # 每个主机的最大连接数
-                max_retries=3,
-                pool_block=False,
-            )
-            self._session.mount("http://", adapter)
-            self._session.mount("https://", adapter)
-
-            # 注册退出时清理
-            atexit.register(self.cleanup)
-
-        return self._session
-
-    def cleanup(self):
-        """清理全局 session"""
-        if self._session is not None:
-            logger.info("清理全局 TMDB session 连接池")
-            try:
-                # 关闭所有适配器
-                for adapter in self._session.adapters.values():
-                    try:
-                        adapter.close()
-                    except Exception:
-                        pass
-                # 关闭 session
-                self._session.close()
-            except Exception as e:
-                logger.exception(f"清理 session 时出错: {e}")
-            finally:
-                self._session = None
-
-
-# 创建全局单例
-_session_manager = TMDBSessionManager()
 
 
 class TMDB:
@@ -96,8 +26,8 @@ class TMDB:
         log_level: str = LOG_LEVEL,
         timeout: int = 10,
     ) -> None:
-        # 使用全局共享的 session
-        self._session = _session_manager.get_session(timeout)
+        # 使用全局共享的 HTTP Session
+        self._session = get_http_session(timeout)
 
         # 将 session 传递给 TMDb
         self.tmdb = TMDb(session=self._session)

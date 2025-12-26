@@ -11,7 +11,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Union
 
-import requests
+from src.http_session import get_http_session
 from src.log import logger
 from src.settings import MEDIA_SUFFIX, TG_API_KEY
 
@@ -70,30 +70,32 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
     if isinstance(chat_id, (str, int)):
         chat_id = [chat_id]
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
-    with requests.Session() as session:
-        for _chat_id in chat_id:
-            try_send = 1
-            while try_send <= 3:
-                try:
-                    res = session.post(
-                        TG_BOT_MSG,
-                        data=json.dumps(
-                            {
-                                "chat_id": _chat_id,
-                                "text": text,
-                                "parse_mode": parse_mode,
-                            }
-                        ),
-                        headers=headers,
-                        timeout=10,
-                    )
-                    res.raise_for_status()
-                except Exception as e:
-                    try_send += 1
-                    logger.error(f"Send notification failed due to {e}")
-                    continue
-                else:
-                    break
+
+    # 使用全局 HTTP Session
+    session = get_http_session()
+    for _chat_id in chat_id:
+        try_send = 1
+        while try_send <= 3:
+            try:
+                res = session.post(
+                    TG_BOT_MSG,
+                    data=json.dumps(
+                        {
+                            "chat_id": _chat_id,
+                            "text": text,
+                            "parse_mode": parse_mode,
+                        }
+                    ),
+                    headers=headers,
+                    timeout=10,
+                )
+                res.raise_for_status()
+            except Exception as e:
+                try_send += 1
+                logger.error(f"Send notification failed due to {e}")
+                continue
+            else:
+                break
 
 
 def remove_empty_folder(
