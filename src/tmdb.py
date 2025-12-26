@@ -1,5 +1,6 @@
 #!/usr/local/bin/env python
 
+import atexit
 import datetime
 import pickle
 from pathlib import Path
@@ -26,6 +27,63 @@ class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
         return super().send(request, **kwargs)
 
 
+# 全局 Session 管理器
+class TMDBSessionManager:
+    """管理全局的 TMDB Session 连接池"""
+
+    _instance = None
+    _session = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def get_session(self, timeout: int = 10) -> requests.Session:
+        """获取或创建全局 session"""
+        if self._session is None:
+            logger.info("创建全局 TMDB session 连接池")
+            self._session = requests.Session()
+
+            # 配置连接池参数 - 合理的连接池大小
+            adapter = TimeoutHTTPAdapter(
+                timeout=timeout,
+                pool_connections=10,  # 连接池大小
+                pool_maxsize=20,  # 每个主机的最大连接数
+                max_retries=3,
+                pool_block=False,
+            )
+            self._session.mount("http://", adapter)
+            self._session.mount("https://", adapter)
+
+            # 注册退出时清理
+            atexit.register(self.cleanup)
+
+        return self._session
+
+    def cleanup(self):
+        """清理全局 session"""
+        if self._session is not None:
+            logger.info("清理全局 TMDB session 连接池")
+            try:
+                # 关闭所有适配器
+                for adapter in self._session.adapters.values():
+                    try:
+                        adapter.close()
+                    except Exception:
+                        pass
+                # 关闭 session
+                self._session.close()
+            except Exception as e:
+                logger.exception(f"清理 session 时出错: {e}")
+            finally:
+                self._session = None
+
+
+# 创建全局单例
+_session_manager = TMDBSessionManager()
+
+
 class TMDB:
     cache: Path = DATA_PATH / "tmdb_info.cache"
     cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock")
@@ -38,11 +96,8 @@ class TMDB:
         log_level: str = LOG_LEVEL,
         timeout: int = 10,
     ) -> None:
-        # 创建带 timeout 的 session
-        self._session = requests.Session()
-        adapter = TimeoutHTTPAdapter(timeout=timeout)
-        self._session.mount("http://", adapter)
-        self._session.mount("https://", adapter)
+        # 使用全局共享的 session
+        self._session = _session_manager.get_session(timeout)
 
         # 将 session 传递给 TMDb
         self.tmdb = TMDb(session=self._session)
@@ -58,39 +113,14 @@ class TMDB:
             self.tmdb_media = TV(session=self._session)
         self.tmdb_id = None
 
-        # 保持对所有对象的引用以便清理
-        self._tmdb_objects = [self.tmdb, self.tmdb_search, self.tmdb_media]
-
-    def close(self):
-        """Close TMDB session"""
-        try:
-            # tmdbv3api 的对象都共享同一个 session
-            # 我们需要确保 session 只被关闭一次
-            # 先清除对象的 session 引用,防止它们再次使用
-            for obj in getattr(self, "_tmdb_objects", []):
-                if hasattr(obj, "_session"):
-                    obj._session = None
-
-            # 最后关闭主 session
-            if hasattr(self, "_session") and self._session:
-                self._session.close()
-                self._session = None
-        except Exception as e:
-            logger.exception(f"Error closing TMDB session: {e}")
-
-    def __del__(self):
-        """Destructor to ensure session is closed"""
-        try:
-            if hasattr(self, "_session") and self._session:
-                self._session.close()
-        except Exception:
-            pass  # 忽略析构时的任何错误
-
     def __enter__(self):
+        """支持 with 语句(向后兼容,但不做任何资源管理)"""
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        """支持 with 语句(向后兼容,但不做任何资源管理)"""
+        # 使用全局连接池,不需要在这里关闭任何资源
+        pass
 
     @classmethod
     def _read_cache(cls):
