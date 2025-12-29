@@ -340,6 +340,9 @@ class SSHClient:
             logger.error("SSH 连接未建立")
             return []
 
+        # 确保 directory 是字符串类型
+        directory = str(directory)
+
         try:
             # 检查目录是否存在
             if not self.remote_path_exists(directory):
