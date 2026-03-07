@@ -10,7 +10,12 @@ from typing import Dict, List, Optional, Sequence, Union
 import requests
 from src.http_session import get_http_session
 from src.log import logger
-from src.settings import EMBY_API_TOKEN, EMBY_BASE_URL, STRM_FILE_PATH
+from src.settings import (
+    EMBY_ADMIN_USER_ID,
+    EMBY_API_TOKEN,
+    EMBY_BASE_URL,
+    STRM_FILE_PATH,
+)
 from src.strm import create_strm_file
 
 
@@ -67,7 +72,7 @@ class Emby:
             recursive: 是否递归查询
         """
         try:
-            url = f"{self.base_url}/Items"
+            url = f"{self.base_url}/Users/{EMBY_ADMIN_USER_ID}/Items"
             params = {
                 "api_key": self.token,
                 "Recursive": str(recursive).lower(),
@@ -132,6 +137,7 @@ class Emby:
         parent_id: bool = False,
         item_types: str = "Folder,Season",
         max_retry=None,
+        dry_run=False,
     ) -> bool:
         """
         删除媒体项目
@@ -172,7 +178,7 @@ class Emby:
                                 f"达到最大重试次数 {max_retry}，停止删除 {_id}, 路径: {path}"
                             )
                             break
-                        if self._delete_item(_id):
+                        if self._delete_item(_id, dry_run=dry_run):
                             logger.info(f"删除项目成功: {_id}, 路径: {path}")
                             logger.info(
                                 f"当前进度 {to_delete_items.index((_id, path)) + 1}/{len(to_delete_items)}"
@@ -193,7 +199,7 @@ class Emby:
                                 f"达到最大重试次数 {max_retry}，停止删除 {_item_id}"
                             )
                             break
-                        if self._delete_item(_item_id):
+                        if self._delete_item(_item_id, dry_run=dry_run):
                             logger.info(f"删除项目成功: {_item_id}")
                             break
                         else:
@@ -202,9 +208,12 @@ class Emby:
         except Exception as e:
             logger.error(f"删除媒体项目 {item_id} 失败: {e}")
 
-    def _delete_item(self, item_id: str) -> bool:
+    def _delete_item(self, item_id: str, dry_run: bool = False) -> bool:
         """删除单个媒体项目"""
         try:
+            if dry_run:
+                logger.info(f"Dry run: 准备删除项目 {item_id}")
+                return True
             url = f"{self.base_url}/emby/Items/Delete?Ids={item_id}"
             params = {
                 "X-Emby-Client": "Emby Web",
@@ -280,6 +289,7 @@ class Emby:
 if __name__ == "__main__":
     e = Emby()
     # e.create_strm_file_for_existed_items(filter=["TV Shows"])
+    # e.get_items(4)
     e.delete_item(
-        ["333478"], parent_id=True, item_types="Folder,Season,Video", max_retry=3
+        ["4"], parent_id=True, item_types="Folder,Movie", max_retry=3, dry_run=True
     )

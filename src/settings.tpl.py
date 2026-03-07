@@ -160,6 +160,7 @@ PLEX_DB_PATH = "/var/lib/plexmediaserver/Library/Application Support/Plex Media 
 EMBY_BASE_URL = "https://xxxxxxxxxx"
 EMBY_API_TOKEN = "xxxx"
 EMBY_AUTO_SCAN = True
+EMBY_ADMIN_USER_ID = "xxxx"
 # 神医插件 mediainfo 持久化
 # 当采用 strm 时，该选项不生效，即与 strm 文件同目录
 EMBY_STRM_ASSISTANT_MEDIAINFO = "/opt/PMS/emby/config/StrmAssistant/MediaInfo"
