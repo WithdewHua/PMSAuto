@@ -89,8 +89,20 @@ def main(src_dir=""):
             except Exception:
                 to_handle = {}
             torrents = qbt_client.torrents_info(sort="size")
-            # torrents 进行排序，优先处理 tag 中有 HP 的种子
-            torrents = sorted(torrents, key=lambda x: "HP" in x.tags, reverse=True)
+
+            # 按分类排序：NSFW 分类的放后面，其他分类放前面，然后再按大小排序
+            def sort_key(torrent):
+                # 分类为 NSFW 的排在后面
+                is_nsfw = (
+                    1 if re.search(r"NSFW", getattr(torrent, "category", "")) else 0
+                )
+                # tag 中有 HP 的优先（False < True）
+                has_hp = 0 if "HP" in getattr(torrent, "tags", "") else 1
+                # 小文件优先
+                size = getattr(torrent, "size", 0)
+                return (is_nsfw, has_hp, size)
+
+            torrents = sorted(torrents, key=sort_key)
             handled = 0
             for torrent in torrents:
                 try:
