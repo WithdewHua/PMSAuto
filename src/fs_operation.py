@@ -92,7 +92,7 @@ def remove_specified_keyword_files(file, dryrun=False):
     if pattern.search(file):
         if not dryrun:
             os.remove(file)
-    logger.info("Removed file: " + file)
+        logger.info("Removed file: " + file)
 
 
 def set_ownership(
