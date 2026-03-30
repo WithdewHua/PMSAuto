@@ -817,6 +817,8 @@ def main(src_dir=""):
                                     logger.info(
                                         f"Processed {torrent.name} successfully"
                                     )
+                                    # 处理计数
+                                    handled += 1
 
                             # media_info handle
                             # add
@@ -850,9 +852,6 @@ def main(src_dir=""):
                             # 持久化
                             with open(media_info_file_path, "wb") as f:
                                 pickle.dump(media_info, f)
-
-                            # 处理计数
-                            handled += 1
 
                     else:
                         # torrent is in inappropiate state
