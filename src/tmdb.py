@@ -258,7 +258,7 @@ class TMDB:
             is_nc17 = self.get_movie_certification(tmdb_id)
 
         info = {
-            "tmdb_name": tmdb_name.replace("/", "／"),
+            "tmdb_name": tmdb_name.replace("/", "／").replace('"', ""),
             "title": title,
             "year": year,
             "month": month,
