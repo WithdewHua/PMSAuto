@@ -3,6 +3,7 @@
 import datetime
 import pickle
 import threading
+import time
 from pathlib import Path
 
 import filelock
@@ -18,6 +19,7 @@ DATA_PATH = Path(DATA_DIR)
 class TMDB:
     cache: Path = DATA_PATH / "tmdb_info.cache"
     cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock")
+    missing_date_clear_after_seconds = 6 * 60 * 60
 
     _instances = {}
     _instance_lock = threading.Lock()
@@ -65,8 +67,37 @@ class TMDB:
         else:
             self.tmdb_media = TV(session=self._session)
 
+        # 缺失日期异常窗口：首次异常开始计时，超过阈值后只清理一次 lru 缓存
+        self._missing_date_first_seen_at = None
+        self._missing_date_cache_cleared = False
+
         # 标记为已初始化
         self._initialized = True
+
+    def _handle_missing_date_exception(self):
+        now = time.time()
+
+        if self._missing_date_first_seen_at is None:
+            self._missing_date_first_seen_at = now
+            logger.warning("Missing date detected, start 6h timer before cache_clear")
+            return
+
+        elapsed = now - self._missing_date_first_seen_at
+        if (
+            not self._missing_date_cache_cleared
+            and elapsed >= self.missing_date_clear_after_seconds
+        ):
+            self.tmdb.cache_clear()
+            self._missing_date_cache_cleared = True
+            logger.warning(
+                "Missing date persisted over 6h, tmdb lru cache cleared once"
+            )
+
+    def _reset_missing_date_exception_window(self):
+        # 仅在已经执行过一次 cache_clear 后，才在恢复正常时重置窗口
+        if self._missing_date_cache_cleared:
+            self._missing_date_first_seen_at = None
+            self._missing_date_cache_cleared = False
 
     def __enter__(self):
         """支持 with 语句(向后兼容,但不做任何资源管理)"""
@@ -200,7 +231,11 @@ class TMDB:
         else:
             year, month = date_list[0], None
         if not year or not month:
+            self._handle_missing_date_exception()
             raise Exception("Not found first_air_date")
+
+        # 数据恢复正常后，重置异常窗口
+        self._reset_missing_date_exception_window()
         original_title = (
             details.original_title if self.is_movie else details.original_name
         )
