@@ -52,15 +52,22 @@ for src_dir in src_dirs:
 # remove empty folder
 # remove_empty_folder(root=src_path, folders=None)
 
-plex_scan = False
+plex_scan = True
 emby_scan = False
 if plex_scan:
     _plex = Plex()
 if plex_scan or emby_scan:
     logger.info("开始提交扫库请求...")
+    num = 0
     for scan_folder in set(scan_folders):
         send_scan_request(scan_folder, plex=plex_scan, emby=emby_scan)
-        sleep(30)
-        # refresh metadata
-        if plex_scan:
-            _plex.refresh_recently_added("/Media/NSFW", max=5)
+        num += 1
+        logger.info(f"已提交扫库请求: {num}/{len(set(scan_folders))}")
+        if num % 10 == 0:
+            # refresh metadata
+            if plex_scan:
+                sleep(150)
+                _plex.refresh_recently_added("/Media/NSFW", max=50)
+    if plex_scan:
+        sleep(num)
+        _plex.refresh_recently_added("/Media/NSFW", max=num)
