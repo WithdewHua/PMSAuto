@@ -6,9 +6,7 @@
 
 import argparse
 import os
-import pickle
 import re
-import shutil
 import subprocess
 import time
 import traceback
@@ -29,6 +27,7 @@ from src.settings import (
     REMOVE_EMPTY_FOLDER,
     TG_CHAT_ID,
 )
+from src.sqlite_cache import SQLiteCache
 from src.tmdb import TMDB
 from src.utils import (
     dump_json,
@@ -43,6 +42,15 @@ from tmdbv3api.exceptions import TMDbException
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR, exist_ok=True)
 
+MEDIA_INFO_CACHE = SQLiteCache(
+    os.path.join(DATA_DIR, "media_info.sqlite3"),
+    table_name="media_info",
+    legacy_pickle_paths=[
+        os.path.join(DATA_DIR, "media_info.cache"),
+        os.path.join(DATA_DIR, "media_info.cache.bak"),
+    ],
+)
+
 
 def parse():
     parser = argparse.ArgumentParser(description="qBittorrent Auto Rclone")
@@ -54,84 +62,6 @@ def parse():
     )
 
     return parser.parse_args()
-
-
-def _fsync_dir(path):
-    """Best-effort fsync for directory metadata after atomic replace."""
-    try:
-        fd = os.open(path, os.O_RDONLY)
-    except OSError:
-        return
-    try:
-        os.fsync(fd)
-    except OSError:
-        pass
-    finally:
-        os.close(fd)
-
-
-def load_media_info_cache(path):
-    """Load media info cache, falling back to the last backup if current file is broken."""
-    backup_path = f"{path}.bak"
-    for cache_path in (path, backup_path):
-        if not os.path.exists(cache_path):
-            continue
-        try:
-            if os.path.getsize(cache_path) == 0:
-                raise EOFError("cache file is empty")
-            with open(cache_path, "rb") as f:
-                cache = pickle.load(f)
-            if not isinstance(cache, dict):
-                raise ValueError(
-                    f"cache content is {type(cache).__name__}, expected dict"
-                )
-            if cache_path == backup_path:
-                logger.warning(f"Recovered media info cache from backup: {backup_path}")
-            return cache
-        except (EOFError, OSError, pickle.UnpicklingError, ValueError) as e:
-            logger.warning(f"Failed to load media info cache {cache_path}: {e}")
-    return {}
-
-
-def _valid_media_info_cache_file(path):
-    try:
-        if os.path.getsize(path) == 0:
-            return False
-        with open(path, "rb") as f:
-            return isinstance(pickle.load(f), dict)
-    except (EOFError, OSError, pickle.UnpicklingError):
-        return False
-
-
-def dump_media_info_cache(path, cache):
-    """Persist cache via temp file + fsync + atomic replace to avoid partial pickle files."""
-    cache_dir = os.path.dirname(path) or "."
-    filename = os.path.basename(path)
-    tmp_path = os.path.join(
-        cache_dir, f".{filename}.{os.getpid()}.{os.urandom(8).hex()}.tmp"
-    )
-    backup_path = f"{path}.bak"
-
-    try:
-        with open(tmp_path, "wb") as f:
-            pickle.dump(cache, f, protocol=pickle.HIGHEST_PROTOCOL)
-            f.flush()
-            os.fsync(f.fileno())
-
-        if os.path.exists(path) and _valid_media_info_cache_file(path):
-            try:
-                shutil.copy2(path, backup_path)
-            except OSError as e:
-                logger.warning(f"Failed to refresh media info cache backup: {e}")
-
-        os.replace(tmp_path, path)
-        _fsync_dir(cache_dir)
-    finally:
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
 
 
 def main(src_dir=""):
@@ -259,10 +189,7 @@ def main(src_dir=""):
                             query_flag = False
 
                         # get media info cache
-                        media_info_file_path = os.path.join(
-                            DATA_DIR, "media_info.cache"
-                        )
-                        media_info = load_media_info_cache(media_info_file_path)
+                        media_info = MEDIA_INFO_CACHE
 
                         # get media info from torrent name
                         if re.search(r"Anime", category):
@@ -326,7 +253,6 @@ def main(src_dir=""):
                                 )
                             if "end" in tags and media_info_match_key in media_info:
                                 media_info.pop(media_info_match_key)
-                                dump_media_info_cache(media_info_file_path, media_info)
                                 # add ignore tag
                                 qbt_client.torrents_add_tags(
                                     tags="ignore", torrent_hashes=torrent.hash
@@ -934,10 +860,6 @@ def main(src_dir=""):
                                 qbt_client.torrents_add_tags(
                                     tags="ignore", torrent_hashes=torrent.hash
                                 )
-
-                            # 持久化
-                            dump_media_info_cache(media_info_file_path, media_info)
-
                     else:
                         # torrent is in inappropiate state
                         if torrent.state in ["error", "missingFiles"]:

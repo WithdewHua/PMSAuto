@@ -2,7 +2,6 @@ import argparse
 import datetime
 import json
 import os
-import pickle
 import re
 import traceback
 from pathlib import Path
@@ -31,12 +30,6 @@ def main(root_folder, media_type="movie", ignore_filter=None):
     prefix = "Released" if is_movie else "Aired"
     scheduler = Scheduler()
     fails = {}
-    cache_path = Path("tmdb_info.cache")
-    if cache_path.exists():
-        with open(cache_path, "rb") as f:
-            cache = pickle.load(f)
-    else:
-        cache = {}
 
     with TMDB(movie=is_movie) as t:
         try:
@@ -55,11 +48,7 @@ def main(root_folder, media_type="movie", ignore_filter=None):
                         continue
                     try:
                         tmdbid = tmdbid_match.group(1)
-                        if cache.get(tmdbid):
-                            details = cache.get(tmdbid)
-                        else:
-                            details = t.get_info_from_tmdb_by_id(tmdb_id=tmdbid)
-                            cache.update({tmdbid: details})
+                        details = t.get_info_from_tmdb_by_id(tmdb_id=tmdbid)
                         tmdb_name = details.get("tmdb_name")
                         year = details.get("year")
                         month = details.get("month")
@@ -119,9 +108,6 @@ def main(root_folder, media_type="movie", ignore_filter=None):
             logger.error(e)
             logger.error(traceback.format_exc())
         finally:
-            with open(cache_path, "wb") as f:
-                pickle.dump(cache, f)
-
             with open("mv_failed.json", "a+") as f:
                 json.dump(fails, f)
 

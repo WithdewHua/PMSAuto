@@ -1,15 +1,14 @@
 #!/usr/local/bin/env python
 
 import datetime
-import pickle
 import threading
 import time
 from pathlib import Path
 
-import filelock
 from src.http_session import get_http_session
 from src.log import logger
 from src.settings import DATA_DIR, LOG_LEVEL, TMDB_API_KEY
+from src.sqlite_cache import SQLiteCache
 from src.utils import is_filename_length_gt_255
 from tmdbv3api import TV, Movie, Search, TMDb
 
@@ -17,8 +16,12 @@ DATA_PATH = Path(DATA_DIR)
 
 
 class TMDB:
-    cache: Path = DATA_PATH / "tmdb_info.cache"
-    cache_lock = filelock.FileLock("/tmp/tmdb_info.cache.lock")
+    cache: Path = DATA_PATH / "tmdb_info.sqlite3"
+    cache_store = SQLiteCache(
+        cache,
+        table_name="tmdb_info",
+        legacy_pickle_paths=[DATA_PATH / "tmdb_info.cache"],
+    )
     missing_date_clear_after_seconds = 6 * 60 * 60
 
     _instances = {}
@@ -107,49 +110,27 @@ class TMDB:
         pass
 
     @classmethod
-    def _read_cache(cls):
-        """Read cache from file"""
-        with cls.cache_lock:
-            if cls.cache.exists():
-                with open(cls.cache, "rb") as f:
-                    return pickle.load(f)
-            else:
-                return {}
-
-    @classmethod
-    def _write_cache(cls, cache: dict):
-        """Write cache to file"""
-        with cls.cache_lock:
-            with open(cls.cache, "wb") as f:
-                pickle.dump(cache, f)
-
-    @classmethod
     def get_cache_by_key(cls, key):
         """Get cache by key"""
-        cache = cls._read_cache()
-        if key in cache:
+        value = cls.cache_store.get(key)
+        if value is not None:
             logger.info(f"Cache hit for {key}")
-            return cache[key]
+            return value
         logger.info(f"No cache found for {key}")
 
     @classmethod
     def write_cache_by_key(cls, key, value):
         """Write cache by key"""
-        cache = cls._read_cache()
-        if key in cache:
+        if cls.cache_store.contains(key):
             logger.info(f"Cache updated for {key}")
         else:
             logger.info(f"Cache added for {key}")
-        cache[key] = value
-        cls._write_cache(cache)
+        cls.cache_store.set(key, value)
 
     @classmethod
     def delete_cache_by_key(cls, key):
         """Delete cache by key"""
-        cache = cls._read_cache()
-        if key in cache:
-            del cache[key]
-            cls._write_cache(cache)
+        if cls.cache_store.delete(key):
             logger.info(f"Cache deleted for {key}")
         else:
             logger.info(f"No cache found for {key}")
