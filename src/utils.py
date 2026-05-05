@@ -89,6 +89,12 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
                     headers=headers,
                     timeout=10,
                 )
+                # 如果消息过多导致的 429 错误，直接返回，不再重试
+                if res.status_code == 429:
+                    logger.warning(
+                        f"Telegram API rate limit exceeded when sending message to {_chat_id}. Message: {text[:50]}..."
+                    )
+                    return
                 res.raise_for_status()
             except Exception as e:
                 try_send += 1
