@@ -42,6 +42,8 @@ class GlobalHTTPSessionManager:
             # 配置重试策略 - 更合理的重试参数
             retry_strategy = Retry(
                 total=3,  # 总重试次数
+                connect=3,  # 连接错误重试次数
+                read=3,  # 读取错误重试次数
                 backoff_factor=1,  # 重试间隔系数 (1, 2, 4 秒)
                 status_forcelist=[429, 500, 502, 503, 504],  # 需要重试的 HTTP 状态码
                 allowed_methods=[
@@ -54,6 +56,8 @@ class GlobalHTTPSessionManager:
                     "POST",
                 ],
                 raise_on_status=False,  # 不在重试时抛出异常
+                # 不等待服务端 Retry-After，避免 Telegram 429 阻塞主流程数分钟。
+                respect_retry_after_header=False,
             )
 
             # 配置 HTTP 适配器 - 优化连接池参数

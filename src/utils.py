@@ -74,34 +74,29 @@ def send_tg_msg(chat_id, text, parse_mode="markdownv2"):
     # 使用全局 HTTP Session
     session = get_http_session()
     for _chat_id in chat_id:
-        try_send = 1
-        while try_send <= 3:
-            try:
-                res = session.post(
-                    TG_BOT_MSG,
-                    data=json.dumps(
-                        {
-                            "chat_id": _chat_id,
-                            "text": text,
-                            "parse_mode": parse_mode,
-                        }
-                    ),
-                    headers=headers,
-                    timeout=10,
+        try:
+            res = session.post(
+                TG_BOT_MSG,
+                data=json.dumps(
+                    {
+                        "chat_id": _chat_id,
+                        "text": text,
+                        "parse_mode": parse_mode,
+                    }
+                ),
+                headers=headers,
+                timeout=10,
+            )
+            if res.status_code == 429:
+                logger.warning(
+                    f"Telegram API rate limit exceeded when sending message to {_chat_id}. Message: {text[:50]}..."
                 )
-                # 如果消息过多导致的 429 错误，直接返回，不再重试
-                if res.status_code == 429:
-                    logger.warning(
-                        f"Telegram API rate limit exceeded when sending message to {_chat_id}. Message: {text[:50]}..."
-                    )
-                    return
-                res.raise_for_status()
-            except Exception as e:
-                try_send += 1
-                logger.error(f"Send notification failed due to {e}")
-                continue
-            else:
-                break
+            res.raise_for_status()
+        except Exception as e:
+            logger.error(f"Send notification failed due to {e}")
+            continue
+        else:
+            break
 
 
 def remove_empty_folder(
