@@ -25,6 +25,8 @@ from src.settings import (
     QBIT,
     RCLONE_ALWAYS_UPLOAD,
     REMOVE_EMPTY_FOLDER,
+    SKIP_UPLOAD_BYPASS_TAGS,
+    SKIP_UPLOAD_TAGS,
     TG_CHAT_ID,
 )
 from src.sqlite_cache import SQLiteCache
@@ -240,6 +242,45 @@ def main(src_dir=""):
                             media_info_match_key += f"_{release_group}"
                         logger.debug(f"{media_info_match_key=}")
 
+                        # 跳过上传 tag 会写入 cache，让后续相同 media info key 的种子也跳过。
+                        media_info_rslt = media_info.get(media_info_match_key, {})
+                        record_tags = media_info_rslt.get("tags", [])
+                        current_skip_tags = [
+                            tag for tag in SKIP_UPLOAD_TAGS if tag in tags
+                        ]
+                        record_skip_tags = [
+                            tag for tag in SKIP_UPLOAD_TAGS if tag in record_tags
+                        ]
+                        bypass_skip_upload = any(
+                            tag in tags for tag in SKIP_UPLOAD_BYPASS_TAGS
+                        )
+                        if (
+                            "up_done" not in tags
+                            and (current_skip_tags or record_skip_tags)
+                            and not bypass_skip_upload
+                        ):
+                            if current_skip_tags:
+                                cache_tags = sumarize_tags(record_tags, tags)
+                                cache_tags = [
+                                    tag
+                                    for tag in cache_tags
+                                    if tag not in SKIP_UPLOAD_BYPASS_TAGS
+                                ]
+                                media_info_rslt.update(
+                                    {
+                                        "tags": cache_tags,
+                                        "category": category,
+                                    }
+                                )
+                                media_info.update(
+                                    {media_info_match_key: media_info_rslt}
+                                )
+                            logger.info(
+                                f"Skipping {torrent.name} upload due to tag: "
+                                f"{', '.join(current_skip_tags or record_skip_tags)}"
+                            )
+                            continue
+
                         # torrent is downloaded, and uploaded to GoogleDrive
                         # clean up torrent
                         logger.debug(f"{torrent.name}'s tag: {tags}")
@@ -268,9 +309,6 @@ def main(src_dir=""):
                                 # get media info from file
                                 local_record = False
                                 write_record = True
-                                media_info_rslt = media_info.get(
-                                    media_info_match_key, {}
-                                )
                                 if media_info_rslt:
                                     local_record = True
                                     write_record = False
@@ -290,6 +328,11 @@ def main(src_dir=""):
                                     # 更新 tags
                                     if tags:
                                         tags = sumarize_tags(record_tags, tags)
+                                        tags = [
+                                            tag
+                                            for tag in tags
+                                            if tag not in SKIP_UPLOAD_BYPASS_TAGS
+                                        ]
                                         # 更新记录
                                         write_record = True
                                         media_info_rslt.update({"tags": tags})
@@ -307,7 +350,11 @@ def main(src_dir=""):
                                     )
                                 else:
                                     media_info_rslt = {
-                                        "tags": tags,
+                                        "tags": [
+                                            tag
+                                            for tag in tags
+                                            if tag not in SKIP_UPLOAD_BYPASS_TAGS
+                                        ],
                                         "category": category,
                                     }
 

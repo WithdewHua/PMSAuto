@@ -16,6 +16,10 @@ DATA_DIR = "/opt/PMSAuto/data"
 #   1. 获取 tmdb 信息失败;
 #   2. 对于剧集, 季度信息缺失
 RCLONE_ALWAYS_UPLOAD = False
+# 命中这些 tag 时跳过上传，并写入 media_info cache，后续相同 media info key 也会跳过
+SKIP_UPLOAD_TAGS = ["skip_upload"]
+# 命中这些 tag 时忽略 SKIP_UPLOAD_TAGS，本次正常处理；该 tag 不会写入 media_info cache
+SKIP_UPLOAD_BYPASS_TAGS = ["force_upload"]
 # rclone rc address
 RC_ADDR = ""
 
