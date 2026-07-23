@@ -38,7 +38,7 @@ switch_sa_rules = {
     "up_than_750": True,  # 当前帐号已经传过750G
     "error_user_rate_limit": True,  # Rclone 直接提示rate limit错误
     "zero_transferred_between_check_interval": True,  # 100次检查间隔期间rclone传输的量为0
-    "zero_transfers_with_low_speed": True,  # 100次检查中传输完成数为0且平均速度低于1MiB/s
+    "low_speed_for_100_checks": True,  # 连续100次检查平均速度低于1MB/s
     "all_transfers_in_zero": True,  # 当前所有transfers传输size均为0
 }
 
@@ -232,7 +232,7 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
             # 主进程使用 `rclone rc core/stats` 检查子进程情况
             cnt_error = 0
             cnt_403_retry = 0
-            cnt_zero_transfers_low_speed = 0
+            cnt_low_speed = 0
             cnt_transfer_last = 0
             while True:
                 try:
@@ -301,24 +301,20 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
                         cnt_403_retry = 0
                     cnt_transfer_last = cnt_transfer
 
-                # 检查连续低速且没有完成传输的情况
-                if switch_sa_rules.get("zero_transfers_with_low_speed", False):
-                    if response_json.get("transfers", 0) == 0 and response_json.get(
-                        "speed", 0
-                    ) < pow(1024, 2):
-                        cnt_zero_transfers_low_speed += 1
-                        if cnt_zero_transfers_low_speed % 10 == 0:
+                # 检查连续低速情况
+                if switch_sa_rules.get("low_speed_for_100_checks", False):
+                    if response_json.get("speed", 0) < pow(1000, 2):
+                        cnt_low_speed += 1
+                        if cnt_low_speed % 10 == 0:
                             logger.warning(
-                                "Rclone has no completed transfers and is slower than 1 MiB/s for %s checks"
-                                % cnt_zero_transfers_low_speed
+                                "Rclone is slower than 1 MB/s for %s checks"
+                                % cnt_low_speed
                             )
-                        if cnt_zero_transfers_low_speed >= 100:
+                        if cnt_low_speed >= 100:
                             should_switch += 1
-                            switch_reason += (
-                                "Rule `zero_transfers_with_low_speed` hit, "
-                            )
+                            switch_reason += "Rule `low_speed_for_100_checks` hit, "
                     else:
-                        cnt_zero_transfers_low_speed = 0
+                        cnt_low_speed = 0
 
                 # Rclone 直接提示错误403 ratelimitexceed
                 if switch_sa_rules.get("error_user_rate_limit", False):
