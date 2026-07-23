@@ -217,20 +217,10 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
             logger.info("Switch to next SA..........")
             current_sa = get_next_sa_json_path(sa_jsons, last_sa, sa_blacklist)
             if current_sa is None:
-                wait_seconds = max(1, min(sa_blacklist.values()) - time.time())
                 logger.warning(
-                    "All SAs are in cooldown. Wait %.0f seconds for the next available SA."
-                    % wait_seconds
+                    "All SAs are in cooldown. Reuse a cooldown SA instead of waiting."
                 )
-                time.sleep(wait_seconds)
-                now = time.time()
-                sa_blacklist = {
-                    sa: expires_at
-                    for sa, expires_at in sa_blacklist.items()
-                    if expires_at > now
-                }
-                write_config(instance_config, "sa_blacklist", sa_blacklist)
-                continue
+                current_sa = get_next_sa_json_path(sa_jsons, last_sa, {})
 
             last_sa = current_sa
             write_config(instance_config, "last_sa", current_sa)
