@@ -41,6 +41,7 @@ switch_sa_rules = {
     "low_speed_for_30_checks": True,  # 连续30次检查平均速度低于1MB/s
     "all_transfers_in_zero": True,  # 当前所有transfers传输size均为0
 }
+sa_cooldown_seconds = 24 * 60 * 60  # SA触发切换条件后的冷却时间
 
 # rclone帐号切换方法 (runtime or config)
 # runtime 是修改启动rclone时附加的 `--drive-service-account-file` 参数
@@ -97,16 +98,18 @@ def write_config(instance_config, name, value):
 
 
 # 获得下一个Service Account Credentials JSON file path
-def get_next_sa_json_path(sa_jsons, _last_sa):
+def get_next_sa_json_path(sa_jsons, _last_sa, sa_blacklist):
     if _last_sa not in sa_jsons:  # 空字符串或者错误的sa_json_path，从头开始取
         next_sa_index = 0
     else:
-        _last_sa_index = sa_jsons.index(_last_sa)
-        next_sa_index = _last_sa_index + 1
-    # 超过列表长度从头开始取
-    if next_sa_index > len(sa_jsons):
-        next_sa_index = next_sa_index - len(sa_jsons)
-    return sa_jsons[next_sa_index]
+        next_sa_index = sa_jsons.index(_last_sa) + 1
+
+    # 从上次使用的SA之后开始，跳过仍在冷却中的SA。
+    for offset in range(len(sa_jsons)):
+        sa = sa_jsons[(next_sa_index + offset) % len(sa_jsons)]
+        if sa not in sa_blacklist:
+            return sa
+    return None
 
 
 # def switch_sa_by_config(cur_sa):
@@ -170,6 +173,23 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
             config_raw = open(instance_config_path).read()
             instance_config = json.loads(config_raw)
 
+        # 仅保留当前帐号目录中尚未过期的SA冷却记录。
+        now = time.time()
+        stored_sa_blacklist = instance_config.get("sa_blacklist", {})
+        if not isinstance(stored_sa_blacklist, dict):
+            stored_sa_blacklist = {}
+        sa_blacklist = {
+            sa: expires_at
+            for sa, expires_at in stored_sa_blacklist.items()
+            if (
+                sa in sa_jsons
+                and isinstance(expires_at, (int, float))
+                and expires_at > now
+            )
+        }
+        if sa_blacklist != stored_sa_blacklist:
+            write_config(instance_config, "sa_blacklist", sa_blacklist)
+
         # 对上次记录的pid信息进行检查
         if "last_pid" in instance_config:
             last_pid = instance_config.get("last_pid")
@@ -195,7 +215,24 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
         # 帐号切换循环
         while True:
             logger.info("Switch to next SA..........")
-            last_sa = current_sa = get_next_sa_json_path(sa_jsons, last_sa)
+            current_sa = get_next_sa_json_path(sa_jsons, last_sa, sa_blacklist)
+            if current_sa is None:
+                wait_seconds = max(1, min(sa_blacklist.values()) - time.time())
+                logger.warning(
+                    "All SAs are in cooldown. Wait %.0f seconds for the next available SA."
+                    % wait_seconds
+                )
+                time.sleep(wait_seconds)
+                now = time.time()
+                sa_blacklist = {
+                    sa: expires_at
+                    for sa, expires_at in sa_blacklist.items()
+                    if expires_at > now
+                }
+                write_config(instance_config, "sa_blacklist", sa_blacklist)
+                continue
+
+            last_sa = current_sa
             write_config(instance_config, "last_sa", current_sa)
             logger.info(
                 "Get SA information, file: %s , email: %s"
@@ -346,6 +383,12 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
                     logger.info(
                         "Transfer Limit may hit (%s), Try to Switch.........."
                         % switch_reason
+                    )
+                    sa_blacklist[current_sa] = time.time() + sa_cooldown_seconds
+                    write_config(instance_config, "sa_blacklist", sa_blacklist)
+                    logger.info(
+                        "Put SA %s into cooldown for %s hours."
+                        % (current_sa, sa_cooldown_seconds / 60 / 60)
                     )
                     force_kill_rclone_subproc_by_parent_pid(
                         proc.pid
