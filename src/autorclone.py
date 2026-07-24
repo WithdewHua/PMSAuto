@@ -38,7 +38,7 @@ switch_sa_rules = {
     "up_than_750": True,  # 当前帐号已经传过750G
     "error_user_rate_limit": True,  # Rclone 直接提示rate limit错误
     "zero_transferred_between_check_interval": True,  # 100次检查间隔期间rclone传输的量为0
-    "low_speed_for_30_checks": True,  # 连续30次检查平均速度低于1MB/s
+    "low_speed_for_10_checks": True,  # 连续10次检查平均速度低于1MB/s
     "all_transfers_in_zero": True,  # 当前所有transfers传输size均为0
 }
 sa_cooldown_seconds = 24 * 60 * 60  # SA触发切换条件后的冷却时间
@@ -270,6 +270,13 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
                     cnt_error = cnt_error + 1
                     err_msg = "check core/stats failed for %s times," % cnt_error
                     if cnt_error >= 3:
+                        if current_sa in sa_blacklist:
+                            del sa_blacklist[current_sa]
+                            write_config(instance_config, "sa_blacklist", sa_blacklist)
+                            logger.info(
+                                "SA %s completed upload successfully; removed from cooldown.",
+                                current_sa,
+                            )
                         logger.error(
                             err_msg + " Force kill exist rclone process %s." % proc.pid
                         )
@@ -329,7 +336,7 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
                     cnt_transfer_last = cnt_transfer
 
                 # 检查连续低速情况
-                if switch_sa_rules.get("low_speed_for_30_checks", False):
+                if switch_sa_rules.get("low_speed_for_10_checks", False):
                     if response_json.get("speed", 0) < pow(1000, 2):
                         cnt_low_speed += 1
                         if cnt_low_speed % 10 == 0:
@@ -337,9 +344,9 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
                                 "Rclone is slower than 1 MB/s for %s checks"
                                 % cnt_low_speed
                             )
-                        if cnt_low_speed >= 30:
+                        if cnt_low_speed >= 10:
                             should_switch += 1
-                            switch_reason += "Rule `low_speed_for_30_checks` hit, "
+                            switch_reason += "Rule `low_speed_for_10_checks` hit, "
                     else:
                         cnt_low_speed = 0
 
