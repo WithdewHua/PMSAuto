@@ -309,9 +309,17 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
                         response_json.get("bytes", 0) / pow(1024, 3),
                         response_json.get("speed", 0) / pow(1024, 2),
                         response_json.get("transfers", 0),
-                        response_json.get("eta", 0),
+                        response_json.get("eta", -1),
                     )
                 )
+
+                # 如果 eta 为 0, 不再检查 switch 条件
+                if response_json.get("eta", -1) == 0:
+                    logger.info(
+                        "Rclone has completed the transfer. No need to check switch conditions."
+                    )
+                    time.sleep(check_interval)
+                    continue
 
                 # 判断是否应该进行切换
                 should_switch = 0
