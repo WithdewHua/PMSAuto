@@ -2,6 +2,7 @@ import os
 import re
 from time import sleep
 
+from src.auto_strm.auto_strm import auto_strm
 from src.log import logger
 from src.media_handle import rename_media, send_scan_request
 from src.mediaserver import Plex
@@ -54,6 +55,7 @@ for src_dir in src_dirs:
 
 plex_scan = True
 emby_scan = False
+emby_auto_strm = True
 if plex_scan:
     _plex = Plex()
 if plex_scan or emby_scan:
@@ -66,8 +68,12 @@ if plex_scan or emby_scan:
         if num % 10 == 0:
             # refresh metadata
             if plex_scan:
-                sleep(150)
+                sleep(60)
                 _plex.refresh_recently_added("/Media/NSFW", max=50)
     if plex_scan:
         sleep(num)
         _plex.refresh_recently_added("/Media/NSFW", max=num)
+
+if emby_auto_strm:
+    logger.info("开始生成 auto strm 文件...")
+    auto_strm(remote_folders=["GD-NSFW-2:NSFW:/Media"])
