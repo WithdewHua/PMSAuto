@@ -71,7 +71,7 @@ if plex_scan or emby_scan:
                 sleep(60)
                 _plex.refresh_recently_added("/Media/NSFW", max=50)
     if plex_scan:
-        sleep(num)
+        sleep(max(60, num))
         _plex.refresh_recently_added("/Media/NSFW", max=num)
 
 if emby_auto_strm:
