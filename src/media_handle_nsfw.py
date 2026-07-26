@@ -1,5 +1,7 @@
+import json
 import os
 import re
+import subprocess
 from time import sleep
 
 from src.auto_strm.auto_strm import auto_strm
@@ -8,47 +10,83 @@ from src.media_handle import rename_media, send_scan_request
 from src.mediaserver import Plex
 
 src_path = "/Media/Inbox/MDC-NG"
+src_remote_path = "GD-NSFW-2:Inbox/MDC-NG"
 dst_path = "/Media/NSFW"
-
-src_dirs = os.listdir(src_path)
-dst_dirs = os.listdir(dst_path)
 
 scan_folders = []
 
 release_cre = re.compile(r"<(release|premiered)>([\d-]+)</(release|premiered)>")
-# actors/number
-for src_dir in src_dirs:
-    if src_dir in ["failed", "佚名", "#未知女优", "未知演员"]:
-        continue
-    logger.info(
-        f"当前进度: {src_dirs.index(src_dir)+1}/{len(src_dirs)} 正在处理: {src_dir}"
+skip_src_dirs = {"failed", "佚名", "#未知女优", "未知演员"}
+
+
+def get_nfo_files():
+    """Return source NFOs discovered directly from the rclone remote."""
+    result = subprocess.run(
+        [
+            "rclone",
+            "lsjson",
+            src_remote_path,
+            "--files-only",
+            "--no-mimetype",
+            "--no-modtime",
+            "--recursive",
+            "--fast-list",
+        ],
+        capture_output=True,
+        text=True,
     )
-    numbers = os.listdir(os.path.join(src_path, src_dir))
-    for number in numbers:
-        c_nfo = os.path.join(src_path, src_dir, number, f"{number}-C.nfo")
-        no_c_nfo = os.path.join(src_path, src_dir, number, f"{number}.nfo")
-        if os.path.exists(c_nfo):
-            nfo = c_nfo
-        elif os.path.exists(no_c_nfo):
-            nfo = no_c_nfo
-        else:
-            nfo = None
-        if nfo is None:
-            logger.warning(f"{number}'s NFO not found, skip...")
+    if result.returncode != 0:
+        logger.error(f"获取 NFO 文件列表失败: {result.stderr.strip()}")
+        return []
+
+    try:
+        files = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        logger.error(f"解析 rclone 文件列表失败: {exc}")
+        return []
+
+    nfo_files = {}
+    for file in files:
+        path = file["Path"].split("/")
+        if len(path) != 3:
             continue
+        src_dir, number, nfo_name = path
+        if src_dir in skip_src_dirs:
+            continue
+        if nfo_name not in {f"{number}.nfo", f"{number}-C.nfo"}:
+            continue
+
+        # Keep the original preference for the -C NFO when both files exist.
+        key = (src_dir, number)
+        if nfo_name.endswith("-C.nfo") or key not in nfo_files:
+            nfo_files[key] = nfo_name
+    return sorted(
+        (src_dir, number, nfo_name) for (src_dir, number), nfo_name in nfo_files.items()
+    )
+
+
+nfo_files = get_nfo_files()
+# actors/number
+for index, (src_dir, number, nfo_name) in enumerate(nfo_files, start=1):
+    logger.info(f"当前进度: {index}/{len(nfo_files)} 正在处理: {src_dir}/{number}")
+    nfo = os.path.join(src_path, src_dir, number, nfo_name)
+    try:
         with open(nfo, "r") as f:
             date_match = release_cre.search(f.read())
-        if not date_match:
-            logger.warning(f"Failed to match {number}'s release data, skip...")
-            continue
-        year, month, _ = date_match.group(2).split("-")
+    except FileNotFoundError:
+        logger.warning(f"{number}'s NFO not found, skip...")
+        continue
+    if not date_match:
+        logger.warning(f"Failed to match {number}'s release data, skip...")
+        continue
+    year, month, _ = date_match.group(2).split("-")
 
-        dst_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", number)
-        if os.path.exists(dst_dir):
-            logger.warning(f"Folder already exists: {dst_dir}")
-            continue
-        rename_media(os.path.join(src_path, src_dir, number), dst_dir)
-        scan_folders.append(dst_dir)
+    dst_dir = os.path.join(dst_path, f"Released_{year}", f"M{month}", number)
+    if os.path.exists(dst_dir):
+        logger.warning(f"Folder already exists: {dst_dir}")
+        continue
+    rename_media(os.path.join(src_path, src_dir, number), dst_dir)
+    scan_folders.append(dst_dir)
 
 # remove empty folder
 # remove_empty_folder(root=src_path, folders=None)
@@ -68,10 +106,10 @@ if plex_scan or emby_scan:
         if num % 10 == 0:
             # refresh metadata
             if plex_scan:
-                sleep(60)
+                sleep(120)
                 _plex.refresh_recently_added("/Media/NSFW", max=50)
     if plex_scan:
-        sleep(max(60, num))
+        sleep(max(120, num * 6))
         _plex.refresh_recently_added("/Media/NSFW", max=num)
 
 if emby_auto_strm:
