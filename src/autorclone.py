@@ -42,6 +42,8 @@ switch_sa_rules = {
     "all_transfers_in_zero": True,  # 当前所有transfers传输size均为0
 }
 sa_cooldown_seconds = 24 * 60 * 60  # SA触发切换条件后的冷却时间
+# 正常可用SA少于此数量时，仍从冷却池中轮换SA；达到此数量后才只使用正常SA
+sa_cooldown_reuse_threshold = 10
 
 # rclone帐号切换方法 (runtime or config)
 # runtime 是修改启动rclone时附加的 `--drive-service-account-file` 参数
@@ -215,12 +217,17 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
         # 帐号切换循环
         while True:
             logger.info("Switch to next SA..........")
-            current_sa = get_next_sa_json_path(sa_jsons, last_sa, sa_blacklist)
-            if current_sa is None:
+            available_sa_count = len(sa_jsons) - len(sa_blacklist)
+            if available_sa_count < sa_cooldown_reuse_threshold:
                 logger.warning(
-                    "All SAs are in cooldown. Reuse a cooldown SA instead of waiting."
+                    "Only %s SAs are available (threshold: %s). "
+                    "Reuse a cooldown SA instead of waiting.",
+                    available_sa_count,
+                    sa_cooldown_reuse_threshold,
                 )
                 current_sa = get_next_sa_json_path(sa_jsons, last_sa, {})
+            else:
+                current_sa = get_next_sa_json_path(sa_jsons, last_sa, sa_blacklist)
 
             last_sa = current_sa
             write_config(instance_config, "last_sa", current_sa)
