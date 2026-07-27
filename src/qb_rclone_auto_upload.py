@@ -53,6 +53,16 @@ MEDIA_INFO_CACHE = SQLiteCache(
     ],
 )
 
+NSFW_FILTER_STATES = {
+    "downloading",
+    "forcedDL",
+    "queuedDL",
+    "stalledDL",
+    "pausedDL",
+    "stoppedDL",
+}
+NSFW_SMALL_FILE_MAX_SIZE = 100 * 1024 * 1024
+
 
 def parse():
     parser = argparse.ArgumentParser(description="qBittorrent Auto Rclone")
@@ -64,6 +74,31 @@ def parse():
     )
 
     return parser.parse_args()
+
+
+def skip_nsfw_small_files(qbt_client, torrent):
+    torrent_files = torrent.files
+    largest_file_size = max((file.get("size", 0) for file in torrent_files), default=0)
+    small_file_max_size = min(NSFW_SMALL_FILE_MAX_SIZE, largest_file_size * 0.05)
+    skipped_files = [
+        file
+        for file in torrent_files
+        if (
+            0 < file.get("size", 0) <= small_file_max_size and file.get("priority") != 0
+        )
+    ]
+    if not skipped_files:
+        return
+
+    qbt_client.torrents_file_priority(
+        torrent_hash=torrent.hash,
+        file_ids=[file.get("index") for file in skipped_files],
+        priority=0,
+    )
+    logger.info(
+        f"Skipping {len(skipped_files)} small file(s) in NSFW torrent {torrent.name}: "
+        f"{', '.join(file.get('name', '') for file in skipped_files)}"
+    )
 
 
 def main(src_dir=""):
@@ -90,6 +125,7 @@ def main(src_dir=""):
 
     # current uuid
     uuid = os.urandom(16).hex()
+    nsfw_filtered_hashes = set()
 
     # retrieve torrents filtered by tag
     while True:
@@ -117,6 +153,15 @@ def main(src_dir=""):
             handled = 0
             for torrent in torrents:
                 try:
+                    if (
+                        re.search(r"NSFW", getattr(torrent, "category", ""))
+                        and torrent.progress < 1
+                        and torrent.state in NSFW_FILTER_STATES
+                        and torrent.hash not in nsfw_filtered_hashes
+                    ):
+                        skip_nsfw_small_files(qbt_client, torrent)
+                        nsfw_filtered_hashes.add(torrent.hash)
+
                     if torrent.progress == 1 or torrent.state in [
                         "uploading",
                         "forcedUP",
