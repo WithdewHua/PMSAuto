@@ -208,7 +208,7 @@ def auto_rclone(src_path, dest_path, files_from=None, action="copy"):
             last_sa_index = sa_jsons.index(last_sa)
             sa_jsons = sa_jsons[last_sa_index:] + sa_jsons[:last_sa_index]
 
-        cmd_rclone = f'rclone {action} "{src_path}" "{dest_path}"  --drive-chunk-size 512M --buffer-size 256M --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {rc_addr}'
+        cmd_rclone = f'rclone {action} "{src_path}" "{dest_path}"  --drive-chunk-size 128M --buffer-size 128M --rc --drive-server-side-across-configs -v --log-file {rclone_log_file} --rc-addr {rc_addr}'
         if files_from:
             cmd_rclone += f" --files-from {files_from}"
         if action == "move":
